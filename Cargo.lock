@@ -918,6 +918,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nui-app-runtime"
+version = "0.1.0"
+dependencies = [
+ "nui-core",
+]
+
+[[package]]
 name = "nui-core"
 version = "0.1.0"
 
@@ -962,6 +969,13 @@ name = "nui-system-core"
 version = "0.1.0"
 dependencies = [
  "arboard",
+]
+
+[[package]]
+name = "nui-text"
+version = "0.1.0"
+dependencies = [
+ "nui-core",
 ]
 
 [[package]]

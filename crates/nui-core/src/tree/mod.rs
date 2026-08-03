@@ -3,6 +3,7 @@
 //! `NodeId` is a 64-bit generation handle (high 32 = generation, low 32 = slot).
 //! Framework adapters must never hold raw Rust pointers.
 
+use crate::semantics::Semantics;
 use crate::style::Style;
 
 /// Opaque node handle exchanged across the NUI Host Protocol boundary.
@@ -77,6 +78,8 @@ pub struct Node {
     /// When true, this node can be returned by hit-testing.
     pub clickable: bool,
     pub layout: LayoutRect,
+    /// Assistive-tech semantics (ADR-006). Optional until AccessKit export.
+    pub semantics: Option<Semantics>,
 }
 
 #[derive(Debug)]
@@ -122,6 +125,7 @@ impl Arena {
             text: None,
             clickable: false,
             layout: LayoutRect::default(),
+            semantics: None,
         };
 
         if let Some(slot_index) = self.free_head {

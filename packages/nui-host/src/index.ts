@@ -53,3 +53,7 @@ export {
   setWindowTitle,
   resetWindowTitle,
 } from "./title";
+
+export type { TextInputClient, TextRange, TextSelection, Rect } from "./text-input";
+export type { Semantics } from "./semantics";
+export { SemanticRole, SemanticAction } from "./semantics";

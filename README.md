@@ -2,7 +2,7 @@
 
 TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器码，由 Rust Native UI Core + Skia 自绘，不依赖 WebView / Chromium。
 
-> 架构决策见 [ADR-004](docs/decisions/ADR-004-framework-adapters-native-host-mvp.md)。
+> 架构决策见 [ADR-004](docs/decisions/ADR-004-framework-adapters-native-host-mvp.md)、[ADR-005](docs/decisions/ADR-005-system-host-permissions-plugins.md)、[ADR-006](docs/decisions/ADR-006-application-runtime-composition-p0.md)。
 
 ## 开发原则
 
@@ -12,15 +12,15 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**ADR-005 System Host**（Slice 12 剪贴板已落地）。仍暂缓：fs/dialog 完整切片、异步 Executor、通知/托盘、移动端权限、插件加载器。
+当前主线：**ADR-006 P0 契约已归档**（App Runtime / 文本管线 / 语义 / Platform View）。实现上仍推进垂直切片；勿在 Layout/Paint 或无文本协议下堆功能。
 
 ## 仓库结构
 
 ```text
-crates/           Rust Native UI Core + 平台 / 渲染 / 布局 / Perry Bridge
-packages/         Minimal TSX、Host FFI、框架 Adapter
+crates/           Rust：NUI / System / Text / App Runtime / 平台 / Bridge
+packages/         Minimal TSX、Host FFI、System Host、框架 Adapter
 examples/         各切片验收 Demo + framework-parity
-docs/decisions/   ADR
+docs/decisions/   ADR-004 … ADR-006
 .github/workflows CI（按路径与切片门禁）
 ```
 
@@ -84,12 +84,13 @@ pnpm install && pnpm typecheck && pnpm format:check
 | 10 | ADR §11 复合组件 | 完成（Stack / Spacer / Card + flexGrow/align） |
 | 11 | Image（本地） | 完成（set_image + Skia decode/paint + image-demo） |
 | 12 | System Host + Clipboard | 完成（ADR-005、`@nexa/clipboard`） |
+| — | ADR-006 P0 契约 | 完成（文档 + `nui-text` / `nui-app-runtime` 骨架 + Semantics） |
 
 ## 刻意未做（ADR）
 
-Image 网络加载 / TextArea / 选区 / 富文本 / fs·dialog 完整面 / 异步 Executor / 通知托盘 / 移动端 / DevTools / 完整 CSS / GPU 自研 / Vue 2。
+完整 HarfBuzz 文本 / AccessKit 桥 / Task cancel 产品化 / Surface 重建 / PlatformView / Image 网络 / TextArea / fs·dialog 完整面 / 通知托盘 / 移动端。
 
-架构决策见 [ADR-004](docs/decisions/ADR-004-framework-adapters-native-host-mvp.md)、[ADR-005](docs/decisions/ADR-005-system-host-permissions-plugins.md)。
+架构决策见 [ADR-004](docs/decisions/ADR-004-framework-adapters-native-host-mvp.md)、[ADR-005](docs/decisions/ADR-005-system-host-permissions-plugins.md)、[ADR-006](docs/decisions/ADR-006-application-runtime-composition-p0.md)。
 
 ## CI 设计
 

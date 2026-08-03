@@ -1,0 +1,13 @@
+[package]
+name = "nui-text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Text pipeline: fonts, shaping, BiDi, paragraph (ADR-006 §3.1) — skeleton"
+
+[dependencies]
+nui-core = { path = "../nui-core" }
+
+[lints]
+workspace = true

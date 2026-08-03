@@ -7,6 +7,8 @@ members = [
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
     "crates/nui-system-core",
+    "crates/nui-text",
+    "crates/nui-app-runtime",
     "examples/rust-counter",
 ]
 default-members = [
@@ -16,6 +18,8 @@ default-members = [
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
     "crates/nui-system-core",
+    "crates/nui-text",
+    "crates/nui-app-runtime",
 ]
 
 # Perry nativeLibrary packages own an independent Cargo.toml (perry-ffi + staticlib).
