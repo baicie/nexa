@@ -1,0 +1,22 @@
+{
+  "name": "@nexa/example-svelte-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 8: Svelte compiler-backend Counter → NUI Host",
+  "type": "module",
+  "dependencies": {
+    "@nexa/compiler-svelte": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "svelte": "^4.2.19"
+  },
+  "scripts": {
+    "compile:svelte": "node ./compile.mjs",
+    "build": "perry compile main.ts -o svelte-counter",
+    "start": "perry compile main.ts -o svelte-counter && ./svelte-counter"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": ["@nexa/nui-host", "@nexa/compiler-svelte"]
+    }
+  }
+}
