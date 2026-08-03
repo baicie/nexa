@@ -4,10 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Perry FFI bridge isolating Perry ABI from NUI Core"
+description = "NUI Host engine for Perry FFI (Perry ABI stays in packages/nui-host)"
 
 [dependencies]
 nui-core = { path = "../nui-core" }
+nui-platform-winit = { path = "../nui-platform-winit" }
+nui-render-skia = { path = "../nui-render-skia" }
 
 [lints]
 workspace = true

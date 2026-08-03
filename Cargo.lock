@@ -815,6 +815,8 @@ name = "nui-perry-bridge"
 version = "0.1.0"
 dependencies = [
  "nui-core",
+ "nui-platform-winit",
+ "nui-render-skia",
 ]
 
 [[package]]
