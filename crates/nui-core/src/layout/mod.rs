@@ -1,11 +1,11 @@
-//! Hand-rolled Flexbox subset for Slice 1 (Column / Row / padding / gap).
+//! Hand-rolled Flexbox subset retained for unit tests / comparison.
 //!
-//! Taffy arrives in Slice 4 once Host Protocol + FFI are stable.
+//! Production layout uses `nui-layout-taffy::layout_tree` (Slice 4).
 
 use crate::style::FlexDirection;
 use crate::tree::{Arena, LayoutRect, NodeId, NodeType};
 
-/// Layout `root` into the given viewport (logical pixels).
+/// Legacy hand layout (Slice 1). Prefer `nui_layout_taffy::layout_tree`.
 pub fn layout_tree(arena: &mut Arena, root: NodeId, viewport_width: f32, viewport_height: f32) {
     layout_node(arena, root, 0.0, 0.0, viewport_width, viewport_height);
 }

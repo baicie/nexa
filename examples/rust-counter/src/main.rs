@@ -5,7 +5,8 @@
 //! cargo run -p rust-counter -- --smoke # offscreen layout/paint/click simulation
 //! ```
 
-use nui_core::{hit_test, layout_tree, Arena, ColorRgba, FlexDirection, NodeId, NodeType, Style};
+use nui_core::{hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, Style};
+use nui_layout_taffy::layout_tree;
 use nui_platform_winit::{run_app, WindowApp};
 use nui_render_skia::paint_tree;
 

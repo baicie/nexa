@@ -10,7 +10,7 @@ pub mod style;
 pub mod tree;
 
 pub use event::hit_test;
-pub use layout::layout_tree;
+pub use layout::measure_text;
 pub use style::{ColorRgba, FlexDirection, PropertyId, Style};
 pub use tree::{Arena, LayoutRect, Node, NodeId, NodeType};
 

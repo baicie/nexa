@@ -210,7 +210,8 @@ fn resolve_typeface() -> Option<skia_safe::Typeface> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nui_core::{layout_tree, Arena, ColorRgba, FlexDirection, NodeType, Style};
+    use nui_core::layout::layout_tree;
+    use nui_core::{Arena, ColorRgba, FlexDirection, NodeType, Style};
 
     #[test]
     fn backend_is_skia() {
