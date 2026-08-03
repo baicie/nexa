@@ -1,0 +1,13 @@
+[package]
+name = "nui-platform-winit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Winit window and input backend for Nexa UI (macOS/Windows MVP)"
+
+[dependencies]
+nui-core = { path = "../nui-core" }
+
+[lints]
+workspace = true

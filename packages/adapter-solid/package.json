@@ -1,0 +1,7 @@
+{
+  "name": "@nexa/adapter-solid",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solid → NUI Host adapter (Slice 5 — deferred)",
+  "scripts": {}
+}

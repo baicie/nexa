@@ -1,0 +1,13 @@
+[package]
+name = "nui-layout-taffy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Taffy Flexbox layout backend for Nexa UI"
+
+[dependencies]
+nui-core = { path = "../nui-core" }
+
+[lints]
+workspace = true

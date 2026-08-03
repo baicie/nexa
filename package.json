@@ -1,0 +1,27 @@
+{
+  "name": "nexa-ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Native UI toolkit for TypeScript/TSX via Perry AOT — no WebView, no Chromium",
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "lint": "pnpm -r --if-present run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "rust:check": "cargo check --workspace",
+    "rust:test": "cargo test --workspace",
+    "rust:fmt": "cargo fmt --all -- --check",
+    "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
+  }
+}

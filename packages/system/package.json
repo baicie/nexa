@@ -1,0 +1,13 @@
+{
+  "name": "@nexa/system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "System APIs (clipboard, dialog, filesystem) — post-MVP",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

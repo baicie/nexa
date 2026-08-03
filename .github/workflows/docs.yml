@@ -1,0 +1,22 @@
+name: Docs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  adr:
+    name: ADR present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require ADR-004
+        run: |
+          test -f docs/decisions/ADR-004-framework-adapters-native-host-mvp.md
+          echo "ADR-004 present."
+      - name: No root ADR drift
+        run: |
+          if [[ -f ADR.md ]]; then
+            echo "Move ADR.md into docs/decisions/ — root ADR.md is not allowed."
+            exit 1
+          fi

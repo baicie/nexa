@@ -1,0 +1,3 @@
+# Ignore lockfiles and large decision docs from format gate.
+pnpm-lock.yaml
+docs/decisions/**

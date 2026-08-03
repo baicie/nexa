@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      typescript: ${{ steps.filter.outputs.typescript }}
+      docs: ${{ steps.filter.outputs.docs }}
+      native: ${{ steps.filter.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'crates/**'
+              - 'examples/rust-counter/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.github/workflows/rust.yml'
+              - '.github/workflows/ci.yml'
+            typescript:
+              - 'packages/**'
+              - 'examples/counter/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.base.json'
+              - '.npmrc'
+              - '.prettierrc.json'
+              - '.prettierignore'
+              - '.github/workflows/typescript.yml'
+              - '.github/workflows/ci.yml'
+            native:
+              - 'crates/nui-platform-winit/**'
+              - 'crates/nui-render-skia/**'
+              - 'examples/rust-counter/**'
+              - '.github/workflows/native-smoke.yml'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+              - '.github/workflows/README.md'
+
+  rust:
+    name: Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    uses: ./.github/workflows/rust.yml
+
+  typescript:
+    name: TypeScript
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    uses: ./.github/workflows/typescript.yml
+
+  docs:
+    name: Docs
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' && needs.changes.outputs.rust != 'true' && needs.changes.outputs.typescript != 'true'
+    uses: ./.github/workflows/docs.yml
+
+  # Slice 0+ only: GPU/window smoke. Disabled as required until drawable window exists.
+  # Enable by setting native_smoke_enabled to true after Slice 0 lands.
+  native-smoke:
+    name: Native smoke
+    needs: changes
+    if: needs.changes.outputs.native == 'true' && vars.NATIVE_SMOKE_ENABLED == 'true'
+    uses: ./.github/workflows/native-smoke.yml
+
+  result:
+    name: result
+    if: always()
+    needs: [changes, rust, typescript, docs, native-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate required checks
+        env:
+          RUST: ${{ needs.rust.result }}
+          TS: ${{ needs.typescript.result }}
+          DOCS: ${{ needs.docs.result }}
+          NATIVE: ${{ needs.native-smoke.result }}
+          RUST_NEEDED: ${{ needs.changes.outputs.rust }}
+          TS_NEEDED: ${{ needs.changes.outputs.typescript }}
+        run: |
+          set -euo pipefail
+          fail=0
+          if [[ "$RUST_NEEDED" == "true" && "$RUST" != "success" ]]; then
+            echo "Rust gate failed: $RUST"
+            fail=1
+          fi
+          if [[ "$TS_NEEDED" == "true" && "$TS" != "success" ]]; then
+            echo "TypeScript gate failed: $TS"
+            fail=1
+          fi
+          # docs / native-smoke are advisory or opt-in; do not fail the aggregator on skip
+          if [[ "$DOCS" == "failure" ]]; then
+            echo "Docs gate failed"
+            fail=1
+          fi
+          if [[ "$NATIVE" == "failure" ]]; then
+            echo "Native smoke failed"
+            fail=1
+          fi
+          if [[ "$fail" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "All required gates passed (or correctly skipped)."

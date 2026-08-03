@@ -1,0 +1,12 @@
+[package]
+name = "nui-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Nexa Native UI Core — node tree, mutation, style, layout, event, paint, scheduler"
+
+[dependencies]
+
+[lints]
+workspace = true

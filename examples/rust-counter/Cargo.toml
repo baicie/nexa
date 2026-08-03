@@ -1,0 +1,21 @@
+[package]
+name = "rust-counter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Slice 0/1 acceptance: pure Rust Counter (winit → node tree → Skia)"
+publish = false
+
+[[bin]]
+name = "rust-counter"
+path = "src/main.rs"
+
+[dependencies]
+nui-core = { path = "../../crates/nui-core" }
+nui-platform-winit = { path = "../../crates/nui-platform-winit" }
+nui-render-skia = { path = "../../crates/nui-render-skia" }
+nui-layout-taffy = { path = "../../crates/nui-layout-taffy" }
+
+[lints]
+workspace = true

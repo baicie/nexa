@@ -1,0 +1,7 @@
+{
+  "name": "@nexa/adapter-react",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React → NUI Host adapter (deferred)",
+  "scripts": {}
+}

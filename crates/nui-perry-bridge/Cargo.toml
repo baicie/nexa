@@ -1,0 +1,13 @@
+[package]
+name = "nui-perry-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Perry FFI bridge isolating Perry ABI from NUI Core"
+
+[dependencies]
+nui-core = { path = "../nui-core" }
+
+[lints]
+workspace = true

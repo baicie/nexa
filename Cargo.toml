@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/nui-core",
+    "crates/nui-platform-winit",
+    "crates/nui-render-skia",
+    "crates/nui-layout-taffy",
+    "crates/nui-perry-bridge",
+    "examples/rust-counter",
+]
+default-members = [
+    "crates/nui-core",
+    "crates/nui-platform-winit",
+    "crates/nui-render-skia",
+    "crates/nui-layout-taffy",
+    "crates/nui-perry-bridge",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/nexa-ui/nexa-ui"
+rust-version = "1.85"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
