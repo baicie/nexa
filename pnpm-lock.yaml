@@ -15,6 +15,21 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
+  examples/clipboard-demo:
+    dependencies:
+      '@nexa/clipboard':
+        specifier: workspace:*
+        version: link:../../packages/clipboard
+      '@nexa/nui-host':
+        specifier: workspace:*
+        version: link:../../packages/nui-host
+      '@nexa/system-host':
+        specifier: workspace:*
+        version: link:../../packages/system-host
+      '@nexa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+
   examples/counter:
     dependencies:
       '@nexa/nui-host':
@@ -176,6 +191,12 @@ importers:
         specifier: ^3.5.22
         version: 3.5.40
 
+  packages/clipboard:
+    dependencies:
+      '@nexa/system-host':
+        specifier: workspace:*
+        version: link:../system-host
+
   packages/compiler-svelte:
     dependencies:
       '@nexa/nui-host':
@@ -187,7 +208,13 @@ importers:
 
   packages/nui-host: {}
 
-  packages/system: {}
+  packages/system:
+    dependencies:
+      '@nexa/clipboard':
+        specifier: workspace:*
+        version: link:../clipboard
+
+  packages/system-host: {}
 
   packages/ui:
     dependencies:

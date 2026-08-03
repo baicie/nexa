@@ -70,5 +70,8 @@ examples/layout-playground/layout-playground
 examples/layout-playground/layout-playground.exe
 examples/image-demo/image-demo
 examples/image-demo/image-demo.exe
+examples/clipboard-demo/clipboard-demo
+examples/clipboard-demo/clipboard-demo.exe
 **/node_modules/.cache/
 packages/nui-host/target/
+packages/system-host/target/

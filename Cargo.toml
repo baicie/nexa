@@ -6,6 +6,7 @@ members = [
     "crates/nui-render-skia",
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
+    "crates/nui-system-core",
     "examples/rust-counter",
 ]
 default-members = [
@@ -14,11 +15,13 @@ default-members = [
     "crates/nui-render-skia",
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
+    "crates/nui-system-core",
 ]
 
 # Perry nativeLibrary packages own an independent Cargo.toml (perry-ffi + staticlib).
 exclude = [
     "packages/nui-host",
+    "packages/system-host",
 ]
 
 [workspace.package]

@@ -1,0 +1,59 @@
+{
+  "name": "@nexa/system-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Perry native library exposing the Nexa System Host Protocol (ADR-005)",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "MIT OR Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "Cargo.toml",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "nativeLibrary": {
+      "abiVersion": "0.5",
+      "functions": [
+        {
+          "name": "js_nexa_clipboard_read_text",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_clipboard_write_text",
+          "params": ["string"],
+          "returns": "i32"
+        }
+      ],
+      "targets": {
+        "macos": {
+          "crate": ".",
+          "lib": "libperry_ext_nexa_system_host.a",
+          "cargo_features": [],
+          "libs": ["c++"],
+          "frameworks": [
+            "AppKit",
+            "Foundation"
+          ]
+        },
+        "linux": {
+          "crate": ".",
+          "lib": "libperry_ext_nexa_system_host.a",
+          "cargo_features": []
+        },
+        "windows": {
+          "crate": ".",
+          "lib": "perry_ext_nexa_system_host.lib",
+          "cargo_features": []
+        }
+      }
+    }
+  }
+}

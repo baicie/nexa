@@ -1,0 +1,15 @@
+[package]
+name = "perry-ext-nexa_system_host"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Perry native library: Nexa System Host (ADR-005)"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+perry-ffi = { git = "https://github.com/PerryTS/perry", branch = "main" }
+nui-system-core = { path = "../../crates/nui-system-core" }

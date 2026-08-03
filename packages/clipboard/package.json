@@ -1,14 +1,14 @@
 {
-  "name": "@nexa/system",
+  "name": "@nexa/clipboard",
   "version": "0.1.0",
   "private": true,
-  "description": "System API umbrella re-exports (ADR-005) — prefer @nexa/clipboard etc.",
+  "description": "Typed clipboard API (ADR-005 Slice 12)",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@nexa/clipboard": "workspace:*"
+    "@nexa/system-host": "workspace:*"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"

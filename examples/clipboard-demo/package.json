@@ -1,0 +1,23 @@
+{
+  "name": "@nexa/example-clipboard-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 12: System Host clipboard round-trip",
+  "type": "module",
+  "dependencies": {
+    "@nexa/clipboard": "workspace:*",
+    "@nexa/system-host": "workspace:*",
+    "@nexa/ui": "workspace:*",
+    "@nexa/nui-host": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o clipboard-demo",
+    "start": "perry compile main.tsx -o clipboard-demo && ./clipboard-demo",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": ["@nexa/nui-host", "@nexa/system-host", "@nexa/ui"]
+    }
+  }
+}

@@ -9,3 +9,4 @@ packages:
   - "examples/svelte-counter"
   - "examples/layout-playground"
   - "examples/image-demo"
+  - "examples/clipboard-demo"
