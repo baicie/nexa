@@ -6,7 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./runtime": "./src/runtime.ts",
+    "./runtime": "./src/runtime/index.ts",
     "./compile": "./src/compile.ts"
   },
   "dependencies": {
