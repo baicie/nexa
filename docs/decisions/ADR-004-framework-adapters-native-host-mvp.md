@@ -1,10 +1,26 @@
 # ADR-004：框架适配器、统一 Native UI Host 与最快可见 MVP
 
-- 状态：Proposed
+- 状态：**Accepted（已归档）**
 - 日期：2026-08-03
+- 归档日期：2026-08-04
 - 决策范围：Nexa/Perry Native UI
 - 优先级：最高
 - 前置决策：TypeScript/TSX AOT 编译、自定义跨平台渲染
+
+## 0. MVP 归档摘要（2026-08-04）
+
+桌面端垂直切片 **0–9** 与 ADR §11 第一版复合组件已落地，本 ADR 从 Proposed 转为 Accepted。
+
+| 范围 | 状态 |
+|------|------|
+| M0–M5（Rust Host、Perry FFI、Minimal TSX、Solid/Vue/React/Svelte） | 完成 |
+| Slice 9 单行 Input（focus / IME / Todo） | 完成 |
+| Composite：Column / Row / Stack / Button / Spacer / Card | 完成 |
+| Native：Root / View / Text / Scroll | 完成 |
+| Native：Image 像素解码 | **仍暂缓**（`NodeType::Image` 保留，无位图加载） |
+| React Counter under Perry | 完成（Number u64 FFI + flushSync + scheduler） |
+
+刻意不做（仍有效）：TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研 / Vue 2 / WebView / 路由 / 动画系统。
 
 ## 1. 背景
 
@@ -732,22 +748,23 @@ Suspense、Concurrent Features 和 Server Components 不属于首版。
 ### Native Primitive
 
 ```text
-Root
-View
-Text
-Image
-Scroll
+Root      ✅
+View      ✅
+Text      ✅
+Image     ⏸ 类型保留，位图加载暂缓
+Scroll    ✅
 ```
 
 ### Composite Component
 
 ```text
-Column
-Row
-Stack
-Button
-Spacer
-Card
+Column    ✅
+Row       ✅
+Stack     ✅  （column + align/justify center）
+Button    ✅  （View 复合）
+Spacer    ✅  （flexGrow 或固定 size）
+Card      ✅  （padding + radius + 背景）
+Input     ✅  （Slice 9，View+Text 复合；非 §11 初稿但已验收）
 ```
 
 `Button` 不作为 Native Primitive，而是：
@@ -763,6 +780,7 @@ View
 
 暂不实现：
 
+- Image 位图解码 / 网络加载；
 - TextArea / 选区 / 富文本；
 - Input 多行与完整 IME 预编辑（单行 Input 已在 Slice 9）；
 - 富文本；

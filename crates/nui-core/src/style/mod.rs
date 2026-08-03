@@ -24,6 +24,8 @@ pub enum PropertyId {
     TextColor = 15,
     /// Vertical scroll offset in logical pixels (Scroll nodes).
     ScrollOffsetY = 16,
+    /// Flex grow factor (0 = no grow).
+    FlexGrow = 17,
 }
 
 /// Flex main-axis direction for Slice 1 hand layout.
@@ -32,6 +34,29 @@ pub enum FlexDirection {
     #[default]
     Column,
     Row,
+}
+
+/// Cross-axis / main-axis alignment (Host PropertyId numeric mapping).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub enum Align {
+    #[default]
+    Start = 0,
+    Center = 1,
+    End = 2,
+    Stretch = 3,
+}
+
+impl Align {
+    #[must_use]
+    pub fn from_f64(value: f64) -> Self {
+        match value as u8 {
+            1 => Self::Center,
+            2 => Self::End,
+            3 => Self::Stretch,
+            _ => Self::Start,
+        }
+    }
 }
 
 /// Premultiplied-friendly sRGB color (a=255 means opaque).
@@ -58,6 +83,9 @@ pub struct Style {
     pub padding: f32,
     pub gap: f32,
     pub flex_direction: FlexDirection,
+    pub align_items: Align,
+    pub justify_content: Align,
+    pub flex_grow: f32,
     pub background: Option<ColorRgba>,
     pub border_radius: f32,
     pub font_size: f32,
@@ -74,6 +102,9 @@ impl Default for Style {
             padding: 0.0,
             gap: 0.0,
             flex_direction: FlexDirection::Column,
+            align_items: Align::Start,
+            justify_content: Align::Start,
+            flex_grow: 0.0,
             background: None,
             border_radius: 0.0,
             font_size: 16.0,

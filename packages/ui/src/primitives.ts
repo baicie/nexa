@@ -8,11 +8,14 @@ export type HostKind =
   | "window"
   | "column"
   | "row"
+  | "stack"
   | "view"
   | "text"
   | "button"
   | "input"
   | "scroll"
+  | "card"
+  | "spacer"
   | "for";
 
 export type PrimitiveElement = {
@@ -48,6 +51,12 @@ export type BoxProps = {
   height?: number;
   padding?: number;
   gap?: number;
+  /** 0=start 1=center 2=end 3=stretch */
+  alignItems?: number;
+  /** 0=start 1=center 2=end */
+  justifyContent?: number;
+  backgroundColor?: number;
+  borderRadius?: number;
   children?: unknown;
 };
 
@@ -59,6 +68,11 @@ export function Row(props: BoxProps = {}): PrimitiveElement {
   return primitive("row", props as Record<string, unknown>);
 }
 
+/** Centered flex stack (column + align/justify center). */
+export function Stack(props: BoxProps = {}): PrimitiveElement {
+  return primitive("stack", props as Record<string, unknown>);
+}
+
 export function View(props: BoxProps = {}): PrimitiveElement {
   return primitive("view", props as Record<string, unknown>);
 }
@@ -67,6 +81,25 @@ export type ScrollProps = BoxProps;
 
 export function Scroll(props: ScrollProps = {}): PrimitiveElement {
   return primitive("scroll", props as Record<string, unknown>);
+}
+
+export type CardProps = BoxProps;
+
+/** Padded rounded panel (composite View). */
+export function Card(props: CardProps = {}): PrimitiveElement {
+  return primitive("card", props as Record<string, unknown>);
+}
+
+export type SpacerProps = {
+  /** Fixed main-axis size; omit to flex-grow and fill remaining space. */
+  size?: number;
+  width?: number;
+  height?: number;
+};
+
+/** Flexible or fixed gap in a Column/Row. */
+export function Spacer(props: SpacerProps = {}): PrimitiveElement {
+  return primitive("spacer", props as Record<string, unknown>);
 }
 
 export type TextProps = {

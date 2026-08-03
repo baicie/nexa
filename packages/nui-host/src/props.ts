@@ -41,6 +41,15 @@ export function applyNumericProp(node: NuiNode, name: string, value: unknown): v
     case "backgroundColor":
       setNumber(node.id, PropertyId.BackgroundColor, value);
       break;
+    case "flexGrow":
+      setNumber(node.id, PropertyId.FlexGrow, value);
+      break;
+    case "alignItems":
+      setNumber(node.id, PropertyId.AlignItems, value);
+      break;
+    case "justifyContent":
+      setNumber(node.id, PropertyId.JustifyContent, value);
+      break;
     default:
       break;
   }

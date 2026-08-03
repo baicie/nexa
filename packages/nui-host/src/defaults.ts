@@ -14,6 +14,21 @@ export function applyElementDefaults(node: NuiNode): void {
     case "row":
       setNumber(node.id, PropertyId.FlexDirection, 1);
       break;
+    case "stack":
+      setNumber(node.id, PropertyId.FlexDirection, 0);
+      setNumber(node.id, PropertyId.AlignItems, 1);
+      setNumber(node.id, PropertyId.JustifyContent, 1);
+      break;
+    case "card":
+      setNumber(node.id, PropertyId.FlexDirection, 0);
+      setNumber(node.id, PropertyId.Padding, 16);
+      setNumber(node.id, PropertyId.BorderRadius, 12);
+      setNumber(node.id, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
+      setNumber(node.id, PropertyId.Gap, 8);
+      break;
+    case "spacer":
+      setNumber(node.id, PropertyId.FlexGrow, 1);
+      break;
     case "button":
       setNumber(node.id, PropertyId.Padding, 12);
       setNumber(node.id, PropertyId.BorderRadius, 12);

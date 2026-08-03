@@ -48,6 +48,21 @@ function applyBoxProps(
   if (typeof props.gap === "number") {
     setNumber(node, PropertyId.Gap, props.gap);
   }
+  if (typeof props.alignItems === "number") {
+    setNumber(node, PropertyId.AlignItems, props.alignItems);
+  }
+  if (typeof props.justifyContent === "number") {
+    setNumber(node, PropertyId.JustifyContent, props.justifyContent);
+  }
+  if (typeof props.backgroundColor === "number") {
+    setNumber(node, PropertyId.BackgroundColor, props.backgroundColor);
+  }
+  if (typeof props.borderRadius === "number") {
+    setNumber(node, PropertyId.BorderRadius, props.borderRadius);
+  }
+  if (typeof props.flexGrow === "number") {
+    setNumber(node, PropertyId.FlexGrow, props.flexGrow);
+  }
 }
 
 function listItemKey(item: unknown, index: number): string {
@@ -139,6 +154,53 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       const node = createNode(NodeType.View);
       applyBoxProps(node, props, 1);
       mountChildren(node, props.children);
+      return node;
+    }
+    case "stack": {
+      const node = createNode(NodeType.View);
+      applyBoxProps(node, props, 0);
+      if (typeof props.alignItems !== "number") {
+        setNumber(node, PropertyId.AlignItems, 1);
+      }
+      if (typeof props.justifyContent !== "number") {
+        setNumber(node, PropertyId.JustifyContent, 1);
+      }
+      mountChildren(node, props.children);
+      return node;
+    }
+    case "card": {
+      const node = createNode(NodeType.View);
+      applyBoxProps(node, props, 0);
+      if (typeof props.padding !== "number") {
+        setNumber(node, PropertyId.Padding, 16);
+      }
+      if (typeof props.borderRadius !== "number") {
+        setNumber(node, PropertyId.BorderRadius, 12);
+      }
+      if (typeof props.backgroundColor !== "number") {
+        setNumber(node, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
+      }
+      if (typeof props.gap !== "number") {
+        setNumber(node, PropertyId.Gap, 8);
+      }
+      mountChildren(node, props.children);
+      return node;
+    }
+    case "spacer": {
+      const node = createNode(NodeType.View);
+      if (typeof props.size === "number") {
+        setNumber(node, PropertyId.Height, props.size);
+        setNumber(node, PropertyId.Width, props.size);
+      } else if (typeof props.height === "number" || typeof props.width === "number") {
+        if (typeof props.height === "number") {
+          setNumber(node, PropertyId.Height, props.height);
+        }
+        if (typeof props.width === "number") {
+          setNumber(node, PropertyId.Width, props.width);
+        }
+      } else {
+        setNumber(node, PropertyId.FlexGrow, 1);
+      }
       return node;
     }
     case "view": {

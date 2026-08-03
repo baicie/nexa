@@ -150,6 +150,7 @@ pub extern "C" fn js_nui_set_number(node: u64, property: f64, value: f64) {
         14 => PropertyId::FontWeight,
         15 => PropertyId::TextColor,
         16 => PropertyId::ScrollOffsetY,
+        17 => PropertyId::FlexGrow,
         _ => return,
     };
     let session = session().lock().expect("host session");

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use nui_core::{
-    hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
+    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
 };
 use nui_layout_taffy::layout_tree;
 use nui_render_skia::{paint_tree, FocusedPaint, PaintHints};
@@ -140,6 +140,9 @@ impl NuiHost {
                     FlexDirection::Column
                 };
             }
+            PropertyId::AlignItems => n.style.align_items = Align::from_f64(value),
+            PropertyId::JustifyContent => n.style.justify_content = Align::from_f64(value),
+            PropertyId::FlexGrow => n.style.flex_grow = v.max(0.0),
             PropertyId::BorderRadius => n.style.border_radius = v,
             PropertyId::FontSize => n.style.font_size = v,
             PropertyId::BackgroundColor => {

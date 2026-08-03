@@ -77,6 +77,7 @@ export enum PropertyId {
   FontWeight = 14,
   TextColor = 15,
   ScrollOffsetY = 16,
+  FlexGrow = 17,
 }
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */

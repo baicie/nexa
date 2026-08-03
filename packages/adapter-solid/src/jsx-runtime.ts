@@ -42,8 +42,11 @@ export namespace JSX {
     window: Record<string, unknown>;
     column: Record<string, unknown>;
     row: Record<string, unknown>;
+    stack: Record<string, unknown>;
     view: Record<string, unknown>;
     scroll: Record<string, unknown>;
+    card: Record<string, unknown>;
+    spacer: Record<string, unknown>;
     text: Record<string, unknown>;
     button: Record<string, unknown>;
     input: Record<string, unknown>;

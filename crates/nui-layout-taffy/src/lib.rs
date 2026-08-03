@@ -76,6 +76,25 @@ pub fn layout_tree(arena: &mut Arena, root: NodeId, viewport_width: f32, viewpor
     write_layouts(&tree, arena, taffy_root, 0.0, 0.0);
 }
 
+fn to_align(align: nui_core::Align) -> AlignItems {
+    match align {
+        nui_core::Align::Start => AlignItems::FLEX_START,
+        nui_core::Align::Center => AlignItems::CENTER,
+        nui_core::Align::End => AlignItems::FLEX_END,
+        nui_core::Align::Stretch => AlignItems::STRETCH,
+    }
+}
+
+fn to_justify(align: nui_core::Align) -> JustifyContent {
+    match align {
+        nui_core::Align::Start => JustifyContent::FLEX_START,
+        nui_core::Align::Center => JustifyContent::CENTER,
+        nui_core::Align::End => JustifyContent::FLEX_END,
+        // Stretch is not meaningful for justify; fall back to start.
+        nui_core::Align::Stretch => JustifyContent::FLEX_START,
+    }
+}
+
 fn to_taffy_style(
     style: &nui_core::Style,
     node_type: NodeType,
@@ -89,6 +108,9 @@ fn to_taffy_style(
             FlexDirection::Column => taffy::FlexDirection::Column,
             FlexDirection::Row => taffy::FlexDirection::Row,
         },
+        align_items: Some(to_align(style.align_items)),
+        justify_content: Some(to_justify(style.justify_content)),
+        flex_grow: style.flex_grow,
         gap: Size {
             width: length(style.gap),
             height: length(style.gap),
