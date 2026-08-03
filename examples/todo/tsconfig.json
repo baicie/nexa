@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@nexa/ui",
+    "noEmit": true,
+    "rootDir": ".",
+    "types": []
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}

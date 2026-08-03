@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 3 已落地（Minimal TSX）→ 下一步 Slice 4（Todo + Taffy）**。
+当前主线：**Slice 4 已落地（Todo + Taffy + Scroll）→ 下一步 Slice 5（Solid Adapter）**。
 
 ## 仓库结构
 
@@ -31,6 +31,16 @@ docs/decisions/   ADR
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
+
+### Slice 4 验收（Todo + Taffy + Scroll）
+
+```bash
+cd examples/todo
+perry compile main.tsx -o todo
+./todo
+```
+
+验收：Add / Done / Remove 动态增删列表；滚轮滚动 Scroll 视口；布局走 Taffy。
 
 ### Slice 3 验收（Minimal TSX）
 

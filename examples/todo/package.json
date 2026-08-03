@@ -1,0 +1,24 @@
+{
+  "name": "@nexa/example-todo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 4 acceptance: Todo + For + Scroll",
+  "type": "module",
+  "dependencies": {
+    "@nexa/ui": "workspace:*",
+    "@nexa/nui-host": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o todo",
+    "start": "perry compile main.tsx -o todo && ./todo",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/ui"
+      ]
+    }
+  }
+}

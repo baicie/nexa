@@ -54,5 +54,7 @@ examples/perry-counter/perry-counter
 examples/perry-counter/perry-counter.exe
 examples/counter/counter
 examples/counter/counter.exe
+examples/todo/todo
+examples/todo/todo.exe
 **/node_modules/.cache/
 packages/nui-host/target/

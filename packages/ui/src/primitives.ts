@@ -2,7 +2,17 @@
  * First-party primitives — descriptors resolved by mount() into HostOps.
  */
 
-export type HostKind = "window" | "column" | "row" | "view" | "text" | "button";
+import type { Signal } from "./signal";
+
+export type HostKind =
+  | "window"
+  | "column"
+  | "row"
+  | "view"
+  | "text"
+  | "button"
+  | "scroll"
+  | "for";
 
 export type PrimitiveElement = {
   $$nexa: true;
@@ -52,6 +62,12 @@ export function View(props: BoxProps = {}): PrimitiveElement {
   return primitive("view", props as Record<string, unknown>);
 }
 
+export type ScrollProps = BoxProps;
+
+export function Scroll(props: ScrollProps = {}): PrimitiveElement {
+  return primitive("scroll", props as Record<string, unknown>);
+}
+
 export type TextProps = {
   fontSize?: number;
   color?: number;
@@ -69,4 +85,14 @@ export type ButtonProps = {
 
 export function Button(props: ButtonProps = {}): PrimitiveElement {
   return primitive("button", props as Record<string, unknown>);
+}
+
+export type ForProps<T> = {
+  each: Signal<T[]> | T[];
+  children?: (item: T, index: number) => unknown;
+};
+
+/** Keyed list — mount adds/removes Host nodes without rebuilding the window. */
+export function For<T>(props: ForProps<T>): PrimitiveElement {
+  return primitive("for", props as Record<string, unknown>);
 }

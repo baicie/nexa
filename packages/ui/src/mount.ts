@@ -10,6 +10,7 @@ import {
   insert,
   NodeType,
   PropertyId,
+  remove,
   rgba,
   run,
   setNumber,
@@ -79,6 +80,13 @@ function applyBoxProps(node: bigint, props: Record<string, unknown>, direction?:
   }
 }
 
+function listItemKey(item: unknown, index: number): string {
+  if (typeof item === "object" && item !== null && "id" in item) {
+    return String((item as { id: unknown }).id);
+  }
+  return String(index);
+}
+
 function expandForMount(node: unknown): unknown[] {
   if (node == null || node === false || node === true) {
     return [];
@@ -104,6 +112,57 @@ function mountChildren(parent: bigint, children: unknown): void {
       insert(id, parent);
     }
   }
+}
+
+function mountForList(props: Record<string, unknown>): bigint {
+  const container = createNode(NodeType.View);
+  setNumber(container, PropertyId.FlexDirection, 0);
+  if (typeof props.gap === "number") {
+    setNumber(container, PropertyId.Gap, props.gap);
+  } else {
+    setNumber(container, PropertyId.Gap, 8);
+  }
+
+  const each = props.each;
+  const render = props.children;
+  const mounted = new Map<string, bigint>();
+
+  if (typeof render !== "function") {
+    return container;
+  }
+
+  effect(() => {
+    const list = (isSignal(each) ? each.value : each) as unknown;
+    if (!Array.isArray(list)) {
+      return;
+    }
+
+    const nextKeys = new Set(
+      list.map((item, index) => listItemKey(item, index)),
+    );
+
+    for (const [key, node] of [...mounted.entries()]) {
+      if (!nextKeys.has(key)) {
+        remove(node);
+        mounted.delete(key);
+      }
+    }
+
+    list.forEach((item, index) => {
+      const key = listItemKey(item, index);
+      if (mounted.has(key)) {
+        return;
+      }
+      const child = (render as (item: unknown, index: number) => unknown)(item, index);
+      const id = mountNode(child);
+      if (id !== null) {
+        insert(id, container);
+        mounted.set(key, id);
+      }
+    });
+  });
+
+  return container;
 }
 
 function mountPrimitive(el: PrimitiveElement): bigint | null {
@@ -137,6 +196,15 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       applyBoxProps(node, props);
       mountChildren(node, props.children);
       return node;
+    }
+    case "scroll": {
+      const node = createNode(NodeType.Scroll);
+      applyBoxProps(node, props, 0);
+      mountChildren(node, props.children);
+      return node;
+    }
+    case "for": {
+      return mountForList(props);
     }
     case "text": {
       const node = createText("");
@@ -236,11 +304,6 @@ function mountNode(node: unknown): bigint | null {
  *
  * Reactive text: pass a `signal` (not `.value`) or `() => string` as children
  * so updates call `setText` without rebuilding the native tree.
- *
- * ```tsx
- * <Text>Count: {count}</Text>
- * <Text>{() => `Count: ${count.value}`}</Text>
- * ```
  */
 export function mount(root: Component | NexaElement | PrimitiveElement): void {
   windowTitle = "Nexa UI";
