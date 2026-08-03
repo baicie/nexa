@@ -17,6 +17,9 @@ importers:
 
   examples/counter:
     dependencies:
+      '@nexa/nui-host':
+        specifier: workspace:*
+        version: link:../../packages/nui-host
       '@nexa/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -39,7 +42,11 @@ importers:
 
   packages/system: {}
 
-  packages/ui: {}
+  packages/ui:
+    dependencies:
+      '@nexa/nui-host':
+        specifier: workspace:*
+        version: link:../nui-host
 
 packages:
 

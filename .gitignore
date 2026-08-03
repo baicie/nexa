@@ -52,5 +52,7 @@ cmake-build-*/
 # Perry build outputs
 examples/perry-counter/perry-counter
 examples/perry-counter/perry-counter.exe
+examples/counter/counter
+examples/counter/counter.exe
 **/node_modules/.cache/
 packages/nui-host/target/

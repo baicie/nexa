@@ -61,7 +61,7 @@ pub extern "C" fn js_nui_create_node(node_type: f64) -> u64 {
         4 => NodeType::Scroll,
         _ => NodeType::View,
     };
-    let mut session = session().lock().expect("host session");
+    let session = session().lock().expect("host session");
     session.host.create_node(ty).raw()
 }
 
@@ -71,13 +71,13 @@ pub extern "C" fn js_nui_create_node(node_type: f64) -> u64 {
 pub unsafe extern "C" fn js_nui_create_text(text_ptr: *const StringHeader) -> u64 {
     let handle = JsString::from_raw(text_ptr as *mut StringHeader);
     let text = read_string(handle).unwrap_or("");
-    let mut session = session().lock().expect("host session");
+    let session = session().lock().expect("host session");
     session.host.create_text(text).raw()
 }
 
 #[no_mangle]
 pub extern "C" fn js_nui_insert(child: u64, parent: u64) {
-    let mut session = session().lock().expect("host session");
+    let session = session().lock().expect("host session");
     session
         .host
         .insert(node_from_raw(child), node_from_raw(parent));
@@ -89,7 +89,7 @@ pub extern "C" fn js_nui_insert(child: u64, parent: u64) {
 pub unsafe extern "C" fn js_nui_set_text(node: u64, text_ptr: *const StringHeader) {
     let handle = JsString::from_raw(text_ptr as *mut StringHeader);
     let text = read_string(handle).unwrap_or("");
-    let mut session = session().lock().expect("host session");
+    let session = session().lock().expect("host session");
     session.host.set_text(node_from_raw(node), text);
 }
 
@@ -113,7 +113,7 @@ pub extern "C" fn js_nui_set_number(node: u64, property: f64, value: f64) {
         15 => PropertyId::TextColor,
         _ => return,
     };
-    let mut session = session().lock().expect("host session");
+    let session = session().lock().expect("host session");
     session
         .host
         .set_number(node_from_raw(node), prop, value);
@@ -141,12 +141,10 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
     let handle = JsString::from_raw(title_ptr as *mut StringHeader);
     let title = read_string(handle).unwrap_or("Nexa UI").to_owned();
 
-    // Move host out of the mutex for the blocking event loop.
-    let (mut host, closures) = {
-        let mut session = session().lock().expect("host session");
-        let host = std::mem::take(&mut session.host);
-        let closures = session.closures.clone();
-        (host, closures)
+    // Clone the Arc-backed host so FFI mutations (set_text) share the window arena.
+    let (host, closures) = {
+        let session = session().lock().expect("host session");
+        (session.host.clone(), session.closures.clone())
     };
 
     if let Err(err) = host.run(&title, move |node| {

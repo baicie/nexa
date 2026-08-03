@@ -2,12 +2,23 @@
   "name": "@nexa/example-counter",
   "version": "0.1.0",
   "private": true,
-  "description": "Slice 3 acceptance: Minimal TSX Counter (not runnable until Host + jsx-runtime land)",
+  "description": "Slice 3 acceptance: Minimal TSX Counter",
   "type": "module",
   "dependencies": {
-    "@nexa/ui": "workspace:*"
+    "@nexa/ui": "workspace:*",
+    "@nexa/nui-host": "workspace:*"
   },
   "scripts": {
-    "typecheck": "echo 'Counter TSX typecheck deferred until Slice 3 primitives exist'"
+    "build": "perry compile main.tsx -o counter",
+    "start": "perry compile main.tsx -o counter && ./counter",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/ui"
+      ]
+    }
   }
 }

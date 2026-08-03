@@ -3,8 +3,12 @@
 //! This crate intentionally does **not** depend on `perry-ffi`, so the
 //! workspace can test HostOps without linking Perry. The `packages/nui-host`
 //! crate owns `#[no_mangle]` exports and Perry ABI types.
+//!
+//! Tree state is `Arc`-shared so Perry click callbacks can `set_text` while
+//! the window event loop owns the same arena (Slice 2→3 fix).
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use nui_core::{
     hit_test, layout_tree, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
@@ -12,14 +16,19 @@ use nui_core::{
 use nui_platform_winit::{run_app, WindowApp};
 use nui_render_skia::paint_tree;
 
-/// Opaque Host session driving the Slice 1 node tree from HostOps.
 #[derive(Debug, Default)]
-pub struct NuiHost {
+struct HostInner {
     arena: Arena,
     /// First created root-ish view; used as layout root when present.
     root: Option<NodeId>,
     /// node.raw() → opaque callback token (Perry closure ptr as u64).
     click_tokens: HashMap<u64, u64>,
+}
+
+/// Opaque Host session driving the Slice 1 node tree from HostOps.
+#[derive(Clone, Debug, Default)]
+pub struct NuiHost {
+    inner: Arc<Mutex<HostInner>>,
 }
 
 impl NuiHost {
@@ -29,34 +38,39 @@ impl NuiHost {
     }
 
     #[must_use]
-    pub fn create_node(&mut self, node_type: NodeType) -> NodeId {
-        let id = self.arena.create(node_type);
-        if self.root.is_none() && matches!(node_type, NodeType::Root | NodeType::View) {
-            self.root = Some(id);
+    pub fn create_node(&self, node_type: NodeType) -> NodeId {
+        let mut inner = self.inner.lock().expect("host inner");
+        let id = inner.arena.create(node_type);
+        if inner.root.is_none() && matches!(node_type, NodeType::Root | NodeType::View) {
+            inner.root = Some(id);
         }
         id
     }
 
     #[must_use]
-    pub fn create_text(&mut self, text: &str) -> NodeId {
-        let id = self.arena.create(NodeType::Text);
-        self.arena.set_text(id, text);
+    pub fn create_text(&self, text: &str) -> NodeId {
+        let mut inner = self.inner.lock().expect("host inner");
+        let id = inner.arena.create(NodeType::Text);
+        inner.arena.set_text(id, text);
         id
     }
 
-    pub fn insert(&mut self, child: NodeId, parent: NodeId) {
-        self.arena.insert_child(parent, child);
-        if self.root.is_none() {
-            self.root = Some(parent);
+    pub fn insert(&self, child: NodeId, parent: NodeId) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.insert_child(parent, child);
+        if inner.root.is_none() {
+            inner.root = Some(parent);
         }
     }
 
-    pub fn set_text(&mut self, node: NodeId, text: &str) {
-        self.arena.set_text(node, text);
+    pub fn set_text(&self, node: NodeId, text: &str) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.set_text(node, text);
     }
 
-    pub fn set_number(&mut self, node: NodeId, property: PropertyId, value: f64) {
-        let Some(n) = self.arena.get_mut(node) else {
+    pub fn set_number(&self, node: NodeId, property: PropertyId, value: f64) {
+        let mut inner = self.inner.lock().expect("host inner");
+        let Some(n) = inner.arena.get_mut(node) else {
             return;
         };
         let v = value as f32;
@@ -84,27 +98,30 @@ impl NuiHost {
         }
     }
 
-    pub fn add_click_listener(&mut self, node: NodeId, token: u64) {
-        self.arena.set_clickable(node, true);
-        self.click_tokens.insert(node.raw(), token);
+    pub fn add_click_listener(&self, node: NodeId, token: u64) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.set_clickable(node, true);
+        inner.click_tokens.insert(node.raw(), token);
     }
 
     #[must_use]
     pub fn click_token(&self, node: NodeId) -> Option<u64> {
-        self.click_tokens.get(&node.raw()).copied()
+        let inner = self.inner.lock().expect("host inner");
+        inner.click_tokens.get(&node.raw()).copied()
     }
 
     #[must_use]
     pub fn root(&self) -> Option<NodeId> {
-        self.root
+        self.inner.lock().expect("host inner").root
     }
 
     /// Ensure root fills the viewport before layout.
-    pub fn prepare_root_size(&mut self, logical_w: f32, logical_h: f32) {
-        let Some(root) = self.root else {
+    pub fn prepare_root_size(&self, logical_w: f32, logical_h: f32) {
+        let mut inner = self.inner.lock().expect("host inner");
+        let Some(root) = inner.root else {
             return;
         };
-        if let Some(node) = self.arena.get_mut(root) {
+        if let Some(node) = inner.arena.get_mut(root) {
             if node.style.width.is_none() {
                 node.style.width = Some(logical_w);
             }
@@ -117,12 +134,23 @@ impl NuiHost {
         }
     }
 
-    pub fn layout(&mut self, logical_w: f32, logical_h: f32) {
-        let Some(root) = self.root else {
+    pub fn layout(&self, logical_w: f32, logical_h: f32) {
+        let mut inner = self.inner.lock().expect("host inner");
+        let Some(root) = inner.root else {
             return;
         };
-        self.prepare_root_size(logical_w, logical_h);
-        layout_tree(&mut self.arena, root, logical_w, logical_h);
+        if let Some(node) = inner.arena.get_mut(root) {
+            if node.style.width.is_none() {
+                node.style.width = Some(logical_w);
+            }
+            if node.style.height.is_none() {
+                node.style.height = Some(logical_h);
+            }
+            if node.style.background.is_none() {
+                node.style.background = Some(ColorRgba::rgb(0xF4, 0xF6, 0xF8));
+            }
+        }
+        layout_tree(&mut inner.arena, root, logical_w, logical_h);
     }
 
     pub fn paint(
@@ -132,27 +160,36 @@ impl NuiHost {
         height: u32,
         scale: f64,
     ) -> Result<(), String> {
-        let root = self.root.ok_or("nui host has no root node")?;
-        paint_tree(&self.arena, root, pixels, width, height, scale).map_err(|e| e.to_string())
+        let inner = self.inner.lock().expect("host inner");
+        let root = inner.root.ok_or("nui host has no root node")?;
+        paint_tree(&inner.arena, root, pixels, width, height, scale).map_err(|e| e.to_string())
     }
 
     #[must_use]
     pub fn hit_clickable(&self, logical_x: f32, logical_y: f32) -> Option<NodeId> {
-        let root = self.root?;
-        hit_test(&self.arena, root, logical_x, logical_y)
+        let inner = self.inner.lock().expect("host inner");
+        let root = inner.root?;
+        hit_test(&inner.arena, root, logical_x, logical_y)
     }
 
     /// Run the native window. `on_click` receives the clickable node id.
     /// Return `true` from `on_click` to request a redraw.
-    pub fn run<F>(&mut self, title: &str, on_click: F) -> Result<(), String>
+    ///
+    /// Shares the same arena with HostOps so Perry callbacks can mutate text
+    /// while the event loop is running.
+    pub fn run<F>(&self, title: &str, on_click: F) -> Result<(), String>
     where
         F: FnMut(NodeId) -> bool + 'static,
     {
-        let root = self.root.ok_or("nui host has no root node — create/insert first")?;
+        let root = self
+            .inner
+            .lock()
+            .expect("host inner")
+            .root
+            .ok_or("nui host has no root node — create/insert first")?;
         let app = HostWindowApp {
-            arena: std::mem::take(&mut self.arena),
+            shared: Arc::clone(&self.inner),
             root,
-            click_tokens: std::mem::take(&mut self.click_tokens),
             on_click: Box::new(on_click),
             viewport: (640.0, 420.0),
         };
@@ -162,9 +199,8 @@ impl NuiHost {
 }
 
 struct HostWindowApp {
-    arena: Arena,
+    shared: Arc<Mutex<HostInner>>,
     root: NodeId,
-    click_tokens: HashMap<u64, u64>,
     on_click: Box<dyn FnMut(NodeId) -> bool>,
     viewport: (f32, f32),
 }
@@ -175,12 +211,13 @@ impl WindowApp for HostWindowApp {
         let logical_w = (width as f64 / scale) as f32;
         let logical_h = (height as f64 / scale) as f32;
         self.viewport = (logical_w, logical_h);
-        if let Some(node) = self.arena.get_mut(self.root) {
+        let mut inner = self.shared.lock().expect("host inner");
+        if let Some(node) = inner.arena.get_mut(self.root) {
             node.style.width = Some(logical_w);
             node.style.height = Some(logical_h);
         }
-        layout_tree(&mut self.arena, self.root, logical_w, logical_h);
-        if let Err(err) = paint_tree(&self.arena, self.root, pixels, width, height, scale) {
+        layout_tree(&mut inner.arena, self.root, logical_w, logical_h);
+        if let Err(err) = paint_tree(&inner.arena, self.root, pixels, width, height, scale) {
             eprintln!("nui paint failed: {err}");
         }
     }
@@ -189,13 +226,23 @@ impl WindowApp for HostWindowApp {
         let scale = scale.max(0.5);
         let lx = (x / scale) as f32;
         let ly = (y / scale) as f32;
-        layout_tree(&mut self.arena, self.root, self.viewport.0, self.viewport.1);
-        let Some(hit) = hit_test(&self.arena, self.root, lx, ly) else {
-            return false;
+        let hit = {
+            let mut inner = self.shared.lock().expect("host inner");
+            layout_tree(
+                &mut inner.arena,
+                self.root,
+                self.viewport.0,
+                self.viewport.1,
+            );
+            let Some(hit) = hit_test(&inner.arena, self.root, lx, ly) else {
+                return false;
+            };
+            if !inner.click_tokens.contains_key(&hit.raw()) {
+                return false;
+            }
+            hit
         };
-        if !self.click_tokens.contains_key(&hit.raw()) {
-            return false;
-        }
+        // Release the lock before invoking Perry callbacks (they may set_text).
         (self.on_click)(hit)
     }
 }
@@ -221,7 +268,7 @@ mod tests {
 
     #[test]
     fn build_counter_tree_and_hit() {
-        let mut host = NuiHost::new();
+        let host = NuiHost::new();
         let root = host.create_node(NodeType::View);
         host.set_number(root, PropertyId::Padding, 24.0);
         host.set_number(root, PropertyId::Gap, 16.0);
@@ -251,7 +298,10 @@ mod tests {
         host.insert(btn_label, button);
 
         host.layout(320.0, 240.0);
-        let layout = host.arena.get(button).unwrap().layout;
+        let layout = {
+            let inner = host.inner.lock().expect("host inner");
+            inner.arena.get(button).unwrap().layout
+        };
         let hit = host
             .hit_clickable(layout.x + 1.0, layout.y + 1.0)
             .expect("button hit");
