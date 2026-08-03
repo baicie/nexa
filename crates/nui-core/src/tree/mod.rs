@@ -180,11 +180,45 @@ impl Arena {
     }
 
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId) {
+        self.insert_child_before(parent, child, None);
+    }
+
+    /// Insert `child` under `parent`. If `before` is set, insert immediately
+    /// before that sibling; otherwise append. Reparents `child` if needed.
+    pub fn insert_child_before(
+        &mut self,
+        parent: NodeId,
+        child: NodeId,
+        before: Option<NodeId>,
+    ) {
+        if let Some(old_parent) = self.get(child).and_then(|n| n.parent) {
+            if let Some(p) = self.get_mut(old_parent) {
+                p.children.retain(|c| *c != child);
+            }
+        }
         if let Some(node) = self.get_mut(child) {
             node.parent = Some(parent);
         }
         if let Some(node) = self.get_mut(parent) {
+            if let Some(before) = before {
+                if let Some(idx) = node.children.iter().position(|c| *c == before) {
+                    node.children.insert(idx, child);
+                    return;
+                }
+            }
             node.children.push(child);
+        }
+    }
+
+    /// Detach `id` from its parent without destroying it (Solid removeNode).
+    pub fn detach_child(&mut self, parent: NodeId, child: NodeId) {
+        if let Some(p) = self.get_mut(parent) {
+            p.children.retain(|c| *c != child);
+        }
+        if let Some(node) = self.get_mut(child) {
+            if node.parent == Some(parent) {
+                node.parent = None;
+            }
         }
     }
 
@@ -277,5 +311,18 @@ mod tests {
         assert!(arena.get(child).is_none());
         assert!(arena.get(grand).is_none());
         assert!(arena.get(root).unwrap().children.is_empty());
+    }
+
+    #[test]
+    fn insert_before_preserves_order() {
+        let mut arena = Arena::new();
+        let root = arena.create(NodeType::View);
+        let a = arena.create(NodeType::View);
+        let b = arena.create(NodeType::View);
+        let c = arena.create(NodeType::View);
+        arena.insert_child(root, a);
+        arena.insert_child(root, c);
+        arena.insert_child_before(root, b, Some(c));
+        assert_eq!(arena.get(root).unwrap().children, vec![a, b, c]);
     }
 }

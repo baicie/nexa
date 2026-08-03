@@ -76,11 +76,16 @@ pub unsafe extern "C" fn js_nui_create_text(text_ptr: *const StringHeader) -> u6
 }
 
 #[no_mangle]
-pub extern "C" fn js_nui_insert(child: u64, parent: u64) {
+pub extern "C" fn js_nui_insert(child: u64, parent: u64, before: u64) {
     let session = session().lock().expect("host session");
+    let before = if before == 0 {
+        None
+    } else {
+        Some(node_from_raw(before))
+    };
     session
         .host
-        .insert(node_from_raw(child), node_from_raw(parent));
+        .insert_before(node_from_raw(child), node_from_raw(parent), before);
 }
 
 #[no_mangle]

@@ -59,11 +59,20 @@ impl NuiHost {
     }
 
     pub fn insert(&self, child: NodeId, parent: NodeId) {
+        self.insert_before(child, parent, None);
+    }
+
+    pub fn insert_before(&self, child: NodeId, parent: NodeId, before: Option<NodeId>) {
         let mut inner = self.inner.lock().expect("host inner");
-        inner.arena.insert_child(parent, child);
+        inner.arena.insert_child_before(parent, child, before);
         if inner.root.is_none() {
             inner.root = Some(parent);
         }
+    }
+
+    pub fn detach(&self, parent: NodeId, child: NodeId) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.detach_child(parent, child);
     }
 
     pub fn remove(&self, node: NodeId) {

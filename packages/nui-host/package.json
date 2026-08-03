@@ -39,6 +39,7 @@
           "name": "js_nui_insert",
           "params": [
             "u64",
+            "u64",
             "u64"
           ],
           "returns": "void"

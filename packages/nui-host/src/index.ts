@@ -7,7 +7,7 @@
 
 declare function js_nui_create_node(type: number): bigint;
 declare function js_nui_create_text(text: string): bigint;
-declare function js_nui_insert(child: bigint, parent: bigint): void;
+declare function js_nui_insert(child: bigint, parent: bigint, before: bigint): void;
 declare function js_nui_remove(node: bigint): void;
 declare function js_nui_set_text(node: bigint, text: string): void;
 declare function js_nui_set_number(node: bigint, property: number, value: number): void;
@@ -55,8 +55,8 @@ export function createText(text: string): bigint {
   return js_nui_create_text(text);
 }
 
-export function insert(child: bigint, parent: bigint): void {
-  js_nui_insert(child, parent);
+export function insert(child: bigint, parent: bigint, before?: bigint): void {
+  js_nui_insert(child, parent, before ?? 0n);
 }
 
 export function remove(node: bigint): void {
