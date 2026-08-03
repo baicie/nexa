@@ -1,0 +1,120 @@
+{
+  "name": "@nexa/nui-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Perry native library exposing the Nexa UI Host Protocol",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "src/",
+    "Cargo.toml",
+    "README.md"
+  ],
+  "keywords": [
+    "perry",
+    "perryts",
+    "nexa",
+    "nui"
+  ],
+  "perry": {
+    "nativeLibrary": {
+      "abiVersion": "0.5",
+      "functions": [
+        {
+          "name": "js_nui_create_node",
+          "params": [
+            "f64"
+          ],
+          "returns": "u64"
+        },
+        {
+          "name": "js_nui_create_text",
+          "params": [
+            "string"
+          ],
+          "returns": "u64"
+        },
+        {
+          "name": "js_nui_insert",
+          "params": [
+            "u64",
+            "u64"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_set_text",
+          "params": [
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_set_number",
+          "params": [
+            "u64",
+            "f64",
+            "f64"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_click_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_commit",
+          "params": [],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_run",
+          "params": [
+            "string"
+          ],
+          "returns": "void"
+        }
+      ],
+      "targets": {
+        "macos": {
+          "crate": ".",
+          "lib": "libperry_ext_nui_host.a",
+          "cargo_features": [],
+          "libs": [
+            "c++"
+          ],
+          "frameworks": [
+            "AppKit",
+            "ApplicationServices",
+            "Carbon",
+            "CoreFoundation",
+            "CoreGraphics",
+            "CoreText",
+            "CoreVideo",
+            "Foundation",
+            "IOKit",
+            "Metal",
+            "QuartzCore",
+            "Security"
+          ]
+        },
+        "linux": {
+          "crate": ".",
+          "lib": "libperry_ext_nui_host.a",
+          "cargo_features": []
+        },
+        "windows": {
+          "crate": ".",
+          "lib": "perry_ext_nui_host.lib",
+          "cargo_features": []
+        }
+      }
+    }
+  }
+}

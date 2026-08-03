@@ -16,6 +16,11 @@ default-members = [
     "crates/nui-perry-bridge",
 ]
 
+# Perry nativeLibrary packages own an independent Cargo.toml (perry-ffi + staticlib).
+exclude = [
+    "packages/nui-host",
+]
+
 [workspace.package]
 version = "0.1.0"
 edition = "2021"

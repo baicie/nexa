@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 1 已落地（Rust Counter）→ 下一步 Slice 2（Perry FFI）**。
+当前主线：**Slice 2 已落地（Perry Host FFI）→ 下一步 Slice 3（Minimal TSX）**。
 
 ## 仓库结构
 
@@ -31,6 +31,18 @@ docs/decisions/   ADR
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
+
+### Slice 2 验收（Perry Host FFI）
+
+```bash
+# 需要本机安装 Perry：npm i -g @perryts/perry（并装好平台包）
+cd packages/nui-host && cargo build --release
+cd ../../examples/perry-counter
+perry compile main.ts -o perry-counter
+./perry-counter
+```
+
+验收：TS 命令式 Host API 创建节点；点击 Increment 走 Rust→Perry 回调并更新 Text。
 
 ### Slice 1 验收
 

@@ -45,6 +45,12 @@ npm-debug.log*
 pnpm-debug.log*
 
 # Skia / CMake caches
-skia-*/ 
+skia-*/
 out/
 cmake-build-*/
+
+# Perry build outputs
+examples/perry-counter/perry-counter
+examples/perry-counter/perry-counter.exe
+**/node_modules/.cache/
+packages/nui-host/target/

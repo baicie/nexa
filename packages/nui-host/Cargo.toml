@@ -1,0 +1,20 @@
+[package]
+name = "perry-ext-nui_host"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Perry native library: Nexa UI Host Protocol"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+perry-ffi = { git = "https://github.com/PerryTS/perry", branch = "main" }
+nui-core = { path = "../../crates/nui-core" }
+nui-perry-bridge = { path = "../../crates/nui-perry-bridge" }
+
+# Ensure window/skia backends link into the Perry staticlib.
+nui-platform-winit = { path = "../../crates/nui-platform-winit" }
+nui-render-skia = { path = "../../crates/nui-render-skia" }

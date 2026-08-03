@@ -21,6 +21,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
 
+  examples/perry-counter:
+    dependencies:
+      '@nexa/nui-host':
+        specifier: workspace:*
+        version: link:../../packages/nui-host
+
   packages/adapter-react: {}
 
   packages/adapter-solid: {}
@@ -28,6 +34,8 @@ importers:
   packages/adapter-vue: {}
 
   packages/compiler-svelte: {}
+
+  packages/nui-host: {}
 
   packages/system: {}
 
