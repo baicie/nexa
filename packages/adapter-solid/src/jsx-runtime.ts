@@ -50,6 +50,7 @@ export namespace JSX {
     text: Record<string, unknown>;
     button: Record<string, unknown>;
     input: Record<string, unknown>;
+    image: Record<string, unknown>;
     [elemName: string]: Record<string, unknown>;
   }
 }

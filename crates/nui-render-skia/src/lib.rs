@@ -3,11 +3,11 @@
 //! Frames are painted into softbuffer-compatible `u32` pixels via
 //! [`skia_safe::surfaces::wrap_pixels`].
 
-use bytemuck::cast_slice_mut;
+use bytemuck::{cast_slice, cast_slice_mut};
 use nui_core::{Arena, ColorRgba, NodeId, NodeType};
 use skia_safe::{
-    surfaces, AlphaType, Color, ColorType, Font, FontMgr, FontStyle, ImageInfo, Paint, PaintStyle,
-    Point, RRect, Rect,
+    images, surfaces, AlphaType, Color, ColorType, Data, Font, FontMgr, FontStyle, ImageInfo, Paint,
+    PaintStyle, Point, RRect, Rect,
 };
 
 use nui_core::VERSION as CORE_VERSION;
@@ -50,9 +50,59 @@ pub struct FocusedPaint {
     pub placeholder: String,
 }
 
+/// Decoded bitmap attached to an Image node for this frame.
+#[derive(Debug, Clone)]
+pub struct ImagePaint {
+    pub node: NodeId,
+    pub width: u32,
+    pub height: u32,
+    /// Softbuffer-compatible BGRA8888 pixels (`0xAARRGGBB` on little-endian as u32).
+    pub pixels: Vec<u32>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PaintHints {
     pub focused: Option<FocusedPaint>,
+    pub images: Vec<ImagePaint>,
+}
+
+/// Decode encoded image bytes (PNG/JPEG/…) into BGRA `u32` pixels.
+///
+/// Returns `None` when Skia cannot decode the payload.
+#[must_use]
+pub fn decode_image_bytes(bytes: &[u8]) -> Option<(u32, u32, Vec<u32>)> {
+    let data = Data::new_copy(bytes);
+    let image = skia_safe::Image::from_encoded(data)?;
+    let w = u32::try_from(image.width()).ok()?;
+    let h = u32::try_from(image.height()).ok()?;
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let info = ImageInfo::new(
+        (image.width(), image.height()),
+        ColorType::BGRA8888,
+        AlphaType::Unpremul,
+        None,
+    );
+    let mut pixels = vec![0_u32; (w as usize) * (h as usize)];
+    let row_bytes = (w as usize) * std::mem::size_of::<u32>();
+    if !image.read_pixels(
+        &info,
+        pixels.as_mut_slice(),
+        row_bytes,
+        (0, 0),
+        skia_safe::image::CachingHint::Allow,
+    ) {
+        return None;
+    }
+    Some((w, h, pixels))
+}
+
+/// Decode an image file from disk. On I/O or decode failure returns `None`.
+#[must_use]
+pub fn decode_image_file(path: &str) -> Option<(u32, u32, Vec<u32>)> {
+    let bytes = std::fs::read(path).ok()?;
+    decode_image_bytes(&bytes)
 }
 
 /// Paint a laid-out node tree into a softbuffer pixel buffer.
@@ -117,6 +167,10 @@ fn paint_node(
         canvas.draw_rrect(rrect, &fill);
     }
 
+    if node.node_type == NodeType::Image {
+        paint_image_node(id, x, y, w, h, canvas, hints);
+    }
+
     if node.node_type == NodeType::Text {
         let focused = hints
             .and_then(|h| h.focused.as_ref())
@@ -176,6 +230,55 @@ fn paint_node(
     if is_scroll {
         canvas.restore();
     }
+}
+
+fn paint_image_node(
+    id: NodeId,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    canvas: &skia_safe::Canvas,
+    hints: Option<&PaintHints>,
+) {
+    let asset = hints.and_then(|h| h.images.iter().find(|img| img.node == id));
+    let dst = Rect::from_xywh(x, y, w.max(1.0), h.max(1.0));
+
+    let Some(asset) = asset.filter(|a| !a.pixels.is_empty() && a.width > 0 && a.height > 0) else {
+        let mut fill = Paint::default();
+        fill.set_anti_alias(true);
+        fill.set_style(PaintStyle::Fill);
+        fill.set_color(Color::from_rgb(0xD1, 0xD5, 0xDB));
+        canvas.draw_rect(dst, &fill);
+        return;
+    };
+
+    let info = ImageInfo::new(
+        (asset.width as i32, asset.height as i32),
+        ColorType::BGRA8888,
+        AlphaType::Unpremul,
+        None,
+    );
+    let row_bytes = (asset.width as usize) * std::mem::size_of::<u32>();
+    let data = Data::new_copy(cast_slice(&asset.pixels));
+    let Some(image) = images::raster_from_data(&info, data, row_bytes) else {
+        let mut fill = Paint::default();
+        fill.set_anti_alias(true);
+        fill.set_style(PaintStyle::Fill);
+        fill.set_color(Color::from_rgb(0xD1, 0xD5, 0xDB));
+        canvas.draw_rect(dst, &fill);
+        return;
+    };
+
+    let mut paint = Paint::default();
+    paint.set_anti_alias(true);
+    let src = Rect::from_wh(asset.width as f32, asset.height as f32);
+    canvas.draw_image_rect(
+        &image,
+        Some((&src, skia_safe::canvas::SrcRectConstraint::Strict)),
+        dst,
+        &paint,
+    );
 }
 
 fn to_skia_color(c: ColorRgba) -> Color {
@@ -271,6 +374,15 @@ mod tests {
     use nui_core::layout::layout_tree;
     use nui_core::{Arena, ColorRgba, FlexDirection, NodeType, Style};
 
+    /// 1×1 opaque red PNG.
+    const TINY_PNG: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
+        0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8,
+        0xCF, 0xC0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xFE, 0x02, 0xFE, 0x00, 0x00,
+        0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+
     #[test]
     fn backend_is_skia() {
         assert_eq!(backend_name(), "skia");
@@ -281,6 +393,53 @@ mod tests {
     fn smoke_paint_produces_pixels() {
         let pixels = smoke_paint_hello(320, 200, 1.0).expect("smoke paint");
         assert_eq!(pixels.len(), 320 * 200);
+        assert!(pixels.iter().any(|&p| p != 0));
+    }
+
+    #[test]
+    fn decode_tiny_png_bytes() {
+        let (w, h, pixels) = decode_image_bytes(TINY_PNG).expect("decode png");
+        assert_eq!((w, h), (1, 1));
+        assert_eq!(pixels.len(), 1);
+    }
+
+    #[test]
+    fn paint_tree_image_node() {
+        let (iw, ih, ipixels) = decode_image_bytes(TINY_PNG).expect("decode");
+        let mut arena = Arena::new();
+        let root = arena.create(NodeType::View);
+        arena.set_style(
+            root,
+            Style {
+                width: Some(64.0),
+                height: Some(64.0),
+                padding: 8.0,
+                ..Style::default()
+            },
+        );
+        let image = arena.create(NodeType::Image);
+        arena.set_style(
+            image,
+            Style {
+                width: Some(32.0),
+                height: Some(32.0),
+                ..Style::default()
+            },
+        );
+        arena.insert_child(root, image);
+        layout_tree(&mut arena, root, 64.0, 64.0);
+
+        let hints = PaintHints {
+            images: vec![ImagePaint {
+                node: image,
+                width: iw,
+                height: ih,
+                pixels: ipixels,
+            }],
+            ..PaintHints::default()
+        };
+        let mut pixels = vec![0_u32; 64 * 64];
+        paint_tree(&arena, root, &mut pixels, 64, 64, 1.0, Some(&hints)).expect("paint");
         assert!(pixels.iter().any(|&p| p != 0));
     }
 

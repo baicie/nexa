@@ -4,6 +4,7 @@ import {
   addSubmitListener,
   PropertyId,
   registerInput,
+  setImage,
   setNumber,
   setText,
 } from "./ffi";
@@ -110,6 +111,13 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
       addClickListener(node.id, value as () => void);
     }
     return;
+  }
+
+  if (node.tag === "image") {
+    if (name === "src" && typeof value === "string") {
+      setImage(node.id, value);
+      return;
+    }
   }
 
   if (node.tag === "input") {

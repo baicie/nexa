@@ -36,6 +36,7 @@ declare function js_nui_add_submit_listener(
   node: bigint | number,
   callback: (value: string) => void,
 ): void;
+declare function js_nui_set_image(node: bigint | number, path: string): void;
 declare function js_nui_commit(): void;
 declare function js_nui_run(title: string): void;
 
@@ -134,6 +135,11 @@ export function addSubmitListener(
   callback: (value: string) => void,
 ): void {
   js_nui_add_submit_listener(asU64(node), callback);
+}
+
+/** Load a local PNG/JPEG (etc.) onto an Image node. */
+export function setImage(node: bigint, path: string): void {
+  js_nui_set_image(asU64(node), path);
 }
 
 export function commit(): void {

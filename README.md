@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**ADR-004 MVP 已归档（Accepted）**。桌面端切片 0–9 与 §11 复合组件（含 Stack / Spacer / Card）已齐。仍暂缓：Image 位图、TextArea、移动端、DevTools、完整 CSS、GPU 自研、Vue 2。
+当前主线：**ADR-004 MVP 已归档**；**Slice 11 Image（本地位图）已落地**。仍暂缓：Image 网络加载、TextArea、移动端、DevTools、完整 CSS、GPU 自研、Vue 2。
 
 ## 仓库结构
 
@@ -43,6 +43,7 @@ docs/decisions/   ADR
 | React | `examples/react-counter` | `perry compile main.tsx -o react-counter` |
 | Svelte | `examples/svelte-counter` | `perry compile main.ts -o svelte-counter` |
 | Layout | `examples/layout-playground` | `perry compile main.tsx -o layout-playground` |
+| Image | `examples/image-demo` | `cd examples/image-demo && pnpm start` |
 
 对照清单见 [examples/framework-parity](examples/framework-parity/README.md)。
 
@@ -80,10 +81,11 @@ pnpm install && pnpm typecheck && pnpm format:check
 | 8 | Svelte compiler backend | 完成（Counter 子集 runtime） |
 | 9 | Input（单行） | 完成（Host focus + IME/键盘 + Todo） |
 | 10 | ADR §11 复合组件 | 完成（Stack / Spacer / Card + flexGrow/align） |
+| 11 | Image（本地） | 完成（set_image + Skia decode/paint + image-demo） |
 
 ## 刻意未做（ADR）
 
-Image 位图解码 / TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研后端 / Vue 2。
+Image 网络加载 / TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研后端 / Vue 2。
 
 ## CI 设计
 

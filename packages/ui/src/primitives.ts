@@ -16,6 +16,7 @@ export type HostKind =
   | "scroll"
   | "card"
   | "spacer"
+  | "image"
   | "for";
 
 export type PrimitiveElement = {
@@ -131,6 +132,17 @@ export type InputProps = {
 
 export function Input(props: InputProps = {}): PrimitiveElement {
   return primitive("input", props as Record<string, unknown>);
+}
+
+export type ImageProps = {
+  /** Local filesystem path (PNG/JPEG/…). */
+  src: string;
+  width?: number;
+  height?: number;
+};
+
+export function Image(props: ImageProps): PrimitiveElement {
+  return primitive("image", props as Record<string, unknown>);
 }
 
 export type ForProps<T> = {

@@ -10,6 +10,7 @@ import {
   registerInput,
   remove,
   rgba,
+  setImage,
   setNumber,
   setText,
   setWindowTitle,
@@ -213,6 +214,14 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       const node = createNode(NodeType.Scroll);
       applyBoxProps(node, props, 0);
       mountChildren(node, props.children);
+      return node;
+    }
+    case "image": {
+      const node = createNode(NodeType.Image);
+      applyBoxProps(node, props);
+      if (typeof props.src === "string") {
+        setImage(node, props.src);
+      }
       return node;
     }
     case "for": {

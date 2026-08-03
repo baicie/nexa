@@ -204,6 +204,16 @@ pub extern "C" fn js_nui_add_submit_listener(node: u64, callback: i64) {
     session.submit_closures.insert(node, callback);
 }
 
+/// # Safety
+/// `path_ptr` must be null or a Perry-runtime `StringHeader`.
+#[no_mangle]
+pub unsafe extern "C" fn js_nui_set_image(node: u64, path_ptr: *const StringHeader) {
+    let handle = JsString::from_raw(path_ptr as *mut StringHeader);
+    let path = read_string(handle).unwrap_or("");
+    let session = session().lock().expect("host session");
+    session.host.set_image(node_from_raw(node), path);
+}
+
 #[no_mangle]
 pub extern "C" fn js_nui_commit() {
     // Slice 2: mutations apply immediately; commit is reserved for future

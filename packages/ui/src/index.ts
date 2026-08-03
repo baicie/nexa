@@ -2,7 +2,7 @@
  * @nexa/ui — Minimal TSX surface (Slice 3–4 + ADR §11 composites).
  *
  * First-party: Window / Column / Row / Stack / View / Scroll / Card / Spacer /
- * Text / Button / Input / For / signal / mount.
+ * Text / Button / Input / Image / For / signal / mount.
  */
 
 export { signal, effect, onCleanup, isSignal } from "./signal";
@@ -21,6 +21,7 @@ export {
   Button,
   For,
   Input,
+  Image,
   isPrimitive,
 } from "./primitives";
 export type {
@@ -32,6 +33,7 @@ export type {
   TextProps,
   ButtonProps,
   InputProps,
+  ImageProps,
   ForProps,
   PrimitiveElement,
   HostKind,

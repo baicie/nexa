@@ -102,6 +102,14 @@
           "returns": "void"
         },
         {
+          "name": "js_nui_set_image",
+          "params": [
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
           "name": "js_nui_commit",
           "params": [],
           "returns": "void"

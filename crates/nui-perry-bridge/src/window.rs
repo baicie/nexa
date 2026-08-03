@@ -39,7 +39,7 @@ impl WindowApp for HostWindowApp {
             width,
             height,
             scale,
-            hints.as_ref(),
+            Some(&hints),
         ) {
             eprintln!("nui paint failed: {err}");
         }

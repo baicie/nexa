@@ -8,3 +8,4 @@ packages:
   - "examples/react-counter"
   - "examples/svelte-counter"
   - "examples/layout-playground"
+  - "examples/image-demo"

@@ -24,6 +24,15 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
 
+  examples/image-demo:
+    dependencies:
+      '@nexa/nui-host':
+        specifier: workspace:*
+        version: link:../../packages/nui-host
+      '@nexa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+
   examples/layout-playground:
     dependencies:
       '@nexa/nui-host':

@@ -16,6 +16,7 @@ export {
   registerInput,
   addChangeListener,
   addSubmitListener,
+  setImage,
   commit,
   run,
 } from "./ffi";

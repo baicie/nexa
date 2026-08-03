@@ -68,5 +68,7 @@ examples/svelte-counter/svelte-counter.exe
 examples/svelte-counter/dist/
 examples/layout-playground/layout-playground
 examples/layout-playground/layout-playground.exe
+examples/image-demo/image-demo
+examples/image-demo/image-demo.exe
 **/node_modules/.cache/
 packages/nui-host/target/

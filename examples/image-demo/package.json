@@ -1,0 +1,21 @@
+{
+  "name": "@nexa/example-image-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 11: local Image decode + Skia paint",
+  "type": "module",
+  "dependencies": {
+    "@nexa/ui": "workspace:*",
+    "@nexa/nui-host": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o image-demo",
+    "start": "perry compile main.tsx -o image-demo && ./image-demo",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": ["@nexa/nui-host", "@nexa/ui"]
+    }
+  }
+}

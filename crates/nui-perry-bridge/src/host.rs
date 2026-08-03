@@ -7,7 +7,9 @@ use nui_core::{
     hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
 };
 use nui_layout_taffy::layout_tree;
-use nui_render_skia::{paint_tree, FocusedPaint, PaintHints};
+use nui_render_skia::{
+    decode_image_file, paint_tree, FocusedPaint, ImagePaint, PaintHints,
+};
 
 use crate::window::HostWindowApp;
 
@@ -26,6 +28,15 @@ pub(crate) struct InputField {
     pub(crate) caret: usize,
 }
 
+/// Decoded local image attached to an Image node.
+#[derive(Debug, Clone)]
+pub(crate) struct ImageAsset {
+    pub(crate) path: String,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) pixels: Vec<u32>,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct HostInner {
     pub(crate) arena: Arena,
@@ -38,6 +49,8 @@ pub(crate) struct HostInner {
     /// Focusable input containers (View) → text child + caret.
     pub(crate) inputs: HashMap<u64, InputField>,
     pub(crate) focused: Option<NodeId>,
+    /// Image node.raw() → decoded bitmap (may be empty on load failure).
+    pub(crate) images: HashMap<u64, ImageAsset>,
 }
 
 /// Opaque Host session driving the Slice 1 node tree from HostOps.
@@ -101,6 +114,7 @@ impl NuiHost {
             inner.change_tokens.remove(&raw);
             inner.submit_tokens.remove(&raw);
             inner.inputs.remove(&raw);
+            inner.images.remove(&raw);
             if inner.focused == Some(id) {
                 inner.focused = None;
             }
@@ -196,6 +210,43 @@ impl NuiHost {
         inner.submit_tokens.insert(node.raw(), token);
     }
 
+    /// Load a local image file onto an Image node.
+    ///
+    /// On failure stores an empty asset and applies a 64×64 placeholder size when
+    /// the node has no explicit width/height.
+    pub fn set_image(&self, node: NodeId, path: &str) {
+        let decoded = decode_image_file(path);
+        let mut inner = self.inner.lock().expect("host inner");
+        let (width, height, pixels) = match decoded {
+            Some((w, h, px)) => (w, h, px),
+            None => (64, 64, Vec::new()),
+        };
+        if let Some(n) = inner.arena.get_mut(node) {
+            if n.style.width.is_none() {
+                n.style.width = Some(width as f32);
+            }
+            if n.style.height.is_none() {
+                n.style.height = Some(height as f32);
+            }
+        }
+        inner.images.insert(
+            node.raw(),
+            ImageAsset {
+                path: path.to_owned(),
+                width,
+                height,
+                pixels,
+            },
+        );
+    }
+
+    /// Path used for load; retained for diagnostics / future reload.
+    #[must_use]
+    pub fn image_path(&self, node: NodeId) -> Option<String> {
+        let inner = self.inner.lock().expect("host inner");
+        inner.images.get(&node.raw()).map(|a| a.path.clone())
+    }
+
     #[must_use]
     pub fn click_token(&self, node: NodeId) -> Option<u64> {
         let inner = self.inner.lock().expect("host inner");
@@ -255,7 +306,7 @@ impl NuiHost {
         let inner = self.inner.lock().expect("host inner");
         let root = inner.root.ok_or("nui host has no root node")?;
         let hints = paint_hints_from_inner(&inner);
-        paint_tree(&inner.arena, root, pixels, width, height, scale, hints.as_ref())
+        paint_tree(&inner.arena, root, pixels, width, height, scale, Some(&hints))
             .map_err(|e| e.to_string())
     }
 
@@ -289,16 +340,26 @@ impl NuiHost {
     }
 }
 
-pub(crate) fn paint_hints_from_inner(inner: &HostInner) -> Option<PaintHints> {
-    let focused = inner.focused?;
-    let field = inner.inputs.get(&focused.raw())?;
-    Some(PaintHints {
-        focused: Some(FocusedPaint {
+pub(crate) fn paint_hints_from_inner(inner: &HostInner) -> PaintHints {
+    let focused = inner.focused.and_then(|focused| {
+        let field = inner.inputs.get(&focused.raw())?;
+        Some(FocusedPaint {
             text_node: field.text_node,
             caret: field.caret,
             placeholder: field.placeholder.clone(),
-        }),
-    })
+        })
+    });
+    let images = inner
+        .images
+        .iter()
+        .map(|(&raw, asset)| ImagePaint {
+            node: NodeId::from_raw(raw),
+            width: asset.width,
+            height: asset.height,
+            pixels: asset.pixels.clone(),
+        })
+        .collect();
+    PaintHints { focused, images }
 }
 
 pub(crate) fn read_input_value(inner: &HostInner, container: NodeId) -> String {

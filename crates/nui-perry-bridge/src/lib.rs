@@ -101,4 +101,24 @@ mod tests {
             Some("Hi")
         );
     }
+
+    #[test]
+    fn set_image_missing_file_stores_placeholder() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let image = host.create_node(NodeType::Image);
+        host.insert(image, root);
+        host.set_image(image, "/tmp/nexa-ui-missing-image-fixture.png");
+        assert_eq!(
+            host.image_path(image).as_deref(),
+            Some("/tmp/nexa-ui-missing-image-fixture.png")
+        );
+        let inner = host.inner.lock().expect("host inner");
+        let asset = inner.images.get(&image.raw()).expect("asset");
+        assert!(asset.pixels.is_empty());
+        assert_eq!((asset.width, asset.height), (64, 64));
+        let style = &inner.arena.get(image).unwrap().style;
+        assert_eq!(style.width, Some(64.0));
+        assert_eq!(style.height, Some(64.0));
+    }
 }

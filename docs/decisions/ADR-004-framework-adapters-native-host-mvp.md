@@ -17,10 +17,10 @@
 | Slice 9 单行 Input（focus / IME / Todo） | 完成 |
 | Composite：Column / Row / Stack / Button / Spacer / Card | 完成 |
 | Native：Root / View / Text / Scroll | 完成 |
-| Native：Image 像素解码 | **仍暂缓**（`NodeType::Image` 保留，无位图加载） |
+| Native：Image 像素解码 | 完成（Slice 11：本地 PNG/JPEG + Skia；网络仍暂缓） |
 | React Counter under Perry | 完成（Number u64 FFI + flushSync + scheduler） |
 
-刻意不做（仍有效）：TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研 / Vue 2 / WebView / 路由 / 动画系统。
+刻意不做（仍有效）：TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研 / Vue 2 / WebView / 路由 / 动画系统 / Image 网络加载。
 
 ## 1. 背景
 
@@ -751,7 +751,7 @@ Suspense、Concurrent Features 和 Server Components 不属于首版。
 Root      ✅
 View      ✅
 Text      ✅
-Image     ⏸ 类型保留，位图加载暂缓
+Image     ✅ 本地解码（Slice 11）；网络加载暂缓
 Scroll    ✅
 ```
 
@@ -780,7 +780,7 @@ View
 
 暂不实现：
 
-- Image 位图解码 / 网络加载；
+- Image 网络 URL / 异步加载 / object-fit；
 - TextArea / 选区 / 富文本；
 - Input 多行与完整 IME 预编辑（单行 Input 已在 Slice 9）；
 - 富文本；
