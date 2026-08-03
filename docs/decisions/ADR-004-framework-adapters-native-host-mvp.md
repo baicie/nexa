@@ -763,8 +763,8 @@ View
 
 暂不实现：
 
-- Input；
-- TextArea；
+- TextArea / 选区 / 富文本；
+- Input 多行与完整 IME 预编辑（单行 Input 已在 Slice 9）；
 - 富文本；
 - WebView；
 - 视频；

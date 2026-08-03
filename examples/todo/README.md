@@ -1,14 +1,10 @@
-# Todo List (Slice 4)
+# Todo List (Slice 4 + Input)
 
-Minimal TSX Todo via `@nexa/ui` → Host:
-
-- dynamic insert/remove (`For` + Host `remove`)
-- Taffy Flexbox layout
-- Scroll (clip + mouse wheel)
+Minimal TSX Todo with `For` / `Scroll` / **`Input`**.
 
 ```bash
-perry compile main.tsx -o todo
-./todo
+perry compile main.tsx -o todo && ./todo
 ```
 
-Add appends `Task N` (no TextInput in MVP). Toggle / Remove update the signal; list rows stay keyed by `id`.
+- Type in the field, press **Enter** or **Add** to append
+- Toggle / Remove mutate the list signal without rebuilding the window

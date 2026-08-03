@@ -1,10 +1,13 @@
 import {
+  addChangeListener,
   addClickListener,
+  addSubmitListener,
   createNode,
   createText,
   insert,
   NodeType,
   PropertyId,
+  registerInput,
   remove,
   rgba,
   setNumber,
@@ -196,6 +199,60 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       }
       insert(label, node);
       return node;
+    }
+    case "input": {
+      const container = createNode(NodeType.View);
+      setNumber(container, PropertyId.Padding, 10);
+      setNumber(container, PropertyId.BorderRadius, 8);
+      setNumber(container, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
+      setNumber(container, PropertyId.Height, 36);
+      if (typeof props.width === "number") {
+        setNumber(container, PropertyId.Width, props.width);
+      } else {
+        setNumber(container, PropertyId.Width, 220);
+      }
+
+      const initial = isSignal(props.value)
+        ? String(props.value.value ?? "")
+        : props.value != null
+          ? String(props.value)
+          : "";
+      const textNode = createText(initial);
+      setNumber(textNode, PropertyId.FontSize, 16);
+      setNumber(textNode, PropertyId.TextColor, rgba(0x11, 0x18, 0x27));
+      insert(textNode, container);
+
+      const placeholder =
+        typeof props.placeholder === "string" ? props.placeholder : "";
+      registerInput(container, textNode, placeholder);
+
+      if (isSignal(props.value)) {
+        const signalValue = props.value;
+        effect(() => {
+          setText(textNode, String(signalValue.value ?? ""));
+        });
+      }
+
+      if (typeof props.onChange === "function") {
+        const onChange = props.onChange as (value: string) => void;
+        addChangeListener(container, (value) => {
+          if (isSignal(props.value)) {
+            props.value.value = value;
+          }
+          onChange(value);
+        });
+      } else if (isSignal(props.value)) {
+        const signalValue = props.value;
+        addChangeListener(container, (value) => {
+          signalValue.value = value;
+        });
+      }
+
+      if (typeof props.onSubmit === "function") {
+        addSubmitListener(container, props.onSubmit as (value: string) => void);
+      }
+
+      return container;
     }
     default:
       return null;

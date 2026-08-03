@@ -1,4 +1,4 @@
-//! Shared Host session state (tree + click tokens).
+//! Shared Host session state (tree + click / input tokens).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -7,9 +7,24 @@ use nui_core::{
     hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
 };
 use nui_layout_taffy::layout_tree;
-use nui_render_skia::paint_tree;
+use nui_render_skia::{paint_tree, FocusedPaint, PaintHints};
 
 use crate::window::HostWindowApp;
+
+/// UI events delivered while the native window loop runs.
+#[derive(Debug, Clone)]
+pub enum HostUiEvent {
+    Click(NodeId),
+    Change { node: NodeId, value: String },
+    Submit { node: NodeId, value: String },
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InputField {
+    pub(crate) text_node: NodeId,
+    pub(crate) placeholder: String,
+    pub(crate) caret: usize,
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct HostInner {
@@ -18,6 +33,11 @@ pub(crate) struct HostInner {
     pub(crate) root: Option<NodeId>,
     /// node.raw() → opaque callback token (Perry closure ptr as u64).
     pub(crate) click_tokens: HashMap<u64, u64>,
+    pub(crate) change_tokens: HashMap<u64, u64>,
+    pub(crate) submit_tokens: HashMap<u64, u64>,
+    /// Focusable input containers (View) → text child + caret.
+    pub(crate) inputs: HashMap<u64, InputField>,
+    pub(crate) focused: Option<NodeId>,
 }
 
 /// Opaque Host session driving the Slice 1 node tree from HostOps.
@@ -76,7 +96,14 @@ impl NuiHost {
             if let Some(n) = inner.arena.get(id) {
                 stack.extend(n.children.iter().copied());
             }
-            inner.click_tokens.remove(&id.raw());
+            let raw = id.raw();
+            inner.click_tokens.remove(&raw);
+            inner.change_tokens.remove(&raw);
+            inner.submit_tokens.remove(&raw);
+            inner.inputs.remove(&raw);
+            if inner.focused == Some(id) {
+                inner.focused = None;
+            }
         }
         if inner.root == Some(node) {
             inner.root = None;
@@ -87,6 +114,12 @@ impl NuiHost {
     pub fn set_text(&self, node: NodeId, text: &str) {
         let mut inner = self.inner.lock().expect("host inner");
         inner.arena.set_text(node, text);
+        // Keep caret at end when JS drives a controlled value.
+        for field in inner.inputs.values_mut() {
+            if field.text_node == node {
+                field.caret = text.chars().count();
+            }
+        }
     }
 
     pub fn set_number(&self, node: NodeId, property: PropertyId, value: f64) {
@@ -126,6 +159,38 @@ impl NuiHost {
         let mut inner = self.inner.lock().expect("host inner");
         inner.arena.set_clickable(node, true);
         inner.click_tokens.insert(node.raw(), token);
+    }
+
+    /// Register a composite Input: `container` (View) + `text_node` (Text child).
+    pub fn register_input(&self, container: NodeId, text_node: NodeId, placeholder: &str) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.set_clickable(container, true);
+        let caret = inner
+            .arena
+            .get(text_node)
+            .and_then(|n| n.text.as_ref())
+            .map(|t| t.chars().count())
+            .unwrap_or(0);
+        inner.inputs.insert(
+            container.raw(),
+            InputField {
+                text_node,
+                placeholder: placeholder.to_owned(),
+                caret,
+            },
+        );
+    }
+
+    pub fn add_change_listener(&self, node: NodeId, token: u64) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.set_clickable(node, true);
+        inner.change_tokens.insert(node.raw(), token);
+    }
+
+    pub fn add_submit_listener(&self, node: NodeId, token: u64) {
+        let mut inner = self.inner.lock().expect("host inner");
+        inner.arena.set_clickable(node, true);
+        inner.submit_tokens.insert(node.raw(), token);
     }
 
     #[must_use]
@@ -186,7 +251,9 @@ impl NuiHost {
     ) -> Result<(), String> {
         let inner = self.inner.lock().expect("host inner");
         let root = inner.root.ok_or("nui host has no root node")?;
-        paint_tree(&inner.arena, root, pixels, width, height, scale).map_err(|e| e.to_string())
+        let hints = paint_hints_from_inner(&inner);
+        paint_tree(&inner.arena, root, pixels, width, height, scale, hints.as_ref())
+            .map_err(|e| e.to_string())
     }
 
     #[must_use]
@@ -196,14 +263,11 @@ impl NuiHost {
         hit_test(&inner.arena, root, logical_x, logical_y)
     }
 
-    /// Run the native window. `on_click` receives the clickable node id.
-    /// Return `true` from `on_click` to request a redraw.
-    ///
-    /// Shares the same arena with HostOps so Perry callbacks can mutate text
-    /// while the event loop is running.
-    pub fn run<F>(&self, title: &str, on_click: F) -> Result<(), String>
+    /// Run the native window. Callback receives clicks / input change / submit.
+    /// Return `true` to request a redraw.
+    pub fn run<F>(&self, title: &str, on_event: F) -> Result<(), String>
     where
-        F: FnMut(NodeId) -> bool + 'static,
+        F: FnMut(HostUiEvent) -> bool + 'static,
     {
         let root = self
             .inner
@@ -214,12 +278,77 @@ impl NuiHost {
         let app = HostWindowApp {
             shared: Arc::clone(&self.inner),
             root,
-            on_click: Box::new(on_click),
+            on_event: Box::new(on_event),
             viewport: (640.0, 420.0),
         };
         nui_platform_winit::run_app(title, app).map_err(|e| e.to_string())?;
         Ok(())
     }
+}
+
+pub(crate) fn paint_hints_from_inner(inner: &HostInner) -> Option<PaintHints> {
+    let focused = inner.focused?;
+    let field = inner.inputs.get(&focused.raw())?;
+    Some(PaintHints {
+        focused: Some(FocusedPaint {
+            text_node: field.text_node,
+            caret: field.caret,
+            placeholder: field.placeholder.clone(),
+        }),
+    })
+}
+
+pub(crate) fn read_input_value(inner: &HostInner, container: NodeId) -> String {
+    let Some(field) = inner.inputs.get(&container.raw()) else {
+        return String::new();
+    };
+    inner
+        .arena
+        .get(field.text_node)
+        .and_then(|n| n.text.clone())
+        .unwrap_or_default()
+}
+
+pub(crate) fn insert_text_at_caret(inner: &mut HostInner, text: &str) -> Option<(NodeId, String)> {
+    let focused = inner.focused?;
+    let field = inner.inputs.get_mut(&focused.raw())?;
+    let current = inner
+        .arena
+        .get(field.text_node)
+        .and_then(|n| n.text.clone())
+        .unwrap_or_default();
+    let mut chars: Vec<char> = current.chars().collect();
+    let caret = field.caret.min(chars.len());
+    for (i, ch) in text.chars().enumerate() {
+        chars.insert(caret + i, ch);
+    }
+    field.caret = caret + text.chars().count();
+    let next: String = chars.into_iter().collect();
+    inner.arena.set_text(field.text_node, next.clone());
+    Some((focused, next))
+}
+
+pub(crate) fn backspace_at_caret(inner: &mut HostInner) -> Option<(NodeId, String)> {
+    let focused = inner.focused?;
+    let field = inner.inputs.get_mut(&focused.raw())?;
+    if field.caret == 0 {
+        return None;
+    }
+    let current = inner
+        .arena
+        .get(field.text_node)
+        .and_then(|n| n.text.clone())
+        .unwrap_or_default();
+    let mut chars: Vec<char> = current.chars().collect();
+    let idx = field.caret - 1;
+    if idx >= chars.len() {
+        return None;
+    }
+    chars.remove(idx);
+    field.caret = idx;
+    let next: String = chars.into_iter().collect();
+    inner.arena.set_text(field.text_node, next.clone());
+    Some((focused, next))
 }
 
 pub(crate) fn color_from_u32(rgba: u32) -> ColorRgba {

@@ -42,6 +42,19 @@ impl std::fmt::Display for PaintError {
 
 impl std::error::Error for PaintError {}
 
+/// Optional paint hints for focused Input (caret / placeholder).
+#[derive(Debug, Clone)]
+pub struct FocusedPaint {
+    pub text_node: NodeId,
+    pub caret: usize,
+    pub placeholder: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PaintHints {
+    pub focused: Option<FocusedPaint>,
+}
+
 /// Paint a laid-out node tree into a softbuffer pixel buffer.
 pub fn paint_tree(
     arena: &Arena,
@@ -50,6 +63,7 @@ pub fn paint_tree(
     width: u32,
     height: u32,
     scale: f64,
+    hints: Option<&PaintHints>,
 ) -> Result<(), PaintError> {
     if width == 0 || height == 0 {
         return Err(PaintError::InvalidSize);
@@ -71,7 +85,7 @@ pub fn paint_tree(
     canvas.clear(Color::from_rgb(0xF4, 0xF6, 0xF8));
 
     let typeface = resolve_typeface().ok_or(PaintError::Typeface)?;
-    paint_node(arena, root, canvas, &typeface, scale);
+    paint_node(arena, root, canvas, &typeface, scale, hints);
     Ok(())
 }
 
@@ -81,6 +95,7 @@ fn paint_node(
     canvas: &skia_safe::Canvas,
     typeface: &skia_safe::Typeface,
     scale: f32,
+    hints: Option<&PaintHints>,
 ) {
     let Some(node) = arena.get(id) else {
         return;
@@ -103,15 +118,44 @@ fn paint_node(
     }
 
     if node.node_type == NodeType::Text {
-        if let Some(text) = node.text.as_deref() {
+        let focused = hints
+            .and_then(|h| h.focused.as_ref())
+            .filter(|f| f.text_node == id);
+        let raw = node.text.as_deref().unwrap_or("");
+        let font = Font::from_typeface(typeface, node.style.font_size * scale);
+        let baseline = y + node.style.font_size * scale * 0.9;
+
+        if raw.is_empty() {
+            if let Some(f) = focused {
+                if !f.placeholder.is_empty() {
+                    let mut ph = Paint::default();
+                    ph.set_anti_alias(true);
+                    ph.set_color(Color::from_rgb(0x9C, 0xA3, 0xAF));
+                    canvas.draw_str(&f.placeholder, Point::new(x, baseline), &font, &ph);
+                }
+            }
+        } else {
             let mut text_paint = Paint::default();
             text_paint.set_anti_alias(true);
             text_paint.set_color(to_skia_color(node.style.color));
+            canvas.draw_str(raw, Point::new(x, baseline), &font, &text_paint);
+        }
 
-            let font = Font::from_typeface(typeface, node.style.font_size * scale);
-            // Baseline roughly inside the layout box.
-            let baseline = y + node.style.font_size * scale * 0.9;
-            canvas.draw_str(text, Point::new(x, baseline), &font, &text_paint);
+        if let Some(f) = focused {
+            let prefix: String = raw.chars().take(f.caret).collect();
+            let (caret_x, _) = font.measure_str(&prefix, None);
+            let mut caret = Paint::default();
+            caret.set_anti_alias(true);
+            caret.set_color(Color::from_rgb(0x11, 0x18, 0x27));
+            caret.set_stroke_width(1.5 * scale);
+            caret.set_style(PaintStyle::Stroke);
+            let top = y + 2.0 * scale;
+            let bottom = y + h - 2.0 * scale;
+            canvas.draw_line(
+                Point::new(x + caret_x, top),
+                Point::new(x + caret_x, bottom),
+                &caret,
+            );
         }
     }
 
@@ -126,7 +170,7 @@ fn paint_node(
     }
 
     for child in &children {
-        paint_node(arena, *child, canvas, typeface, scale);
+        paint_node(arena, *child, canvas, typeface, scale, hints);
     }
 
     if is_scroll {
@@ -269,7 +313,7 @@ mod tests {
         layout_tree(&mut arena, root, 320.0, 200.0);
 
         let mut pixels = vec![0_u32; 320 * 200];
-        paint_tree(&arena, root, &mut pixels, 320, 200, 1.0).expect("paint");
+        paint_tree(&arena, root, &mut pixels, 320, 200, 1.0, None).expect("paint");
         assert!(pixels.iter().any(|&p| p != 0));
     }
 }

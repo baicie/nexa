@@ -10,13 +10,14 @@
 mod host;
 mod window;
 
-pub use host::{pack_rgba, NuiHost};
+pub use host::{pack_rgba, HostUiEvent, NuiHost};
 
 #[cfg(test)]
 mod tests {
     use nui_core::{NodeType, PropertyId};
 
     use super::*;
+    use crate::host::{backspace_at_caret, insert_text_at_caret};
 
     #[test]
     fn build_counter_tree_and_hit() {
@@ -73,5 +74,31 @@ mod tests {
         let inner = host.inner.lock().expect("host inner");
         assert!(inner.arena.get(child).is_none());
         assert!(inner.arena.get(root).unwrap().children.is_empty());
+    }
+
+    #[test]
+    fn input_insert_and_backspace() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let field = host.create_node(NodeType::View);
+        let text = host.create_text("");
+        host.insert(text, field);
+        host.insert(field, root);
+        host.register_input(field, text, "Type…");
+        {
+            let mut inner = host.inner.lock().expect("host inner");
+            inner.focused = Some(field);
+            let (_, v) = insert_text_at_caret(&mut inner, "Hi").expect("insert");
+            assert_eq!(v, "Hi");
+            let (_, v) = insert_text_at_caret(&mut inner, "!").expect("insert");
+            assert_eq!(v, "Hi!");
+            let (_, v) = backspace_at_caret(&mut inner).expect("backspace");
+            assert_eq!(v, "Hi");
+        }
+        let inner = host.inner.lock().expect("host inner");
+        assert_eq!(
+            inner.arena.get(text).and_then(|n| n.text.clone()).as_deref(),
+            Some("Hi")
+        );
     }
 }

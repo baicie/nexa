@@ -128,7 +128,7 @@ impl WindowApp for CounterApp {
         let logical_w = width as f64 / scale;
         let logical_h = height as f64 / scale;
         self.relayout(logical_w as f32, logical_h as f32);
-        if let Err(err) = paint_tree(&self.arena, self.root, pixels, width, height, scale) {
+        if let Err(err) = paint_tree(&self.arena, self.root, pixels, width, height, scale, None) {
             eprintln!("paint failed: {err}");
         }
     }

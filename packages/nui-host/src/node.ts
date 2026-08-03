@@ -1,8 +1,10 @@
 import {
   createNode,
   createText,
+  insert,
   NodeType,
   PropertyId,
+  registerInput,
   rgba,
   setNumber,
 } from "./ffi";
@@ -31,6 +33,9 @@ function blankNode(
 
 export function createHostElement(tag: string): NuiNode {
   const normalized = normalizeTag(tag);
+  if (normalized === "input") {
+    return createHostInput();
+  }
   const nodeType =
     normalized === "scroll"
       ? NodeType.Scroll
@@ -44,6 +49,24 @@ export function createHostElement(tag: string): NuiNode {
     isComment: false,
   });
   applyElementDefaults(node);
+  return node;
+}
+
+/** Composite single-line Input: View chrome + Text child. */
+export function createHostInput(placeholder = ""): NuiNode {
+  const id = createNode(NodeType.View);
+  const node = blankNode(id, "input", { isComment: false });
+  setNumber(id, PropertyId.Padding, 10);
+  setNumber(id, PropertyId.BorderRadius, 8);
+  setNumber(id, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
+  setNumber(id, PropertyId.Height, 36);
+  setNumber(id, PropertyId.Width, 220);
+
+  const text = createHostText("");
+  text.parent = node;
+  node.children.push(text);
+  insert(text.id, id);
+  registerInput(id, text.id, placeholder);
   return node;
 }
 

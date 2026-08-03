@@ -11,6 +11,7 @@ export type HostKind =
   | "view"
   | "text"
   | "button"
+  | "input"
   | "scroll"
   | "for";
 
@@ -85,6 +86,18 @@ export type ButtonProps = {
 
 export function Button(props: ButtonProps = {}): PrimitiveElement {
   return primitive("button", props as Record<string, unknown>);
+}
+
+export type InputProps = {
+  value?: Signal<string> | string;
+  placeholder?: string;
+  width?: number;
+  onChange?: (value: string) => void;
+  onSubmit?: (value: string) => void;
+};
+
+export function Input(props: InputProps = {}): PrimitiveElement {
+  return primitive("input", props as Record<string, unknown>);
 }
 
 export type ForProps<T> = {

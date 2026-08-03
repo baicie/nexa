@@ -1,6 +1,9 @@
 import {
+  addChangeListener,
   addClickListener,
+  addSubmitListener,
   PropertyId,
+  registerInput,
   setNumber,
   setText,
 } from "./ffi";
@@ -43,9 +46,13 @@ export function applyNumericProp(node: NuiNode, name: string, value: unknown): v
   }
 }
 
+function inputTextChild(node: NuiNode): NuiNode | null {
+  return node.children.find((c) => c.isText) ?? null;
+}
+
 /**
  * Apply a single framework prop onto a Host mirror node.
- * Handles title / style / click / numeric / text content.
+ * Handles title / style / click / input / numeric / text content.
  */
 export function applyHostProp(node: NuiNode, name: string, value: unknown): void {
   if (name === "children" || name === "ref") {
@@ -73,11 +80,45 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     return;
   }
 
+  if (
+    (lower === "onchange" || name === "onChange" || name === "onInput") &&
+    typeof value === "function"
+  ) {
+    addChangeListener(node.id, value as (v: string) => void);
+    return;
+  }
+
+  if (
+    (lower === "onsubmit" || name === "onSubmit") &&
+    typeof value === "function"
+  ) {
+    addSubmitListener(node.id, value as (v: string) => void);
+    return;
+  }
+
   if (name.startsWith("on") && typeof value === "function") {
     if (lower === "onclick") {
       addClickListener(node.id, value as () => void);
     }
     return;
+  }
+
+  if (node.tag === "input") {
+    if (name === "placeholder" && typeof value === "string") {
+      const text = inputTextChild(node);
+      if (text) {
+        registerInput(node.id, text.id, value);
+      }
+      return;
+    }
+    if (name === "value" && (typeof value === "string" || typeof value === "number")) {
+      const text = inputTextChild(node);
+      if (text) {
+        text.text = String(value);
+        setText(text.id, text.text);
+      }
+      return;
+    }
   }
 
   applyNumericProp(node, name, value);

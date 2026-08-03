@@ -1,8 +1,8 @@
 /**
- * Slice 4 acceptance: Todo list with For + Scroll (no TextInput).
+ * Slice 4+9 acceptance: Todo list with Input + For + Scroll.
  *
- * Add appends "Task N"; Toggle / Remove mutate the signal; For only
- * insert/remove Host nodes for list membership changes.
+ * Type in the Input, press Enter or Add to append; Toggle / Remove mutate
+ * the list signal. For only insert/remove Host nodes for membership changes.
  *
  * ```bash
  * perry compile main.tsx -o todo && ./todo
@@ -13,6 +13,7 @@ import {
   Button,
   Column,
   For,
+  Input,
   Row,
   Scroll,
   Text,
@@ -25,11 +26,17 @@ type Todo = { id: number; text: string; done: boolean };
 
 function App() {
   const items = signal<Todo[]>([{ id: 1, text: "Ship Slice 4", done: false }]);
+  const draft = signal("");
   let nextId = 2;
 
   const add = () => {
+    const text = draft.value.trim();
+    if (!text) {
+      return;
+    }
     const id = nextId++;
-    items.value = [...items.value, { id, text: `Task ${id}`, done: false }];
+    items.value = [...items.value, { id, text, done: false }];
+    draft.value = "";
   };
 
   const toggle = (id: number) => {
@@ -46,7 +53,15 @@ function App() {
     <Window title="Nexa UI — Todo">
       <Column width={360} padding={24} gap={16}>
         <Text fontSize={24}>Todo</Text>
-        <Button onClick={add}>Add</Button>
+        <Row gap={8}>
+          <Input
+            width={220}
+            placeholder="New task"
+            value={draft}
+            onSubmit={add}
+          />
+          <Button onClick={add}>Add</Button>
+        </Row>
         <Scroll height={260} width={320}>
           <Column gap={8}>
             <For each={items}>

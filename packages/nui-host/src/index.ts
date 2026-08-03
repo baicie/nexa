@@ -13,6 +13,9 @@ export {
   setText,
   setNumber,
   addClickListener,
+  registerInput,
+  addChangeListener,
+  addSubmitListener,
   commit,
   run,
 } from "./ffi";
@@ -24,6 +27,7 @@ export {
   createHostText,
   createHostComment,
   createHostRoot,
+  createHostInput,
 } from "./node";
 
 export {

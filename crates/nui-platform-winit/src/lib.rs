@@ -11,8 +11,9 @@ use std::rc::Rc;
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, MouseButton, WindowEvent};
+use winit::event::{ElementState, Ime, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 use nui_core::VERSION as CORE_VERSION;
@@ -63,6 +64,23 @@ pub trait WindowApp {
     /// Return `true` to request a redraw.
     fn wheel_scrolled(&mut self, x: f64, y: f64, delta_y: f64, scale: f64) -> bool {
         let _ = (x, y, delta_y, scale);
+        false
+    }
+
+    /// UTF-8 text committed via keyboard / IME.
+    /// Return `true` to request a redraw.
+    fn text_input(&mut self, text: &str) -> bool {
+        let _ = text;
+        false
+    }
+
+    /// Backspace / delete backward.
+    fn key_backspace(&mut self) -> bool {
+        false
+    }
+
+    /// Enter / Return (single-line submit).
+    fn key_enter(&mut self) -> bool {
         false
     }
 }
@@ -154,6 +172,7 @@ impl ApplicationHandler for Host {
             }
         }
 
+        window.set_ime_allowed(true);
         window.request_redraw();
         self.window = Some(window);
         self.context = Some(context);
@@ -214,6 +233,44 @@ impl ApplicationHandler for Host {
                     winit::event::MouseScrollDelta::PixelDelta(p) => p.y,
                 };
                 if self.app.wheel_scrolled(x, y, delta_y, scale) {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        logical_key,
+                        state: ElementState::Pressed,
+                        text,
+                        ..
+                    },
+                ..
+            } => {
+                let redraw = match &logical_key {
+                    Key::Named(NamedKey::Backspace) => self.app.key_backspace(),
+                    Key::Named(NamedKey::Enter) => self.app.key_enter(),
+                    Key::Character(ch) if !ch.is_empty() => self.app.text_input(ch.as_str()),
+                    _ => {
+                        // Fallback for layouts that only populate `text`.
+                        if let Some(t) = text.as_ref() {
+                            if !t.is_empty()
+                                && t.chars().all(|c| !c.is_control())
+                            {
+                                self.app.text_input(t)
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                };
+                if redraw {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::Ime(Ime::Commit(s)) => {
+                if !s.is_empty() && self.app.text_input(&s) {
                     window.request_redraw();
                 }
             }

@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**框架 Adapter MVP 已齐（Minimal TSX / Solid / Vue / React / Svelte）+ Layout Playground**。ADR 明确暂缓项（Input、移动端、DevTools、完整 CSS 等）仍未做。
+当前主线：**框架 Adapter MVP 已齐** + **Input 切片（单行文本）**。ADR 仍暂缓：TextArea、移动端、DevTools、完整 CSS、GPU 自研后端、Vue 2。
 
 ## 仓库结构
 
@@ -78,10 +78,11 @@ pnpm install && pnpm typecheck && pnpm format:check
 | 6 | Vue 3 Adapter | 完成 |
 | 7 | React Adapter | 完成 |
 | 8 | Svelte compiler backend | 完成（Counter 子集 runtime） |
+| 9 | Input（单行） | 完成（Host focus + IME/键盘 + Todo） |
 
 ## 刻意未做（ADR）
 
-Input / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研后端 / Vue 2。
+TextArea / 选区 / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研后端 / Vue 2。
 
 ## CI 设计
 

@@ -35,6 +35,8 @@ export enum PropertyId {
 
 export enum EventType {
   Click = 1,
+  Change = 2,
+  Submit = 3,
 }
 
 export interface HostOps {

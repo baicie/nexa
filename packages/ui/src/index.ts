@@ -1,7 +1,7 @@
 /**
  * @nexa/ui — Minimal TSX surface (Slice 3–4).
  *
- * First-party: Window / Column / Row / View / Scroll / Text / Button / For /
+ * First-party: Window / Column / Row / View / Scroll / Text / Button / Input / For /
  * signal / mount. No Fiber / VDOM — mount materializes HostOps.
  */
 
@@ -17,6 +17,7 @@ export {
   Text,
   Button,
   For,
+  Input,
   isPrimitive,
 } from "./primitives";
 export type {
@@ -25,6 +26,7 @@ export type {
   ScrollProps,
   TextProps,
   ButtonProps,
+  InputProps,
   ForProps,
   PrimitiveElement,
   HostKind,

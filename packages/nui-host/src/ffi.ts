@@ -12,6 +12,19 @@ declare function js_nui_remove(node: bigint): void;
 declare function js_nui_set_text(node: bigint, text: string): void;
 declare function js_nui_set_number(node: bigint, property: number, value: number): void;
 declare function js_nui_add_click_listener(node: bigint, callback: () => void): void;
+declare function js_nui_register_input(
+  container: bigint,
+  textNode: bigint,
+  placeholder: string,
+): void;
+declare function js_nui_add_change_listener(
+  node: bigint,
+  callback: (value: string) => void,
+): void;
+declare function js_nui_add_submit_listener(
+  node: bigint,
+  callback: (value: string) => void,
+): void;
 declare function js_nui_commit(): void;
 declare function js_nui_run(title: string): void;
 
@@ -73,6 +86,29 @@ export function setNumber(node: bigint, property: PropertyId, value: number): vo
 
 export function addClickListener(node: bigint, callback: () => void): void {
   js_nui_add_click_listener(node, callback);
+}
+
+/** Register a View+Text composite as a focusable single-line Input. */
+export function registerInput(
+  container: bigint,
+  textNode: bigint,
+  placeholder = "",
+): void {
+  js_nui_register_input(container, textNode, placeholder);
+}
+
+export function addChangeListener(
+  node: bigint,
+  callback: (value: string) => void,
+): void {
+  js_nui_add_change_listener(node, callback);
+}
+
+export function addSubmitListener(
+  node: bigint,
+  callback: (value: string) => void,
+): void {
+  js_nui_add_submit_listener(node, callback);
 }
 
 export function commit(): void {

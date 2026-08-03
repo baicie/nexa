@@ -77,6 +77,31 @@
           "returns": "void"
         },
         {
+          "name": "js_nui_register_input",
+          "params": [
+            "u64",
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_change_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_submit_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
           "name": "js_nui_commit",
           "params": [],
           "returns": "void"
