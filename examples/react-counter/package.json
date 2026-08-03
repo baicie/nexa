@@ -1,0 +1,24 @@
+{
+  "name": "@nexa/example-react-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 7: React reconciler Counter → NUI Host",
+  "type": "module",
+  "dependencies": {
+    "@nexa/adapter-react": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "react": "18.3.1",
+    "react-reconciler": "0.29.2"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o react-counter",
+    "start": "perry compile main.tsx -o react-counter && ./react-counter"
+  },
+  "perry": {
+    "compilePackages": ["react", "react-reconciler", "scheduler"],
+    "allow": {
+      "nativeLibrary": ["@nexa/nui-host", "@nexa/adapter-react"],
+      "compilePackages": ["react", "react-reconciler", "scheduler"]
+    }
+  }
+}

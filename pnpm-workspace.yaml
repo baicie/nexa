@@ -5,3 +5,6 @@ packages:
   - "examples/todo"
   - "examples/solid-counter"
   - "examples/vue-counter"
+  - "examples/react-counter"
+  - "examples/svelte-counter"
+  - "examples/layout-playground"

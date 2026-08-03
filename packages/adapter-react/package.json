@@ -2,6 +2,21 @@
   "name": "@nexa/adapter-react",
   "version": "0.1.0",
   "private": true,
-  "description": "React → NUI Host adapter (deferred)",
-  "scripts": {}
+  "description": "React reconciler → NUI Host (Slice 7)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*",
+    "react": "18.3.1",
+    "react-reconciler": "0.29.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-reconciler": "^0.28.9"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
 }
