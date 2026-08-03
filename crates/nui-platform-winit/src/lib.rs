@@ -58,6 +58,13 @@ pub trait WindowApp {
         let _ = (x, y, scale);
         false
     }
+
+    /// Mouse wheel at physical pixel coordinates (`delta_y` is line/pixel-ish).
+    /// Return `true` to request a redraw.
+    fn wheel_scrolled(&mut self, x: f64, y: f64, delta_y: f64, scale: f64) -> bool {
+        let _ = (x, y, delta_y, scale);
+        false
+    }
 }
 
 /// Open a window and pump the event loop until close.
@@ -196,6 +203,17 @@ impl ApplicationHandler for Host {
                 let scale = window.scale_factor();
                 let (x, y) = self.cursor;
                 if self.app.pointer_pressed(x, y, scale) {
+                    window.request_redraw();
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let scale = window.scale_factor();
+                let (x, y) = self.cursor;
+                let delta_y = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(_, y) => f64::from(y) * 24.0,
+                    winit::event::MouseScrollDelta::PixelDelta(p) => p.y,
+                };
+                if self.app.wheel_scrolled(x, y, delta_y, scale) {
                     window.request_redraw();
                 }
             }

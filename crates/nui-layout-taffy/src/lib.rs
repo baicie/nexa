@@ -3,6 +3,8 @@
 use nui_core::layout::measure_text;
 use nui_core::{Arena, FlexDirection, LayoutRect, NodeId, NodeType};
 use taffy::prelude::*;
+use taffy::style::Overflow;
+use taffy::geometry::Point;
 use taffy::TaffyTree;
 
 use nui_core::VERSION as CORE_VERSION;
@@ -76,7 +78,7 @@ pub fn layout_tree(arena: &mut Arena, root: NodeId, viewport_width: f32, viewpor
 
 fn to_taffy_style(
     style: &nui_core::Style,
-    _node_type: NodeType,
+    node_type: NodeType,
     is_root: bool,
     viewport_width: f32,
     viewport_height: f32,
@@ -99,6 +101,14 @@ fn to_taffy_style(
         },
         ..Style::DEFAULT
     };
+
+    if node_type == NodeType::Scroll {
+        t_style.overflow = Point {
+            x: Overflow::Hidden,
+            y: Overflow::Hidden,
+        };
+        t_style.scrollbar_width = 0.0;
+    }
 
     let width = if is_root {
         Some(style.width.unwrap_or(viewport_width))

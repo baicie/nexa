@@ -115,8 +115,22 @@ fn paint_node(
         }
     }
 
-    for child in &node.children {
+    let is_scroll = node.node_type == NodeType::Scroll;
+    let scroll_offset = node.style.scroll_offset_y;
+    let children = node.children.clone();
+
+    if is_scroll {
+        canvas.save();
+        canvas.clip_rect(Rect::from_xywh(x, y, w, h), None, Some(true));
+        canvas.translate((0.0, -scroll_offset * scale));
+    }
+
+    for child in &children {
         paint_node(arena, *child, canvas, typeface, scale);
+    }
+
+    if is_scroll {
+        canvas.restore();
     }
 }
 

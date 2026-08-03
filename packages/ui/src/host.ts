@@ -30,6 +30,7 @@ export enum PropertyId {
   FontSize = 13,
   FontWeight = 14,
   TextColor = 15,
+  ScrollOffsetY = 16,
 }
 
 export enum EventType {

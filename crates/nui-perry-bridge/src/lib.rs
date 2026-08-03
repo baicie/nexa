@@ -10,7 +10,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use nui_core::{hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId};
+use nui_core::{
+    hit_scroll, hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
+};
 use nui_layout_taffy::layout_tree;
 use nui_platform_winit::{run_app, WindowApp};
 use nui_render_skia::paint_tree;
@@ -40,7 +42,9 @@ impl NuiHost {
     pub fn create_node(&self, node_type: NodeType) -> NodeId {
         let mut inner = self.inner.lock().expect("host inner");
         let id = inner.arena.create(node_type);
-        if inner.root.is_none() && matches!(node_type, NodeType::Root | NodeType::View) {
+        if inner.root.is_none()
+            && matches!(node_type, NodeType::Root | NodeType::View | NodeType::Scroll)
+        {
             inner.root = Some(id);
         }
         id
@@ -60,6 +64,21 @@ impl NuiHost {
         if inner.root.is_none() {
             inner.root = Some(parent);
         }
+    }
+
+    pub fn remove(&self, node: NodeId) {
+        let mut inner = self.inner.lock().expect("host inner");
+        let mut stack = vec![node];
+        while let Some(id) = stack.pop() {
+            if let Some(n) = inner.arena.get(id) {
+                stack.extend(n.children.iter().copied());
+            }
+            inner.click_tokens.remove(&id.raw());
+        }
+        if inner.root == Some(node) {
+            inner.root = None;
+        }
+        inner.arena.remove(node);
     }
 
     pub fn set_text(&self, node: NodeId, text: &str) {
@@ -92,6 +111,9 @@ impl NuiHost {
             }
             PropertyId::TextColor => {
                 n.style.color = color_from_u32(value as u32);
+            }
+            PropertyId::ScrollOffsetY => {
+                n.style.scroll_offset_y = v.max(0.0);
             }
             _ => {}
         }
@@ -244,6 +266,44 @@ impl WindowApp for HostWindowApp {
         // Release the lock before invoking Perry callbacks (they may set_text).
         (self.on_click)(hit)
     }
+
+    fn wheel_scrolled(&mut self, x: f64, y: f64, delta_y: f64, scale: f64) -> bool {
+        let scale = scale.max(0.5);
+        let lx = (x / scale) as f32;
+        let ly = (y / scale) as f32;
+        let mut inner = self.shared.lock().expect("host inner");
+        layout_tree(
+            &mut inner.arena,
+            self.root,
+            self.viewport.0,
+            self.viewport.1,
+        );
+        let Some(scroll) = hit_scroll(&inner.arena, self.root, lx, ly) else {
+            return false;
+        };
+        let Some(node) = inner.arena.get(scroll) else {
+            return false;
+        };
+        let viewport_h = node.layout.height;
+        let top = node.layout.y;
+        let child_ids = node.children.clone();
+        let content_bottom = child_ids
+            .iter()
+            .filter_map(|c| inner.arena.get(*c))
+            .map(|c| c.layout.y + c.layout.height)
+            .fold(top, f32::max);
+        let max_offset = (content_bottom - top - viewport_h).max(0.0);
+        let Some(node) = inner.arena.get_mut(scroll) else {
+            return false;
+        };
+        // Rolling down (negative delta on many platforms) increases offset.
+        let next = (node.style.scroll_offset_y - delta_y as f32).clamp(0.0, max_offset);
+        if (next - node.style.scroll_offset_y).abs() < f32::EPSILON {
+            return false;
+        }
+        node.style.scroll_offset_y = next;
+        true
+    }
 }
 
 fn color_from_u32(rgba: u32) -> ColorRgba {
@@ -306,5 +366,19 @@ mod tests {
             .expect("button hit");
         assert_eq!(hit, button);
         assert_eq!(host.click_token(button), Some(42));
+    }
+
+    #[test]
+    fn remove_clears_subtree_and_tokens() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let child = host.create_node(NodeType::View);
+        host.add_click_listener(child, 7);
+        host.insert(child, root);
+        host.remove(child);
+        assert!(host.click_token(child).is_none());
+        let inner = host.inner.lock().expect("host inner");
+        assert!(inner.arena.get(child).is_none());
+        assert!(inner.arena.get(root).unwrap().children.is_empty());
     }
 }

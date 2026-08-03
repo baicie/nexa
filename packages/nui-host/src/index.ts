@@ -8,6 +8,7 @@
 declare function js_nui_create_node(type: number): bigint;
 declare function js_nui_create_text(text: string): bigint;
 declare function js_nui_insert(child: bigint, parent: bigint): void;
+declare function js_nui_remove(node: bigint): void;
 declare function js_nui_set_text(node: bigint, text: string): void;
 declare function js_nui_set_number(node: bigint, property: number, value: number): void;
 declare function js_nui_add_click_listener(node: bigint, callback: () => void): void;
@@ -38,6 +39,7 @@ export enum PropertyId {
   FontSize = 13,
   FontWeight = 14,
   TextColor = 15,
+  ScrollOffsetY = 16,
 }
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */
@@ -55,6 +57,10 @@ export function createText(text: string): bigint {
 
 export function insert(child: bigint, parent: bigint): void {
   js_nui_insert(child, parent);
+}
+
+export function remove(node: bigint): void {
+  js_nui_remove(node);
 }
 
 export function setText(node: bigint, text: string): void {

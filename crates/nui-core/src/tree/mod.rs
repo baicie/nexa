@@ -188,6 +188,30 @@ impl Arena {
         }
     }
 
+    /// Detach `id` from its parent and destroy the subtree.
+    pub fn remove(&mut self, id: NodeId) {
+        if let Some(parent) = self.get(id).and_then(|n| n.parent) {
+            if let Some(p) = self.get_mut(parent) {
+                p.children.retain(|c| *c != id);
+            }
+            if let Some(node) = self.get_mut(id) {
+                node.parent = None;
+            }
+        }
+        self.destroy_subtree(id);
+    }
+
+    fn destroy_subtree(&mut self, id: NodeId) {
+        let children = self
+            .get(id)
+            .map(|n| n.children.clone())
+            .unwrap_or_default();
+        for child in children {
+            self.destroy_subtree(child);
+        }
+        self.destroy(id);
+    }
+
     pub fn set_text(&mut self, id: NodeId, text: impl Into<String>) {
         if let Some(node) = self.get_mut(id) {
             node.text = Some(text.into());
@@ -238,5 +262,20 @@ mod tests {
         assert_eq!(reused.slot(), id.slot());
         assert_ne!(reused.generation(), id.generation());
         assert!(arena.get(reused).is_some());
+    }
+
+    #[test]
+    fn remove_detaches_and_destroys_subtree() {
+        let mut arena = Arena::new();
+        let root = arena.create(NodeType::View);
+        let child = arena.create(NodeType::View);
+        let grand = arena.create(NodeType::Text);
+        arena.insert_child(root, child);
+        arena.insert_child(child, grand);
+
+        arena.remove(child);
+        assert!(arena.get(child).is_none());
+        assert!(arena.get(grand).is_none());
+        assert!(arena.get(root).unwrap().children.is_empty());
     }
 }

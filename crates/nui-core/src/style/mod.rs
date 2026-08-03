@@ -22,6 +22,8 @@ pub enum PropertyId {
     FontSize = 13,
     FontWeight = 14,
     TextColor = 15,
+    /// Vertical scroll offset in logical pixels (Scroll nodes).
+    ScrollOffsetY = 16,
 }
 
 /// Flex main-axis direction for Slice 1 hand layout.
@@ -60,6 +62,8 @@ pub struct Style {
     pub border_radius: f32,
     pub font_size: f32,
     pub color: ColorRgba,
+    /// Scroll content offset (positive = content moved up). Only meaningful on Scroll.
+    pub scroll_offset_y: f32,
 }
 
 impl Default for Style {
@@ -74,6 +78,7 @@ impl Default for Style {
             border_radius: 0.0,
             font_size: 16.0,
             color: ColorRgba::rgb(0x11, 0x18, 0x27),
+            scroll_offset_y: 0.0,
         }
     }
 }

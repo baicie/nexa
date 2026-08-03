@@ -9,7 +9,7 @@ pub mod scheduler;
 pub mod style;
 pub mod tree;
 
-pub use event::hit_test;
+pub use event::{hit_scroll, hit_test};
 pub use layout::measure_text;
 pub use style::{ColorRgba, FlexDirection, PropertyId, Style};
 pub use tree::{Arena, LayoutRect, Node, NodeId, NodeType};

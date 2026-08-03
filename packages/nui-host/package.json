@@ -44,6 +44,13 @@
           "returns": "void"
         },
         {
+          "name": "js_nui_remove",
+          "params": [
+            "u64"
+          ],
+          "returns": "void"
+        },
+        {
           "name": "js_nui_set_text",
           "params": [
             "u64",

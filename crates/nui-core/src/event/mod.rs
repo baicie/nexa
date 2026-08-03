@@ -1,11 +1,17 @@
 //! Input hit-testing against laid-out nodes.
 
-use crate::tree::{Arena, NodeId};
+use crate::tree::{Arena, NodeId, NodeType};
 
 /// Return the front-most clickable node under `(x, y)` in logical pixels.
 #[must_use]
 pub fn hit_test(arena: &Arena, root: NodeId, x: f32, y: f32) -> Option<NodeId> {
     hit_test_node(arena, root, x, y)
+}
+
+/// Front-most Scroll node under `(x, y)`, if any.
+#[must_use]
+pub fn hit_scroll(arena: &Arena, root: NodeId, x: f32, y: f32) -> Option<NodeId> {
+    hit_scroll_node(arena, root, x, y)
 }
 
 fn hit_test_node(arena: &Arena, id: NodeId, x: f32, y: f32) -> Option<NodeId> {
@@ -14,13 +20,44 @@ fn hit_test_node(arena: &Arena, id: NodeId, x: f32, y: f32) -> Option<NodeId> {
         return None;
     }
 
+    let (child_x, child_y) = if node.node_type == NodeType::Scroll {
+        (x, y + node.style.scroll_offset_y)
+    } else {
+        (x, y)
+    };
+
     for child in node.children.iter().rev() {
-        if let Some(hit) = hit_test_node(arena, *child, x, y) {
+        if let Some(hit) = hit_test_node(arena, *child, child_x, child_y) {
             return Some(hit);
         }
     }
 
     if node.clickable {
+        Some(id)
+    } else {
+        None
+    }
+}
+
+fn hit_scroll_node(arena: &Arena, id: NodeId, x: f32, y: f32) -> Option<NodeId> {
+    let node = arena.get(id)?;
+    if !node.layout.contains(x, y) {
+        return None;
+    }
+
+    let (child_x, child_y) = if node.node_type == NodeType::Scroll {
+        (x, y + node.style.scroll_offset_y)
+    } else {
+        (x, y)
+    };
+
+    for child in node.children.iter().rev() {
+        if let Some(hit) = hit_scroll_node(arena, *child, child_x, child_y) {
+            return Some(hit);
+        }
+    }
+
+    if node.node_type == NodeType::Scroll {
         Some(id)
     } else {
         None

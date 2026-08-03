@@ -83,6 +83,15 @@ pub extern "C" fn js_nui_insert(child: u64, parent: u64) {
         .insert(node_from_raw(child), node_from_raw(parent));
 }
 
+#[no_mangle]
+pub extern "C" fn js_nui_remove(node: u64) {
+    let mut session = session().lock().expect("host session");
+    let id = node_from_raw(node);
+    // Drop closure roots for this node (subtree tokens cleared in host.remove).
+    session.closures.remove(&node);
+    session.host.remove(id);
+}
+
 /// # Safety
 /// `text_ptr` must be null or a Perry-runtime `StringHeader`.
 #[no_mangle]
@@ -111,6 +120,7 @@ pub extern "C" fn js_nui_set_number(node: u64, property: f64, value: f64) {
         13 => PropertyId::FontSize,
         14 => PropertyId::FontWeight,
         15 => PropertyId::TextColor,
+        16 => PropertyId::ScrollOffsetY,
         _ => return,
     };
     let session = session().lock().expect("host session");
