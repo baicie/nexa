@@ -1,8 +1,12 @@
 /**
  * Slice 7: React Counter via react-reconciler → NUI Host.
+ *
+ * Pass the root through `React.createElement` — Perry's JSX transform may
+ * eagerly invoke function components outside the reconciler.
  */
 
-import React, { useState, render } from "@nexa/adapter-react";
+import React, { useState } from "react";
+import { render } from "@nexa/adapter-react";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -24,4 +28,4 @@ function App() {
   );
 }
 
-render(<App />);
+render(React.createElement(App));

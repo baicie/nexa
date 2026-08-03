@@ -5,28 +5,52 @@
  * can bind the nativeLibrary dispatch table.
  */
 
-declare function js_nui_create_node(type: number): bigint;
-declare function js_nui_create_text(text: string): bigint;
-declare function js_nui_insert(child: bigint, parent: bigint, before: bigint): void;
-declare function js_nui_remove(node: bigint): void;
-declare function js_nui_set_text(node: bigint, text: string): void;
-declare function js_nui_set_number(node: bigint, property: number, value: number): void;
-declare function js_nui_add_click_listener(node: bigint, callback: () => void): void;
+declare function js_nui_create_node(type: number): bigint | number;
+declare function js_nui_create_text(text: string): bigint | number;
+declare function js_nui_insert(
+  child: bigint | number,
+  parent: bigint | number,
+  before: bigint | number,
+): void;
+declare function js_nui_remove(node: bigint | number): void;
+declare function js_nui_set_text(node: bigint | number, text: string): void;
+declare function js_nui_set_number(
+  node: bigint | number,
+  property: number,
+  value: number,
+): void;
+declare function js_nui_add_click_listener(
+  node: bigint | number,
+  callback: () => void,
+): void;
 declare function js_nui_register_input(
-  container: bigint,
-  textNode: bigint,
+  container: bigint | number,
+  textNode: bigint | number,
   placeholder: string,
 ): void;
 declare function js_nui_add_change_listener(
-  node: bigint,
+  node: bigint | number,
   callback: (value: string) => void,
 ): void;
 declare function js_nui_add_submit_listener(
-  node: bigint,
+  node: bigint | number,
   callback: (value: string) => void,
 ): void;
 declare function js_nui_commit(): void;
 declare function js_nui_run(title: string): void;
+
+/** Perry u64 params expect JS safe integers (Number), not BigInt. */
+function asU64(id: bigint | number): number {
+  if (typeof id === "number") {
+    return id;
+  }
+  return Number(id);
+}
+
+/** Normalize Host node ids to BigInt for the TS surface. */
+function asNodeId(id: bigint | number): bigint {
+  return typeof id === "bigint" ? id : BigInt(id);
+}
 
 export enum NodeType {
   Root = 0,
@@ -61,31 +85,31 @@ export function rgba(r: number, g: number, b: number, a = 255): number {
 }
 
 export function createNode(type: NodeType): bigint {
-  return js_nui_create_node(type);
+  return asNodeId(js_nui_create_node(type));
 }
 
 export function createText(text: string): bigint {
-  return js_nui_create_text(text);
+  return asNodeId(js_nui_create_text(text));
 }
 
 export function insert(child: bigint, parent: bigint, before?: bigint): void {
-  js_nui_insert(child, parent, before ?? 0n);
+  js_nui_insert(asU64(child), asU64(parent), asU64(before ?? 0n));
 }
 
 export function remove(node: bigint): void {
-  js_nui_remove(node);
+  js_nui_remove(asU64(node));
 }
 
 export function setText(node: bigint, text: string): void {
-  js_nui_set_text(node, text);
+  js_nui_set_text(asU64(node), text);
 }
 
 export function setNumber(node: bigint, property: PropertyId, value: number): void {
-  js_nui_set_number(node, property, value);
+  js_nui_set_number(asU64(node), property, value);
 }
 
 export function addClickListener(node: bigint, callback: () => void): void {
-  js_nui_add_click_listener(node, callback);
+  js_nui_add_click_listener(asU64(node), callback);
 }
 
 /** Register a View+Text composite as a focusable single-line Input. */
@@ -94,21 +118,21 @@ export function registerInput(
   textNode: bigint,
   placeholder = "",
 ): void {
-  js_nui_register_input(container, textNode, placeholder);
+  js_nui_register_input(asU64(container), asU64(textNode), placeholder);
 }
 
 export function addChangeListener(
   node: bigint,
   callback: (value: string) => void,
 ): void {
-  js_nui_add_change_listener(node, callback);
+  js_nui_add_change_listener(asU64(node), callback);
 }
 
 export function addSubmitListener(
   node: bigint,
   callback: (value: string) => void,
 ): void {
-  js_nui_add_submit_listener(node, callback);
+  js_nui_add_submit_listener(asU64(node), callback);
 }
 
 export function commit(): void {

@@ -53,6 +53,9 @@ importers:
       react-reconciler:
         specifier: 0.29.2
         version: 0.29.2(react@18.3.1)
+      scheduler:
+        specifier: 0.23.2
+        version: 0.23.2
 
   examples/solid-counter:
     dependencies:
@@ -129,6 +132,9 @@ importers:
       react-reconciler:
         specifier: 0.29.2
         version: 0.29.2(react@18.3.1)
+      scheduler:
+        specifier: 0.23.2
+        version: 0.23.2
     devDependencies:
       '@types/react':
         specifier: ^18.3.18

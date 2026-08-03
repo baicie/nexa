@@ -8,7 +8,8 @@
     "@nexa/adapter-react": "workspace:*",
     "@nexa/nui-host": "workspace:*",
     "react": "18.3.1",
-    "react-reconciler": "0.29.2"
+    "react-reconciler": "0.29.2",
+    "scheduler": "0.23.2"
   },
   "scripts": {
     "build": "perry compile main.tsx -o react-counter",
@@ -17,7 +18,7 @@
   "perry": {
     "compilePackages": ["react", "react-reconciler", "scheduler"],
     "allow": {
-      "nativeLibrary": ["@nexa/nui-host", "@nexa/adapter-react"],
+      "nativeLibrary": ["@nexa/nui-host"],
       "compilePackages": ["react", "react-reconciler", "scheduler"]
     }
   }
