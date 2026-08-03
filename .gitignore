@@ -59,5 +59,7 @@ examples/todo/todo.exe
 examples/solid-counter/solid-counter
 examples/solid-counter/solid-counter.exe
 examples/solid-counter/dist/
+examples/vue-counter/vue-counter
+examples/vue-counter/vue-counter.exe
 **/node_modules/.cache/
 packages/nui-host/target/

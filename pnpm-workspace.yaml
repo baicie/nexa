@@ -4,3 +4,4 @@ packages:
   - "examples/perry-counter"
   - "examples/todo"
   - "examples/solid-counter"
+  - "examples/vue-counter"

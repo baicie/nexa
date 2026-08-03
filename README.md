@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 5 已落地（Solid Adapter）→ 下一步按需扩展 Vue / 布局 playground**。
+当前主线：**Slice 6 已落地（Vue 3 Adapter）→ 下一步按需扩展 React / layout playground**。
 
 ## 仓库结构
 
@@ -31,6 +31,16 @@ docs/decisions/   ADR
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
+
+### Slice 6 验收（Vue 3 Adapter）
+
+```bash
+cd examples/vue-counter
+perry compile main.ts -o vue-counter
+./vue-counter
+```
+
+验收：Composition API `ref` Counter；条件 / 列表经 `h()` 局部更新 Host；无 DOM。Vue 包经 `perry.compilePackages` AOT。
 
 ### Slice 5 验收（Solid Adapter）
 
@@ -111,6 +121,7 @@ pnpm install && pnpm typecheck && pnpm format:check
 |     3 | Minimal TSX   | `examples/counter` 可运行        |
 |     4 | Todo + 布局   | 动态列表 / Taffy / Scroll        |
 |     5 | Solid Adapter | 不经 DOM 驱动同一 Host           |
+|     6 | Vue 3 Adapter | createRenderer → Host Counter    |
 
 首个效果出来之前，不要并行做多框架 Adapter、完整 CSS、移动端、DevTools、组件库。
 
