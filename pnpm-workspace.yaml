@@ -3,3 +3,4 @@ packages:
   - "examples/counter"
   - "examples/perry-counter"
   - "examples/todo"
+  - "examples/solid-counter"

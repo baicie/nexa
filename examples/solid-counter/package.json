@@ -1,0 +1,38 @@
+{
+  "name": "@nexa/example-solid-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 5: Solid universal Counter → NUI Host",
+  "type": "module",
+  "dependencies": {
+    "@nexa/adapter-solid": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.3",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-preset-solid": "^1.9.9"
+  },
+  "scripts": {
+    "babel": "babel main.tsx --out-file dist/main.js --extensions .tsx,.ts,.jsx,.js",
+    "build": "pnpm babel && perry compile dist/main.js -o solid-counter",
+    "start": "pnpm build && ./solid-counter",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "compilePackages": [
+      "solid-js"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/adapter-solid"
+      ],
+      "compilePackages": [
+        "solid-js"
+      ]
+    }
+  }
+}

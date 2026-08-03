@@ -56,5 +56,8 @@ examples/counter/counter
 examples/counter/counter.exe
 examples/todo/todo
 examples/todo/todo.exe
+examples/solid-counter/solid-counter
+examples/solid-counter/solid-counter.exe
+examples/solid-counter/dist/
 **/node_modules/.cache/
 packages/nui-host/target/

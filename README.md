@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 4 已落地（Todo + Taffy + Scroll）→ 下一步 Slice 5（Solid Adapter）**。
+当前主线：**Slice 5 已落地（Solid Adapter）→ 下一步按需扩展 Vue / 布局 playground**。
 
 ## 仓库结构
 
@@ -31,6 +31,16 @@ docs/decisions/   ADR
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
+
+### Slice 5 验收（Solid Adapter）
+
+```bash
+cd examples/solid-counter
+pnpm build
+./solid-counter
+```
+
+验收：标准 Solid `createSignal` Counter；`Show` / `For` 局部更新 Host；无 DOM。JSX 经 `babel-preset-solid`（universal）预编译后再交给 Perry。
 
 ### Slice 4 验收（Todo + Taffy + Scroll）
 
