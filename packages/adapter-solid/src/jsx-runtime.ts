@@ -46,7 +46,7 @@ export namespace JSX {
     scroll: Record<string, unknown>;
     text: Record<string, unknown>;
     button: Record<string, unknown>;
-      input: Record<string, unknown>;
-      [elemName: string]: Record<string, unknown>;
+    input: Record<string, unknown>;
+    [elemName: string]: Record<string, unknown>;
   }
 }
