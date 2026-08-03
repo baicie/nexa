@@ -216,20 +216,19 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
     let handle = JsString::from_raw(title_ptr as *mut StringHeader);
     let title = read_string(handle).unwrap_or("Nexa UI").to_owned();
 
-    let (host, closures, change_closures, submit_closures) = {
+    let host = {
         let session = session().lock().expect("host session");
-        (
-            session.host.clone(),
-            session.closures.clone(),
-            session.change_closures.clone(),
-            session.submit_closures.clone(),
-        )
+        session.host.clone()
     };
 
     if let Err(err) = host.run(&title, move |ev| {
         match ev {
             HostUiEvent::Click(node) => {
-                let Some(&cb) = closures.get(&node.raw()) else {
+                let cb = {
+                    let session = session().lock().expect("host session");
+                    session.closures.get(&node.raw()).copied()
+                };
+                let Some(cb) = cb else {
                     return false;
                 };
                 if cb == 0 {
@@ -243,15 +242,26 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
                 true
             }
             HostUiEvent::Change { node, value } => {
-                if let Some(&cb) = change_closures.get(&node.raw()) {
+                let cb = {
+                    let session = session().lock().expect("host session");
+                    session.change_closures.get(&node.raw()).copied()
+                };
+                if let Some(cb) = cb {
                     call_string_callback(cb, &value);
                 }
                 true
             }
             HostUiEvent::Submit { node, value } => {
-                if let Some(&cb) = submit_closures.get(&node.raw()) {
+                let (submit_cb, change_cb) = {
+                    let session = session().lock().expect("host session");
+                    (
+                        session.submit_closures.get(&node.raw()).copied(),
+                        session.change_closures.get(&node.raw()).copied(),
+                    )
+                };
+                if let Some(cb) = submit_cb {
                     call_string_callback(cb, &value);
-                } else if let Some(&cb) = change_closures.get(&node.raw()) {
+                } else if let Some(cb) = change_cb {
                     // Fallback: apps that only wire onChange still get Enter.
                     call_string_callback(cb, &value);
                 }

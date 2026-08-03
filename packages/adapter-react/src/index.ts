@@ -29,6 +29,7 @@ type Props = Record<string, unknown>;
 
 declare function setTimeout(handler: (...args: unknown[]) => void, timeout?: number): unknown;
 declare function clearTimeout(handle: unknown): void;
+declare const console: { error(...args: unknown[]): void; log(...args: unknown[]): void };
 
 function scheduleTimeout(fn: (...args: unknown[]) => void, delay?: number): number {
   return setTimeout(fn, delay ?? 0) as unknown as number;
@@ -44,6 +45,26 @@ function scheduleMicrotask(fn: () => void): void {
 
 function linkAppend(parent: NuiNode, child: NuiNode): void {
   hostInsertBefore(parent, child, null);
+}
+
+/**
+ * Perry + winit does not pump JS timers while the native loop runs.
+ * Flush React updates synchronously inside Host event callbacks.
+ */
+function wrapHostProps(props: Props): Props {
+  const next: Props = { ...props };
+  for (const [key, value] of Object.entries(props)) {
+    if (typeof value !== "function" || !/^on[A-Z]/.test(key)) {
+      continue;
+    }
+    const handler = value as (...args: unknown[]) => void;
+    next[key] = (...args: unknown[]) => {
+      reconciler.flushSync(() => {
+        handler(...args);
+      });
+    };
+  }
+  return next;
 }
 
 const reconciler = Reconciler({
@@ -69,7 +90,7 @@ const reconciler = Reconciler({
   resetAfterCommit() {},
   createInstance(type: string, props: Props): NuiNode {
     const node = createHostElement(type);
-    applyHostProps(node, props);
+    applyHostProps(node, wrapHostProps(props));
     return node;
   },
   appendInitialChild(parent: NuiNode, child: NuiNode) {
@@ -123,7 +144,7 @@ const reconciler = Reconciler({
     removeNode(child);
   },
   commitUpdate(instance: NuiNode, _payload: unknown, _type: string, _old: Props, newProps: Props) {
-    applyHostProps(instance, newProps);
+    applyHostProps(instance, wrapHostProps(newProps));
   },
   commitTextUpdate(textInstance: NuiNode, _old: string, newText: string) {
     textInstance.text = newText;
@@ -161,10 +182,14 @@ export function render(element: React.ReactNode): void {
     false,
     null,
     "",
-    () => {},
+    (error: unknown) => {
+      console.error("react-reconciler recoverable error:", error);
+    },
     null,
   );
-  reconciler.updateContainer(element, root, null, () => {});
+  reconciler.flushSync(() => {
+    reconciler.updateContainer(element, root, null, () => {});
+  });
   commit();
   run(getWindowTitle());
 }

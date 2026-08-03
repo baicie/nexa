@@ -28,4 +28,6 @@ function App() {
   );
 }
 
+console.log("react-counter: mounting");
 render(React.createElement(App));
+console.log("react-counter: window closed");
