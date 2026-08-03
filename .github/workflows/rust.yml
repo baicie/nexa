@@ -51,5 +51,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo build
         run: cargo build --workspace
-      - name: rust-counter scaffold
-        run: cargo run -p rust-counter
+      - name: rust-counter smoke
+        run: cargo run -p rust-counter -- --smoke
+        timeout-minutes: 5

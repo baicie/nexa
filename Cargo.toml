@@ -23,6 +23,12 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/nexa-ui/nexa-ui"
 rust-version = "1.85"
 
+[workspace.dependencies]
+bytemuck = "1.25"
+skia-safe = "0.99"
+softbuffer = "0.4.8"
+winit = "0.30.12"
+
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
 

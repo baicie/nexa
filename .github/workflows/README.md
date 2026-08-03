@@ -15,10 +15,15 @@ CI 对齐 ADR-004 的垂直切片策略：**主线串行、路径过滤、平台
 ## 设计原则
 
 1. **路径过滤**：只跑与变更相关的门禁；纯文档 PR 不编译 Skia。
-2. **切片门禁**：早期 CI 不要求 GPU / 窗口；`native-smoke` 在 Slice 0 落地后启用。
+2. **切片门禁**：`rust.yml` 在 Linux 上编译/测试（含 Skia CPU）；开窗验收走 `native-smoke` 的 `--smoke`。
 3. **平台范围**：MVP 只验收 **macOS + Windows**（ADR §6.1）；Linux 作可选，不阻塞合并。
 4. **不并行五条产品线**：Adapter / DevTools / 移动端不进 required checks。
 5. **失败即阻断**：`rust` + `typescript`（有相关变更时）为 merge required checks。
+
+## `--smoke` 行为
+
+`cargo run -p rust-counter -- --smoke` 不创建窗口，用 Skia 离屏绘制一帧后 exit 0。  
+`native-smoke.yml`（macOS + Windows）在仓库变量 `NATIVE_SMOKE_ENABLED=true` 时由 `ci.yml` 调度。
 
 ## 路径 → Job 映射
 
@@ -50,4 +55,5 @@ CI / result
 - 全框架 Adapter 矩阵
 - Perry AOT 完整发布流水线（等 Slice 2）
 - npm publish / 插件市场
-- 强制每次 PR 编译 rust-skia（过重；Slice 0 后单独 `native-smoke`）
+- 每次 PR 强制开真实窗口（用 `--smoke` 代替）
+- GPU backend（gl/metal/vulkan）——Slice 0 使用 Skia CPU + softbuffer

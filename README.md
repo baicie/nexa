@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 0 → 静态原生窗口**。
+当前主线：**Slice 0 已落地（静态窗口）→ 下一步 Slice 1（Rust Counter）**。
 
 ## 仓库结构
 
@@ -30,19 +30,26 @@ docs/decisions/   ADR
 
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
+- 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
 
-### 命令
+### Slice 0 验收
 
 ```bash
-# Rust workspace
+# 离屏一帧（CI / 无显示环境）
+cargo run -p rust-counter -- --smoke
+
+# 打开原生窗口：圆角矩形 + “Hello Nexa UI”
+cargo run -p rust-counter
+```
+
+手动验收：窗口显示蓝色圆角色块与白色文字；缩放窗口应触发重绘。
+
+### 其他命令
+
+```bash
 cargo check --workspace
 cargo test --workspace
-cargo run -p rust-counter
-
-# TypeScript workspace
-pnpm install
-pnpm typecheck
-pnpm format:check
+pnpm install && pnpm typecheck && pnpm format:check
 ```
 
 ## 垂直切片路线

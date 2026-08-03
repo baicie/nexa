@@ -8,6 +8,8 @@ description = "Winit window and input backend for Nexa UI (macOS/Windows MVP)"
 
 [dependencies]
 nui-core = { path = "../nui-core" }
+softbuffer = { workspace = true }
+winit = { workspace = true }
 
 [lints]
 workspace = true

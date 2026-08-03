@@ -28,8 +28,7 @@ jobs:
       - name: Build rust-counter
         run: cargo build -p rust-counter --release
 
-      # Headless CI cannot open a real window reliably.
-      # Slice 0 should add a --smoke flag that draws one frame offscreen / exits 0.
-      - name: Run scaffold / smoke
-        run: cargo run -p rust-counter --release
-        timeout-minutes: 2
+      # Headless CI cannot open a real window reliably; --smoke paints offscreen.
+      - name: Run offscreen smoke
+        run: cargo run -p rust-counter --release -- --smoke
+        timeout-minutes: 5
