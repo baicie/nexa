@@ -12,7 +12,7 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 0 已落地（静态窗口）→ 下一步 Slice 1（Rust Counter）**。
+当前主线：**Slice 1 已落地（Rust Counter）→ 下一步 Slice 2（Perry FFI）**。
 
 ## 仓库结构
 
@@ -32,17 +32,22 @@ docs/decisions/   ADR
 - Node ≥ 22、pnpm ≥ 9
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
 
-### Slice 0 验收
+### Slice 1 验收
 
 ```bash
-# 离屏一帧（CI / 无显示环境）
+# 离屏：布局 + 绘制 + 模拟点击 Increment
 cargo run -p rust-counter -- --smoke
 
-# 打开原生窗口：圆角矩形 + “Hello Nexa UI”
+# 打开窗口：点击 Increment，Count 应递增；缩放应重新布局
 cargo run -p rust-counter
 ```
 
-手动验收：窗口显示蓝色圆角色块与白色文字；缩放窗口应触发重绘。
+### Slice 0 回归
+
+```bash
+# Hello 帧仍可通过库函数验证（单元测试覆盖）
+cargo test -p nui-render-skia
+```
 
 ### 其他命令
 

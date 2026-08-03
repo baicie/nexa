@@ -1335,7 +1335,6 @@ name = "rust-counter"
 version = "0.1.0"
 dependencies = [
  "nui-core",
- "nui-layout-taffy",
  "nui-platform-winit",
  "nui-render-skia",
 ]

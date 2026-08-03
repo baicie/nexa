@@ -9,7 +9,10 @@ pub mod scheduler;
 pub mod style;
 pub mod tree;
 
-pub use tree::{NodeId, NodeType};
+pub use event::hit_test;
+pub use layout::layout_tree;
+pub use style::{ColorRgba, FlexDirection, PropertyId, Style};
+pub use tree::{Arena, LayoutRect, Node, NodeId, NodeType};
 
 /// Library version string for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

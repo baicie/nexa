@@ -15,7 +15,6 @@ path = "src/main.rs"
 nui-core = { path = "../../crates/nui-core" }
 nui-platform-winit = { path = "../../crates/nui-platform-winit" }
 nui-render-skia = { path = "../../crates/nui-render-skia" }
-nui-layout-taffy = { path = "../../crates/nui-layout-taffy" }
 
 [lints]
 workspace = true

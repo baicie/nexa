@@ -1,6 +1,7 @@
 //! Platform window / input via winit + softbuffer present.
 //!
 //! Slice 0: open a native window and present CPU-rendered frames.
+//! Slice 1: forward pointer presses for hit-testing.
 //! See softbuffer + winit `ApplicationHandler` integration patterns:
 //! <https://github.com/rust-windowing/softbuffer>
 
@@ -10,7 +11,7 @@ use std::rc::Rc;
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
@@ -46,38 +47,59 @@ impl std::fmt::Display for PlatformError {
 
 impl std::error::Error for PlatformError {}
 
-/// Paint callback: pixels (softbuffer `u32` 0x00RRGGBB), width, height, scale factor.
-pub type PaintFn = dyn FnMut(&mut [u32], u32, u32, f64);
+/// Application callbacks driven by the platform event loop.
+pub trait WindowApp {
+    /// Paint into a softbuffer frame (`width`/`height` are physical pixels).
+    fn paint(&mut self, pixels: &mut [u32], width: u32, height: u32, scale: f64);
+
+    /// Left-button press at physical pixel coordinates.
+    /// Return `true` to request a redraw.
+    fn pointer_pressed(&mut self, x: f64, y: f64, scale: f64) -> bool {
+        let _ = (x, y, scale);
+        false
+    }
+}
 
 /// Open a window and pump the event loop until close.
-///
-/// `paint` is invoked on every `RedrawRequested` with a writable frame buffer.
+pub fn run_app(title: &str, app: impl WindowApp + 'static) -> Result<(), PlatformError> {
+    let event_loop = EventLoop::new().map_err(|e| PlatformError::EventLoop(e.to_string()))?;
+    let mut host = Host {
+        title: title.to_owned(),
+        app: Box::new(app),
+        window: None,
+        context: None,
+        surface: None,
+        cursor: (0.0, 0.0),
+    };
+    event_loop
+        .run_app(&mut host)
+        .map_err(|e| PlatformError::EventLoop(e.to_string()))
+}
+
+/// Convenience wrapper for paint-only apps (Slice 0 style).
 pub fn run_window(
     title: &str,
     paint: impl FnMut(&mut [u32], u32, u32, f64) + 'static,
 ) -> Result<(), PlatformError> {
-    let event_loop = EventLoop::new().map_err(|e| PlatformError::EventLoop(e.to_string()))?;
-    let mut app = App {
-        title: title.to_owned(),
-        paint: Box::new(paint),
-        window: None,
-        context: None,
-        surface: None,
-    };
-    event_loop
-        .run_app(&mut app)
-        .map_err(|e| PlatformError::EventLoop(e.to_string()))
+    struct PaintOnly<F>(F);
+    impl<F: FnMut(&mut [u32], u32, u32, f64)> WindowApp for PaintOnly<F> {
+        fn paint(&mut self, pixels: &mut [u32], width: u32, height: u32, scale: f64) {
+            (self.0)(pixels, width, height, scale);
+        }
+    }
+    run_app(title, PaintOnly(paint))
 }
 
-struct App {
+struct Host {
     title: String,
-    paint: Box<PaintFn>,
+    app: Box<dyn WindowApp>,
     window: Option<Rc<Window>>,
     context: Option<Context<Rc<Window>>>,
     surface: Option<Surface<Rc<Window>, Rc<Window>>>,
+    cursor: (f64, f64),
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler for Host {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -163,6 +185,20 @@ impl ApplicationHandler for App {
             WindowEvent::ScaleFactorChanged { .. } => {
                 window.request_redraw();
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor = (position.x, position.y);
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } => {
+                let scale = window.scale_factor();
+                let (x, y) = self.cursor;
+                if self.app.pointer_pressed(x, y, scale) {
+                    window.request_redraw();
+                }
+            }
             WindowEvent::RedrawRequested => {
                 let Some(surface) = self.surface.as_mut() else {
                     return;
@@ -183,7 +219,7 @@ impl ApplicationHandler for App {
                     }
                 };
 
-                (self.paint)(buffer.as_mut(), width, height, scale);
+                self.app.paint(buffer.as_mut(), width, height, scale);
 
                 if let Err(err) = buffer.present() {
                     eprintln!("nui-platform-winit: present failed: {err}");
