@@ -1,0 +1,19 @@
+{
+  "name": "@nexa/example-layout-playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nexa/ui": "workspace:*",
+    "@nexa/nui-host": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o layout-playground",
+    "start": "perry compile main.tsx -o layout-playground && ./layout-playground"
+  },
+  "perry": {
+    "allow": {
+      "nativeLibrary": ["@nexa/nui-host", "@nexa/ui"]
+    }
+  }
+}

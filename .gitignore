@@ -61,5 +61,12 @@ examples/solid-counter/solid-counter.exe
 examples/solid-counter/dist/
 examples/vue-counter/vue-counter
 examples/vue-counter/vue-counter.exe
+examples/react-counter/react-counter
+examples/react-counter/react-counter.exe
+examples/svelte-counter/svelte-counter
+examples/svelte-counter/svelte-counter.exe
+examples/svelte-counter/dist/
+examples/layout-playground/layout-playground
+examples/layout-playground/layout-playground.exe
 **/node_modules/.cache/
 packages/nui-host/target/

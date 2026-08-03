@@ -12,14 +12,14 @@ TypeScript/TSX 跨平台原生 UI 工具包：通过 Perry AOT 编译为机器�
 产品推进：垂直切片（一条链路打通再加宽）
 ```
 
-当前主线：**Slice 6 已落地（Vue 3 Adapter）→ 下一步按需扩展 React / layout playground**。
+当前主线：**框架 Adapter MVP 已齐（Minimal TSX / Solid / Vue / React / Svelte）+ Layout Playground**。ADR 明确暂缓项（Input、移动端、DevTools、完整 CSS 等）仍未做。
 
 ## 仓库结构
 
 ```text
 crates/           Rust Native UI Core + 平台 / 渲染 / 布局 / Perry Bridge
-packages/         Minimal TSX (@nexa/ui) 与框架 Adapter（多数延后）
-examples/         验收 Demo（rust-counter / counter TSX / todo…）
+packages/         Minimal TSX、Host FFI、框架 Adapter
+examples/         各切片验收 Demo + framework-parity
 docs/decisions/   ADR
 .github/workflows CI（按路径与切片门禁）
 ```
@@ -30,100 +30,58 @@ docs/decisions/   ADR
 
 - Rust stable（`rustfmt` + `clippy`）
 - Node ≥ 22、pnpm ≥ 9
+- Perry CLI（平台包齐全）
 - 首次编译会下载 `skia-safe` 预编译二进制，可能较慢
 
-### Slice 6 验收（Vue 3 Adapter）
+### 框架 Counter 一览
+
+| 框架 | 目录 | 命令 |
+|------|------|------|
+| Minimal TSX | `examples/counter` | `perry compile main.tsx -o counter` |
+| Solid | `examples/solid-counter` | `pnpm build` |
+| Vue 3 | `examples/vue-counter` | `perry compile main.ts -o vue-counter` |
+| React | `examples/react-counter` | `perry compile main.tsx -o react-counter` |
+| Svelte | `examples/svelte-counter` | `perry compile main.ts -o svelte-counter` |
+| Layout | `examples/layout-playground` | `perry compile main.tsx -o layout-playground` |
+
+对照清单见 [examples/framework-parity](examples/framework-parity/README.md)。
+
+### Slice 4 Todo
 
 ```bash
-cd examples/vue-counter
-perry compile main.ts -o vue-counter
-./vue-counter
+cd examples/todo && perry compile main.tsx -o todo && ./todo
 ```
 
-验收：Composition API `ref` Counter；条件 / 列表经 `h()` 局部更新 Host；无 DOM。Vue 包经 `perry.compilePackages` AOT。
-
-### Slice 5 验收（Solid Adapter）
+### Rust / Host 回归
 
 ```bash
-cd examples/solid-counter
-pnpm build
-./solid-counter
-```
-
-验收：标准 Solid `createSignal` Counter；`Show` / `For` 局部更新 Host；无 DOM。JSX 经 `babel-preset-solid`（universal）预编译后再交给 Perry。
-
-### Slice 4 验收（Todo + Taffy + Scroll）
-
-```bash
-cd examples/todo
-perry compile main.tsx -o todo
-./todo
-```
-
-验收：Add / Done / Remove 动态增删列表；滚轮滚动 Scroll 视口；布局走 Taffy。
-
-### Slice 3 验收（Minimal TSX）
-
-```bash
-# 需要本机安装 Perry：npm i -g @perryts/perry（并装好平台包）
-cd examples/counter
-perry compile main.tsx -o counter
-./counter
-```
-
-验收：TSX 经 `@nexa/ui` mount → Host；点击 Increment 只 `setText`，不重建整棵树。
-响应式写法：`<Text>Count: {count}</Text>`（传 signal，不要写 `count.value`）。
-
-### Slice 2 验收（Perry Host FFI）
-
-```bash
-# 需要本机安装 Perry：npm i -g @perryts/perry（并装好平台包）
-cd packages/nui-host && cargo build --release
-cd ../../examples/perry-counter
-perry compile main.ts -o perry-counter
-./perry-counter
-```
-
-验收：TS 命令式 Host API 创建节点；点击 Increment 走 Rust→Perry 回调并更新 Text。
-
-### Slice 1 验收
-
-```bash
-# 离屏：布局 + 绘制 + 模拟点击 Increment
 cargo run -p rust-counter -- --smoke
-
-# 打开窗口：点击 Increment，Count 应递增；缩放应重新布局
-cargo run -p rust-counter
-```
-
-### Slice 0 回归
-
-```bash
-# Hello 帧仍可通过库函数验证（单元测试覆盖）
-cargo test -p nui-render-skia
+cargo test --workspace
 ```
 
 ### 其他命令
 
 ```bash
-cargo check --workspace
-cargo test --workspace
 pnpm install && pnpm typecheck && pnpm format:check
 ```
 
 ## 垂直切片路线
 
-| Slice | 目标          | 验收                             |
-| ----: | ------------- | -------------------------------- |
-|     0 | 静态窗口      | winit + Skia 显示文字 / 圆角矩形 |
-|     1 | Rust Counter  | 纯 Rust 点击更新 Text            |
-|     2 | Perry 驱动    | TS 经 FFI 调用 Host              |
-|     3 | Minimal TSX   | `examples/counter` 可运行        |
-|     4 | Todo + 布局   | 动态列表 / Taffy / Scroll        |
-|     5 | Solid Adapter | 不经 DOM 驱动同一 Host           |
-|     6 | Vue 3 Adapter | createRenderer → Host Counter    |
+| Slice | 目标 | 状态 |
+| ----: | ---- | ---- |
+| 0 | 静态窗口 | 完成 |
+| 1 | Rust Counter | 完成 |
+| 2 | Perry Host FFI | 完成 |
+| 3 | Minimal TSX | 完成 |
+| 4 | Todo + Taffy + Scroll | 完成 |
+| 5 | Solid Adapter | 完成 |
+| 6 | Vue 3 Adapter | 完成 |
+| 7 | React Adapter | 完成 |
+| 8 | Svelte compiler backend | 完成（Counter 子集 runtime） |
 
-首个效果出来之前，不要并行做多框架 Adapter、完整 CSS、移动端、DevTools、组件库。
+## 刻意未做（ADR）
+
+Input / 富文本 / 移动端 / DevTools / 完整 CSS / GPU 自研后端 / Vue 2。
 
 ## CI 设计
 
