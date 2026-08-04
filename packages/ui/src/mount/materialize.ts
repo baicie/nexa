@@ -1,20 +1,13 @@
 import {
-  addChangeListener,
-  addClickListener,
-  addSubmitListener,
-  registerNodeCleanup,
-  createNode,
-  createText,
+  applyHostProps,
+  createHostElement,
+  createHostText,
   insert,
-  NodeType,
-  PropertyId,
-  registerInput,
+  insertBefore,
+  registerNodeCleanup,
   remove,
   rgba,
-  setImage,
-  setNumber,
   setText,
-  setWindowTitle,
 } from "@nexa/nui-host";
 
 import type { NexaElement } from "../jsx-runtime";
@@ -34,39 +27,6 @@ function bindEffect(node: bigint, fn: () => void): void {
   registerNodeCleanup(node, effect(fn));
 }
 
-function applyBoxProps(node: bigint, props: Record<string, unknown>, direction?: 0 | 1): void {
-  if (direction !== undefined) {
-    setNumber(node, PropertyId.FlexDirection, direction);
-  }
-  if (typeof props.width === "number") {
-    setNumber(node, PropertyId.Width, props.width);
-  }
-  if (typeof props.height === "number") {
-    setNumber(node, PropertyId.Height, props.height);
-  }
-  if (typeof props.padding === "number") {
-    setNumber(node, PropertyId.Padding, props.padding);
-  }
-  if (typeof props.gap === "number") {
-    setNumber(node, PropertyId.Gap, props.gap);
-  }
-  if (typeof props.alignItems === "number") {
-    setNumber(node, PropertyId.AlignItems, props.alignItems);
-  }
-  if (typeof props.justifyContent === "number") {
-    setNumber(node, PropertyId.JustifyContent, props.justifyContent);
-  }
-  if (typeof props.backgroundColor === "number") {
-    setNumber(node, PropertyId.BackgroundColor, props.backgroundColor);
-  }
-  if (typeof props.borderRadius === "number") {
-    setNumber(node, PropertyId.BorderRadius, props.borderRadius);
-  }
-  if (typeof props.flexGrow === "number") {
-    setNumber(node, PropertyId.FlexGrow, props.flexGrow);
-  }
-}
-
 function listItemKey(item: unknown, index: number): string {
   if (typeof item === "object" && item !== null && "id" in item) {
     return String((item as { id: unknown }).id);
@@ -83,24 +43,30 @@ function mountChildren(parent: bigint, children: unknown): void {
   }
 }
 
+function mountHostElement(tag: string, props: Record<string, unknown>): bigint {
+  const node = createHostElement(tag);
+  applyHostProps(node, props);
+  mountChildren(node.id, props.children);
+  return node.id;
+}
+
 function mountForList(props: Record<string, unknown>): bigint {
-  const container = createNode(NodeType.View);
-  setNumber(container, PropertyId.FlexDirection, 0);
-  if (typeof props.gap === "number") {
-    setNumber(container, PropertyId.Gap, props.gap);
-  } else {
-    setNumber(container, PropertyId.Gap, 8);
-  }
+  const container = createHostElement("view");
+  applyHostProps(container, {
+    ...props,
+    flexDirection: 0,
+    gap: typeof props.gap === "number" ? props.gap : 8,
+  });
 
   const each = props.each;
   const render = props.children;
   const mounted = new Map<string, bigint>();
 
   if (typeof render !== "function") {
-    return container;
+    return container.id;
   }
 
-  bindEffect(container, () => {
+  bindEffect(container.id, () => {
     const list = (isSignal(each) ? each.value : each) as unknown;
     if (!Array.isArray(list)) {
       return;
@@ -108,8 +74,7 @@ function mountForList(props: Record<string, unknown>): bigint {
 
     const nextKeys = new Set(list.map((item, index) => listItemKey(item, index)));
 
-    const mountedEntries = [...mounted.entries()];
-    for (const [key, node] of mountedEntries) {
+    for (const [key, node] of [...mounted.entries()]) {
       if (!nextKeys.has(key)) {
         remove(node);
         mounted.delete(key);
@@ -124,207 +89,101 @@ function mountForList(props: Record<string, unknown>): bigint {
       const child = (render as (item: unknown, index: number) => unknown)(item, index);
       const id = mountNode(child);
       if (id !== null) {
-        insert(id, container);
+        insert(id, container.id);
         mounted.set(key, id);
       }
     });
   });
 
-  return container;
+  return container.id;
 }
 
 function mountPrimitive(el: PrimitiveElement): bigint | null {
   const { kind, props } = el;
 
   switch (kind) {
-    case "window": {
-      if (typeof props.title === "string") {
-        setWindowTitle(props.title);
-      }
-      const root = createNode(NodeType.View);
-      setNumber(root, PropertyId.BackgroundColor, rgba(0xf4, 0xf6, 0xf8));
-      setNumber(root, PropertyId.FlexDirection, 0);
-      mountChildren(root, props.children);
-      return root;
-    }
-    case "column": {
-      const node = createNode(NodeType.View);
-      applyBoxProps(node, props, 0);
-      mountChildren(node, props.children);
-      return node;
-    }
-    case "row": {
-      const node = createNode(NodeType.View);
-      applyBoxProps(node, props, 1);
-      mountChildren(node, props.children);
-      return node;
-    }
-    case "stack": {
-      const node = createNode(NodeType.View);
-      applyBoxProps(node, props, 0);
-      if (typeof props.alignItems !== "number") {
-        setNumber(node, PropertyId.AlignItems, 1);
-      }
-      if (typeof props.justifyContent !== "number") {
-        setNumber(node, PropertyId.JustifyContent, 1);
-      }
-      mountChildren(node, props.children);
-      return node;
-    }
-    case "card": {
-      const node = createNode(NodeType.View);
-      applyBoxProps(node, props, 0);
-      if (typeof props.padding !== "number") {
-        setNumber(node, PropertyId.Padding, 16);
-      }
-      if (typeof props.borderRadius !== "number") {
-        setNumber(node, PropertyId.BorderRadius, 12);
-      }
-      if (typeof props.backgroundColor !== "number") {
-        setNumber(node, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
-      }
-      if (typeof props.gap !== "number") {
-        setNumber(node, PropertyId.Gap, 8);
-      }
-      mountChildren(node, props.children);
-      return node;
-    }
+    case "window":
+    case "column":
+    case "row":
+    case "stack":
+    case "card":
+    case "view":
+    case "scroll":
+    case "image":
+      return mountHostElement(kind, props);
     case "spacer": {
-      const node = createNode(NodeType.View);
-      if (typeof props.size === "number") {
-        setNumber(node, PropertyId.Height, props.size);
-        setNumber(node, PropertyId.Width, props.size);
-      } else if (typeof props.height === "number" || typeof props.width === "number") {
-        if (typeof props.height === "number") {
-          setNumber(node, PropertyId.Height, props.height);
-        }
-        if (typeof props.width === "number") {
-          setNumber(node, PropertyId.Width, props.width);
-        }
-      } else {
-        setNumber(node, PropertyId.FlexGrow, 1);
-      }
-      return node;
+      const nextProps =
+        typeof props.size === "number"
+          ? { ...props, width: props.size, height: props.size }
+          : props;
+      return mountHostElement("spacer", nextProps);
     }
-    case "view": {
-      const node = createNode(NodeType.View);
-      applyBoxProps(node, props);
-      mountChildren(node, props.children);
-      return node;
-    }
-    case "scroll": {
-      const node = createNode(NodeType.Scroll);
-      applyBoxProps(node, props, 0);
-      mountChildren(node, props.children);
-      return node;
-    }
-    case "image": {
-      const node = createNode(NodeType.Image);
-      applyBoxProps(node, props);
-      if (typeof props.src === "string") {
-        setImage(node, props.src);
-      }
-      return node;
-    }
-    case "for": {
+    case "for":
       return mountForList(props);
-    }
     case "text": {
-      const node = createText("");
-      if (typeof props.fontSize === "number") {
-        setNumber(node, PropertyId.FontSize, props.fontSize);
-      }
-      if (typeof props.color === "number") {
-        setNumber(node, PropertyId.TextColor, props.color);
-      } else {
-        setNumber(node, PropertyId.TextColor, rgba(0x11, 0x18, 0x27));
-      }
-
+      const node = createHostElement("text");
+      applyHostProps(node, props);
       const children = props.children;
       if (childrenAreReactive(children)) {
-        bindEffect(node, () => {
-          setText(node, resolveChildText(children));
+        bindEffect(node.id, () => {
+          setText(node.id, resolveChildText(children));
         });
       } else {
-        setText(node, resolveChildText(children));
+        setText(node.id, resolveChildText(children));
       }
-      return node;
+      return node.id;
     }
     case "button": {
-      const node = createNode(NodeType.View);
-      setNumber(node, PropertyId.Padding, 12);
-      setNumber(node, PropertyId.BorderRadius, 12);
-      setNumber(node, PropertyId.BackgroundColor, rgba(0x1f, 0x6f, 0xeb));
-      if (typeof props.onClick === "function") {
-        addClickListener(node, props.onClick as () => void);
-      }
-
-      const label = createText("");
-      setNumber(label, PropertyId.FontSize, 18);
-      setNumber(label, PropertyId.TextColor, rgba(0xff, 0xff, 0xff));
+      const node = createHostElement("button");
+      applyHostProps(node, props);
+      const label = createHostText("");
+      applyHostProps(label, { fontSize: 18, color: rgba(0xff, 0xff, 0xff) });
       const children = props.children;
       if (childrenAreReactive(children)) {
-        bindEffect(label, () => {
-          setText(label, resolveChildText(children) || "Button");
+        bindEffect(label.id, () => {
+          setText(label.id, resolveChildText(children) || "Button");
         });
       } else {
-        setText(label, resolveChildText(children) || "Button");
+        setText(label.id, resolveChildText(children) || "Button");
       }
-      insert(label, node);
-      return node;
+      insertBefore(node, label, null);
+      return node.id;
     }
     case "input": {
-      const container = createNode(NodeType.View);
-      setNumber(container, PropertyId.Padding, 10);
-      setNumber(container, PropertyId.BorderRadius, 8);
-      setNumber(container, PropertyId.BackgroundColor, rgba(0xff, 0xff, 0xff));
-      setNumber(container, PropertyId.Height, 36);
-      if (typeof props.width === "number") {
-        setNumber(container, PropertyId.Width, props.width);
-      } else {
-        setNumber(container, PropertyId.Width, 220);
-      }
-
+      const container = createHostElement("input");
+      const textNode = container.children[0];
       const initial = isSignal(props.value)
         ? String(props.value.value ?? "")
         : props.value != null
           ? String(props.value)
           : "";
-      const textNode = createText(initial);
-      setNumber(textNode, PropertyId.FontSize, 16);
-      setNumber(textNode, PropertyId.TextColor, rgba(0x11, 0x18, 0x27));
-      insert(textNode, container);
+      if (textNode) {
+        textNode.text = initial;
+        setText(textNode.id, initial);
+      }
 
-      const placeholder = typeof props.placeholder === "string" ? props.placeholder : "";
-      registerInput(container, textNode, placeholder);
-
-      if (isSignal(props.value)) {
+      if (isSignal(props.value) && textNode) {
         const signalValue = props.value;
-        bindEffect(textNode, () => {
-          setText(textNode, String(signalValue.value ?? ""));
+        bindEffect(textNode.id, () => {
+          setText(textNode.id, String(signalValue.value ?? ""));
         });
       }
 
-      if (typeof props.onChange === "function") {
-        const onChange = props.onChange as (value: string) => void;
-        addChangeListener(container, (value) => {
+      const nextProps: Record<string, unknown> = {
+        ...props,
+        ...(isSignal(props.value) ? { value: initial } : {}),
+      };
+      if (typeof props.onChange === "function" || isSignal(props.value)) {
+        const onChange = props.onChange as ((value: string) => void) | undefined;
+        nextProps.onChange = (value: string) => {
           if (isSignal(props.value)) {
             props.value.value = value;
           }
-          onChange(value);
-        });
-      } else if (isSignal(props.value)) {
-        const signalValue = props.value;
-        addChangeListener(container, (value) => {
-          signalValue.value = value;
-        });
+          onChange?.(value);
+        };
       }
-
-      if (typeof props.onSubmit === "function") {
-        addSubmitListener(container, props.onSubmit as (value: string) => void);
-      }
-
-      return container;
+      applyHostProps(container, nextProps);
+      return container.id;
     }
     default:
       return null;
@@ -352,23 +211,23 @@ export function mountNode(node: unknown): bigint | null {
   }
 
   if (typeof node === "string" || typeof node === "number") {
-    return createText(String(node));
+    return createHostText(String(node)).id;
   }
 
   if (isSignal(node)) {
-    const text = createText("");
-    bindEffect(text, () => {
-      setText(text, String(node.value));
+    const text = createHostText("");
+    bindEffect(text.id, () => {
+      setText(text.id, String(node.value));
     });
-    return text;
+    return text.id;
   }
 
   if (typeof node === "function") {
-    const text = createText("");
-    bindEffect(text, () => {
-      setText(text, String((node as () => unknown)()));
+    const text = createHostText("");
+    bindEffect(text.id, () => {
+      setText(text.id, String((node as () => unknown)()));
     });
-    return text;
+    return text.id;
   }
 
   return null;
