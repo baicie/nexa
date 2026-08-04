@@ -54,6 +54,7 @@ examples/perry-counter/perry-counter
 examples/perry-counter/perry-counter.exe
 examples/counter/counter
 examples/counter/counter.exe
+examples/counter/perry-smoke
 examples/todo/todo
 examples/todo/todo.exe
 examples/solid-counter/solid-counter

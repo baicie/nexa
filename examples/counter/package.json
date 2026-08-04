@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "perry compile main.tsx -o counter",
+    "smoke": "node ../../tools/perry-smoke.mjs",
     "start": "perry compile main.tsx -o counter && ./counter",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

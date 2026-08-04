@@ -8,6 +8,8 @@ const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
 const typescriptWorkflowUrl = new URL("../.github/workflows/typescript.yml", import.meta.url);
+const counterPackageUrl = new URL("../examples/counter/package.json", import.meta.url);
+const perrySmokeUrl = new URL("./perry-smoke.mjs", import.meta.url);
 
 const ci = parse(workflow);
 const filterStep = ci.jobs.changes.steps.find((step) => step.id === "filter");
@@ -59,8 +61,9 @@ test("workflow, script, and root config changes route to their owners", () => {
     [".github/workflows/docs.yml", ["docs"]],
     ["scripts/build-native.sh", ["rust", "typescript", "ffi", "native"]],
     ["tools/ci-path-filters.test.mjs", ["typescript"]],
-    ["Cargo.toml", ["rust", "native"]],
+    ["Cargo.toml", ["rust", "ffi", "native"]],
     ["rust-toolchain.toml", ["rust", "ffi", "native"]],
+    ["rustfmt.toml", ["rust", "ffi"]],
     ["tsconfig.base.json", ["typescript"]],
   ]);
 
@@ -100,6 +103,45 @@ test("the FFI route runs a required two-package verification gate", () => {
     assert.ok(
       commands.some((command) => command.includes(expected)),
       `FFI gate must run ${expected}`,
+    );
+  }
+});
+
+test("the required FFI gate executes the Minimal TSX Perry runtime smoke", () => {
+  for (const path of [
+    "crates/nui-core/src/lib.rs",
+    "packages/ui/src/mount/materialize.ts",
+    "examples/counter/smoke.tsx",
+    "tools/perry-smoke.mjs",
+  ]) {
+    assert.equal(routes(path, "ffi"), true, `${path} must route to FFI`);
+  }
+
+  const counterPackage = JSON.parse(readFileSync(counterPackageUrl, "utf8"));
+  assert.equal(counterPackage.scripts.smoke, "node ../../tools/perry-smoke.mjs");
+  assert.ok(existsSync(perrySmokeUrl), "the cross-platform Perry smoke runner must exist");
+
+  const ffiWorkflow = parse(readFileSync(ffiWorkflowUrl, "utf8"));
+  const smokeStep = ffiWorkflow.jobs.gate.steps.find(
+    (step) => step.name === "Run Minimal TSX Perry smoke",
+  );
+  assert.ok(smokeStep, "the FFI gate must contain the Perry runtime smoke step");
+  assert.equal(smokeStep.if, "matrix.package == 'nui-host'");
+  assert.equal(smokeStep.run, "pnpm --filter @nexa/example-counter smoke");
+  assert.notEqual(smokeStep["continue-on-error"], true);
+
+  const commands = ffiWorkflow.jobs.gate.steps.flatMap((step) =>
+    typeof step.run === "string" ? [step.run] : [],
+  );
+  for (const versionCommand of [
+    "node --version",
+    "pnpm --version",
+    "rustc --version",
+    "pnpm exec perry --version",
+  ]) {
+    assert.ok(
+      commands.some((command) => command.includes(versionCommand)),
+      `FFI gate must report ${versionCommand}`,
     );
   }
 });

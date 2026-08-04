@@ -39,6 +39,13 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Toolchain versions
+        run: |
+          node --version
+          pnpm --version
+          rustc --version
+          pnpm exec perry --version
+
       - name: Format
         run: cargo fmt --manifest-path "$FFI_MANIFEST" -- --check
 
@@ -54,3 +61,7 @@ jobs:
       - name: Validate Perry manifest
         working-directory: packages/${{ matrix.package }}
         run: pnpm exec perry native validate
+
+      - name: Run Minimal TSX Perry smoke
+        if: matrix.package == 'nui-host'
+        run: pnpm --filter @nexa/example-counter smoke
