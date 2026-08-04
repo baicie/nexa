@@ -11,6 +11,9 @@
     "react-reconciler": "0.29.2",
     "scheduler": "0.23.2"
   },
+  "devDependencies": {
+    "@types/react": "^18.3.18"
+  },
   "scripts": {
     "build": "perry compile main.tsx -o react-counter",
     "start": "perry compile main.tsx -o react-counter && ./react-counter"

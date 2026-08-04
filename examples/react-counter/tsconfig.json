@@ -4,7 +4,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "noEmit": true,
-    "types": []
+    "types": ["react"]
   },
-  "include": ["./**/*.tsx"]
+  "include": ["./**/*.tsx", "./types.d.ts"]
 }

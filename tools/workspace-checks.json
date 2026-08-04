@@ -1,0 +1,202 @@
+{
+  "reasons": {
+    "orchestrator": "The root package only orchestrates checks owned by workspace projects.",
+    "no-package-tests": "No package-level test suite is defined yet; the gap remains visible in this matrix.",
+    "source-package": "This source package is consumed directly and has no standalone build artifact.",
+    "native-build-gate": "Native-library builds are owned by the dedicated FFI verification gate.",
+    "root-lint-pending": "The repository-wide lint implementation is introduced by G0-13.",
+    "shared-lint": "This project is covered by the repository-wide root lint command."
+  },
+  "projects": [
+    {
+      "path": ".",
+      "checks": {
+        "typecheck": { "skip": "orchestrator" },
+        "test": { "script": "test:workspace" },
+        "build": { "skip": "orchestrator" },
+        "lint": { "skip": "root-lint-pending" }
+      }
+    },
+    {
+      "path": "packages/adapter-react",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/adapter-solid",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/adapter-vue",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/clipboard",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/compiler-svelte",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/nui-host",
+      "checks": {
+        "typecheck": {
+          "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
+        },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "native-build-gate" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/system",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/system-host",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "native-build-gate" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/ui",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/clipboard-demo",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/counter",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/image-demo",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/layout-playground",
+      "checks": {
+        "typecheck": {
+          "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
+        },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/perry-counter",
+      "checks": {
+        "typecheck": {
+          "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
+        },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/react-counter",
+      "checks": {
+        "typecheck": {
+          "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
+        },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/solid-counter",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/svelte-counter",
+      "checks": {
+        "typecheck": {
+          "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
+        },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/todo",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/vue-counter",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    }
+  ]
+}

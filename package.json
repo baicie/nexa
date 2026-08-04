@@ -9,10 +9,12 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "build": "pnpm -r --if-present run build",
-    "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test",
-    "lint": "pnpm -r --if-present run lint",
+    "build": "node tools/workspace-checks.mjs build",
+    "typecheck": "node tools/workspace-checks.mjs typecheck",
+    "test": "node tools/workspace-checks.mjs test",
+    "lint": "node tools/workspace-checks.mjs lint",
+    "test:workspace": "node --test tools/workspace-checks.test.mjs",
+    "workspace:validate": "node tools/workspace-checks.mjs validate",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "rust:check": "cargo check --workspace",

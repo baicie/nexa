@@ -83,6 +83,10 @@ importers:
       scheduler:
         specifier: 0.23.2
         version: 0.23.2
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
 
   examples/solid-counter:
     dependencies:
