@@ -94,6 +94,8 @@ test("the required result check fails closed when change detection fails", () =>
 });
 
 test("the Docs route always runs for documentation changes and fails closed", () => {
+  assert.equal(ci.permissions.actions, "read");
+  assert.equal(ci.permissions.contents, "read");
   assert.equal(ci.jobs.docs.if, "needs.changes.outputs.docs == 'true'");
   assert.match(workflow, /^\s+DOCS: \$\{\{ needs\.docs\.result \}\}$/m);
   assert.match(workflow, /^\s+DOCS_NEEDED: \$\{\{ needs\.changes\.outputs\.docs \}\}$/m);
