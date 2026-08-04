@@ -107,7 +107,7 @@ pub struct Node {
     pub semantics: Option<Semantics>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Slot {
     Empty {
         next_free: Option<u32>,
@@ -122,7 +122,7 @@ enum Slot {
 }
 
 /// Generational arena for native nodes.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Arena {
     owner: u64,
     slots: Vec<Slot>,

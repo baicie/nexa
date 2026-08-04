@@ -51,7 +51,7 @@ impl ColorRgba {
 }
 
 /// Node style used by the Slice 1 hand layout + paint path.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Style {
     pub width: Option<f32>,
     pub height: Option<f32>,

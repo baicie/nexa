@@ -10,7 +10,10 @@ pub mod lifecycle;
 pub mod scheduler;
 pub mod task;
 
-pub use nui_core::{FrameScheduler, TickPhase};
+pub use nui_core::{
+    DirtyFlags, FrameScheduler, MutationBatch, MutationCommand, MutationError, MutationReceipt,
+    NodeRef, TickPhase, ValidatedMutationBatch,
+};
 pub use task::{TaskHandle, TaskState};
 
 #[must_use]

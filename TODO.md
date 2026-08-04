@@ -87,7 +87,7 @@
 
 | ID     | Todo                                    | Acceptance                                                        | Verify                             | Dependencies   | Files                                                    | Size |
 | ------ | --------------------------------------- | ----------------------------------------------------------------- | ---------------------------------- | -------------- | -------------------------------------------------------- | ---- |
-| G2A-01 | [ ] 定义 `MutationBatch` 与 receipt     | batch 有 sequence/owner/commands；validate 与 apply 分离          | Core unit/property tests           | G1             | mutation types、error、tests                             | M    |
+| G2A-01 | [x] 定义 `MutationBatch` 与 receipt     | batch 有 sequence/owner/commands；validate 与 apply 分离          | Core unit/property tests           | G1             | mutation types、error、tests                             | M    |
 | G2A-02 | [ ] 让 Host FFI 入队 mutation           | create/set/insert/remove 不再直接改变 active Tree                 | Bridge tests 断言 commit 前不可见  | G2A-01         | Bridge host、FFI exports、TS wrapper、tests              | M    |
 | G2A-03 | [ ] 实现原子 `commit()`                 | 任一命令失败整批拒绝；成功返回 dirty/sequence 并只请求一次 redraw | batch rollback tests + Perry smoke | G2A-02         | runtime commit、Bridge host、FFI export、tests           | M    |
 | G2A-04 | [ ] 实现 Dispatcher 与 wakeup           | platform/system/framework 队列可并发投递，UI tick 有序 drain      | dispatcher concurrency tests       | G2A-03         | dispatcher、winit wakeup、runtime lib、tests             | M    |

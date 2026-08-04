@@ -5,6 +5,7 @@
 
 pub mod event;
 pub mod layout;
+pub mod mutation;
 pub mod paint;
 pub mod scheduler;
 pub mod semantics;
@@ -15,6 +16,10 @@ pub use nui_protocol as protocol;
 
 pub use event::{hit_scroll, hit_test, EventId};
 pub use layout::measure_text;
+pub use mutation::{
+    DirtyFlags, MutationBatch, MutationCommand, MutationError, MutationReceipt, NodeRef,
+    ValidatedMutationBatch,
+};
 pub use scheduler::{FrameScheduler, TickPhase};
 pub use semantics::{SemanticAction, SemanticRole, Semantics};
 pub use style::{Align, ColorRgba, FlexDirection, PropertyId, Style};
