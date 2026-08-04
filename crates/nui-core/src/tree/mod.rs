@@ -90,7 +90,7 @@ enum Slot {
     },
     Occupied {
         generation: u32,
-        node: Node,
+        node: Box<Node>,
     },
 }
 
@@ -117,7 +117,7 @@ impl Arena {
     }
 
     pub fn create(&mut self, node_type: NodeType) -> NodeId {
-        let node = Node {
+        let node = Box::new(Node {
             node_type,
             parent: None,
             children: Vec::new(),
@@ -126,7 +126,7 @@ impl Arena {
             clickable: false,
             layout: LayoutRect::default(),
             semantics: None,
-        };
+        });
 
         if let Some(slot_index) = self.free_head {
             let generation = match &self.slots[slot_index as usize] {
@@ -171,14 +171,18 @@ impl Arena {
     #[must_use]
     pub fn get(&self, id: NodeId) -> Option<&Node> {
         match self.slots.get(id.slot() as usize)? {
-            Slot::Occupied { generation, node } if *generation == id.generation() => Some(node),
+            Slot::Occupied { generation, node } if *generation == id.generation() => {
+                Some(node.as_ref())
+            }
             _ => None,
         }
     }
 
     pub fn get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
         match self.slots.get_mut(id.slot() as usize)? {
-            Slot::Occupied { generation, node } if *generation == id.generation() => Some(node),
+            Slot::Occupied { generation, node } if *generation == id.generation() => {
+                Some(node.as_mut())
+            }
             _ => None,
         }
     }
@@ -189,12 +193,7 @@ impl Arena {
 
     /// Insert `child` under `parent`. If `before` is set, insert immediately
     /// before that sibling; otherwise append. Reparents `child` if needed.
-    pub fn insert_child_before(
-        &mut self,
-        parent: NodeId,
-        child: NodeId,
-        before: Option<NodeId>,
-    ) {
+    pub fn insert_child_before(&mut self, parent: NodeId, child: NodeId, before: Option<NodeId>) {
         if let Some(old_parent) = self.get(child).and_then(|n| n.parent) {
             if let Some(p) = self.get_mut(old_parent) {
                 p.children.retain(|c| *c != child);
@@ -240,10 +239,7 @@ impl Arena {
     }
 
     fn destroy_subtree(&mut self, id: NodeId) {
-        let children = self
-            .get(id)
-            .map(|n| n.children.clone())
-            .unwrap_or_default();
+        let children = self.get(id).map(|n| n.children.clone()).unwrap_or_default();
         for child in children {
             self.destroy_subtree(child);
         }
@@ -273,6 +269,17 @@ impl Arena {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn slot_storage_remains_pointer_sized() {
+        let slot_bytes = std::mem::size_of::<Slot>();
+        let pointer_sized_budget = std::mem::size_of::<usize>() * 4;
+
+        assert!(
+            slot_bytes <= pointer_sized_budget,
+            "Slot is {slot_bytes} bytes; expected at most {pointer_sized_budget} bytes"
+        );
+    }
 
     #[test]
     fn node_id_roundtrip() {
