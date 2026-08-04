@@ -86,6 +86,7 @@ export function runPerryFrameworkBuilds({
       cwd: workspaceRoot,
       encoding: "utf8",
       env: { ...process.env, PERRY_NO_CACHE: "1" },
+      stdio: "inherit",
       // Node cannot execute pnpm's .cmd shim directly on Windows.
       shell: platform === "win32",
       timeout: 30 * 60_000,

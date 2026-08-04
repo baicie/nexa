@@ -92,6 +92,11 @@ test("a selected framework is cleaned, built without Perry cache, and verified",
   assert.equal(calls[0].command, "pnpm");
   assert.deepEqual(calls[0].args, ["--filter", "@nexa/example-solid-counter", "build"]);
   assert.equal(calls[0].options.env.PERRY_NO_CACHE, "1");
+  assert.equal(
+    calls[0].options.stdio,
+    "inherit",
+    "verbose native link output must stream instead of exhausting spawnSync's buffer",
+  );
   assert.ok(removals.some(({ target }) => target.endsWith(path.join("solid-counter", "dist"))));
   assert.ok(
     removals.some(({ target }) => target.endsWith(path.join("solid-counter", "solid-counter"))),
