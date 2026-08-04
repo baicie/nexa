@@ -63,6 +63,16 @@ mod tests {
     }
 
     #[test]
+    fn host_accepts_generated_protocol_ids() {
+        let host = NuiHost::new();
+        let node = host.create_node(nui_core::protocol::ui::NodeType::View);
+        host.set_number(node, nui_core::protocol::ui::PropertyId::Width, 120.0);
+
+        let inner = host.inner.lock().expect("host inner");
+        assert_eq!(inner.arena.get(node).unwrap().style.width, Some(120.0));
+    }
+
+    #[test]
     fn remove_clears_subtree_and_tokens() {
         let host = NuiHost::new();
         let root = host.create_node(NodeType::View);

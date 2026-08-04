@@ -2,6 +2,9 @@
 
 use crate::tree::{Arena, NodeId, NodeType};
 
+/// Event identifiers defined by the generated Host Protocol.
+pub use crate::protocol::ui::EventId;
+
 /// Return the front-most clickable node under `(x, y)` in logical pixels.
 #[must_use]
 pub fn hit_test(arena: &Arena, root: NodeId, x: f32, y: f32) -> Option<NodeId> {

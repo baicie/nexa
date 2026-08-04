@@ -65,12 +65,11 @@ impl NuiHost {
     pub fn create_node(&self, node_type: NodeType) -> NodeId {
         let mut inner = self.inner.lock().expect("host inner");
         let id = inner.arena.create(node_type);
-        if inner.root.is_none()
-            && matches!(
-                node_type,
-                NodeType::Root | NodeType::View | NodeType::Scroll
-            )
-        {
+        let can_be_root = match node_type {
+            NodeType::Root | NodeType::View | NodeType::Scroll => true,
+            NodeType::Text | NodeType::Image => false,
+        };
+        if inner.root.is_none() && can_be_root {
             inner.root = Some(id);
         }
         id
@@ -167,7 +166,10 @@ impl NuiHost {
             PropertyId::ScrollOffsetY => {
                 n.style.scroll_offset_y = v.max(0.0);
             }
-            _ => {}
+            PropertyId::MinWidth
+            | PropertyId::MinHeight
+            | PropertyId::Opacity
+            | PropertyId::FontWeight => {}
         }
     }
 

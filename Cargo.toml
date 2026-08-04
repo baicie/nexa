@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "protocol",
     "crates/nui-core",
     "crates/nui-platform-winit",
     "crates/nui-render-skia",
@@ -12,6 +13,7 @@ members = [
     "examples/rust-counter",
 ]
 default-members = [
+    "protocol",
     "crates/nui-core",
     "crates/nui-platform-winit",
     "crates/nui-render-skia",

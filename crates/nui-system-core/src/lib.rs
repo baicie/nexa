@@ -7,15 +7,9 @@ mod clipboard;
 mod permission;
 
 pub use clipboard::{clipboard_read_text, clipboard_write_text, ClipboardError};
-pub use permission::{PermissionDenied, PermissionId, PermissionSet};
-
-/// Stable command identifiers for the System Host protocol.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u16)]
-pub enum CommandId {
-    ClipboardReadText = 1,
-    ClipboardWriteText = 2,
-}
+pub use nui_protocol as protocol;
+pub use nui_protocol::system::{CommandId, PermissionId};
+pub use permission::{PermissionDenied, PermissionSet};
 
 #[must_use]
 pub fn version() -> &'static str {
@@ -29,6 +23,15 @@ mod tests {
     #[test]
     fn version_non_empty() {
         assert!(!version().is_empty());
+    }
+
+    #[test]
+    fn system_protocol_ids_are_generated_types() {
+        let command: CommandId = super::protocol::system::CommandId::ClipboardReadText;
+        let permission: PermissionId = super::protocol::system::PermissionId::ClipboardRead;
+
+        let _: super::protocol::system::CommandId = command;
+        let _: super::protocol::system::PermissionId = permission;
     }
 
     #[test]

@@ -8,6 +8,7 @@ description = "Nexa System Host core: commands, permissions, desktop backends"
 
 [dependencies]
 arboard = "3.6"
+nui-protocol = { path = "../../protocol", version = "0.1.0" }
 
 [lints]
 workspace = true

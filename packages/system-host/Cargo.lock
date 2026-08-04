@@ -242,10 +242,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nui-protocol"
+version = "0.1.0"
+
+[[package]]
 name = "nui-system-core"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "nui-protocol",
 ]
 
 [[package]]

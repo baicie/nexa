@@ -6,6 +6,9 @@
 use crate::semantics::Semantics;
 use crate::style::Style;
 
+/// Native primitive node kinds defined by the generated Host Protocol.
+pub use crate::protocol::ui::NodeType;
+
 /// Opaque node handle exchanged across the NUI Host Protocol boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(u64);
@@ -35,20 +38,6 @@ impl NodeId {
     pub const fn new(slot: u32, generation: u32) -> Self {
         Self(((generation as u64) << 32) | (slot as u64))
     }
-}
-
-/// Native primitive node kinds (MVP).
-///
-/// Composite components like `Button` / `Column` are compositions of these
-/// primitives — they are not separate native types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
-pub enum NodeType {
-    Root = 0,
-    View = 1,
-    Text = 2,
-    Image = 3,
-    Scroll = 4,
 }
 
 /// Axis-aligned layout box in **logical** pixels.

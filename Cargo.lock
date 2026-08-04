@@ -927,6 +927,9 @@ dependencies = [
 [[package]]
 name = "nui-core"
 version = "0.1.0"
+dependencies = [
+ "nui-protocol",
+]
 
 [[package]]
 name = "nui-layout-taffy"
@@ -956,6 +959,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nui-protocol"
+version = "0.1.0"
+
+[[package]]
 name = "nui-render-skia"
 version = "0.1.0"
 dependencies = [
@@ -969,6 +976,7 @@ name = "nui-system-core"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "nui-protocol",
 ]
 
 [[package]]

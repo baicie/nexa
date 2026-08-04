@@ -1,14 +1,7 @@
 //! Permission gates for System Host commands (ADR-005 §7).
 
 use crate::CommandId;
-
-/// Capability identifiers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u16)]
-pub enum PermissionId {
-    ClipboardRead = 1,
-    ClipboardWrite = 2,
-}
+use crate::PermissionId;
 
 /// Error returned when a command lacks the required capability.
 #[derive(Debug, Clone, PartialEq, Eq)]
