@@ -158,7 +158,22 @@
         "windows": {
           "crate": ".",
           "lib": "perry_ext_nui_host.lib",
-          "cargo_features": []
+          "cargo_features": [],
+          "libDirs": [
+            "target/perry-native/windows/skia-binaries"
+          ],
+          "libs": [
+            "skia",
+            "skia-bindings",
+            "usp10",
+            "ole32",
+            "user32",
+            "gdi32",
+            "fontsub",
+            "advapi32",
+            "imm32",
+            "uxtheme"
+          ]
         }
       }
     }

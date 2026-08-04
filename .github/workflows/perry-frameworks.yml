@@ -38,6 +38,18 @@ jobs:
           if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
             throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
           }
+          $destination = Join-Path $env:GITHUB_WORKSPACE "packages/nui-host/target/perry-native/windows"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          tar.exe --extract --gzip --file $archive --directory $destination
+          $libraries = @(
+            (Join-Path $destination "skia-binaries/skia.lib"),
+            (Join-Path $destination "skia-binaries/skia-bindings.lib")
+          )
+          foreach ($library in $libraries) {
+            if (-not (Test-Path -LiteralPath $library -PathType Leaf)) {
+              throw "Skia archive is missing required link input: $library"
+            }
+          }
           $fileUrl = "file://" + $archive.Replace('\', '/')
           "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 

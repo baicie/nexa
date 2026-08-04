@@ -154,6 +154,31 @@ test("Ubuntu native link gates provision Skia libraries and Perry link flags", (
   ]);
 });
 
+test("Windows Perry manifest points at the fixed staged Skia directory", () => {
+  const nuiHostPackage = JSON.parse(readFileSync(nuiHostPackageUrl, "utf8"));
+  const windowsTarget = nuiHostPackage.perry.nativeLibrary.targets.windows;
+
+  assert.deepEqual(windowsTarget.libDirs, ["target/perry-native/windows/skia-binaries"]);
+});
+
+test("Windows Perry manifest forwards the complete native link library set", () => {
+  const nuiHostPackage = JSON.parse(readFileSync(nuiHostPackageUrl, "utf8"));
+  const windowsTarget = nuiHostPackage.perry.nativeLibrary.targets.windows;
+
+  assert.deepEqual(windowsTarget.libs, [
+    "skia",
+    "skia-bindings",
+    "usp10",
+    "ole32",
+    "user32",
+    "gdi32",
+    "fontsub",
+    "advapi32",
+    "imm32",
+    "uxtheme",
+  ]);
+});
+
 test("the required Perry framework gate runs four independent clean AOT builds", () => {
   assert.ok(existsSync(perryFrameworksWorkflowUrl), "perry-frameworks.yml must exist");
   assert.ok(filters.perry, "ci.yml must define the Perry framework path filter");
@@ -223,6 +248,52 @@ test("the required Perry framework gate runs four independent clean AOT builds",
   const commands = build.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
   assert.ok(commands.includes("pnpm install --frozen-lockfile"));
   assert.ok(commands.includes("pnpm test:perry ${{ matrix.framework }}"));
+});
+
+test("Windows Perry bootstrap prepares fixed Skia link inputs before AOT", () => {
+  const perryWorkflow = parse(readFileSync(perryFrameworksWorkflowUrl, "utf8"));
+  const steps = perryWorkflow.jobs.build.steps;
+  const aotIndex = steps.findIndex((step) => step.name === "Clean AOT build");
+  const stagingIndex = steps.findIndex((step) => step.name === "Stage Windows Skia binaries");
+
+  assert.ok(aotIndex >= 0, "Perry workflow must contain the clean AOT step");
+  assert.ok(
+    stagingIndex >= 0 && stagingIndex < aotIndex,
+    "Windows Skia staging must run before AOT",
+  );
+
+  const stagingCommand = steps[stagingIndex].run;
+  assert.match(
+    stagingCommand,
+    /packages[\\/]nui-host[\\/]target[\\/]perry-native[\\/]windows/,
+    "Windows Skia archive must be extracted into nui-host's fixed Perry native directory",
+  );
+  assert.match(
+    stagingCommand,
+    /(?:tar(?:\.exe)?\s+.*(?:--extract|-[^\r\n]*x)|Expand-Archive)/i,
+    "Windows Skia staging must extract the pinned archive",
+  );
+
+  const windowsBootstrapSteps = steps
+    .slice(0, aotIndex)
+    .filter(
+      (step) =>
+        step.if === "runner.os == 'Windows'" &&
+        step.shell === "pwsh" &&
+        typeof step.run === "string",
+    );
+  const verificationStep = windowsBootstrapSteps.find(
+    (step) =>
+      /skia-binaries[\\/]skia\.lib/.test(step.run) &&
+      /skia-binaries[\\/]skia-bindings\.lib/.test(step.run),
+  );
+  assert.ok(verificationStep, "Windows bootstrap must verify both Skia link inputs before AOT");
+  assert.match(verificationStep.run, /Test-Path/i);
+  assert.match(
+    verificationStep.run,
+    /throw/i,
+    "Windows bootstrap must fail before AOT when either Skia link input is missing",
+  );
 });
 
 test("the required FFI gate executes the Minimal TSX Perry runtime smoke", () => {
