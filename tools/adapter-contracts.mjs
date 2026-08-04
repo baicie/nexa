@@ -144,9 +144,12 @@ export function createMockAdapter() {
   function remove(node) {
     if (node.disposed) return;
     node.disposed = true;
-    for (const child of [...node.children]) remove(child);
-    for (const cleanup of [...node.cleanups]) cleanup();
-    node.cleanups.clear();
+    while (node.children.length > 0) remove(node.children[0]);
+    while (node.cleanups.size > 0) {
+      const cleanup = node.cleanups.values().next().value;
+      node.cleanups.delete(cleanup);
+      cleanup();
+    }
     node.listeners = Object.create(null);
     node.props = Object.create(null);
     detach(node);

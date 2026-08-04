@@ -21,7 +21,7 @@ test("disposing an ancestor stops descendant effects exactly once", () => {
   registerNodeCleanup(
     grandchild,
     effect(() => {
-      value.value;
+      void value.value;
       runs += 1;
     }),
   );

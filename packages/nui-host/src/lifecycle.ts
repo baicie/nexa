@@ -74,11 +74,16 @@ export function disposeNode(id: bigint): void {
   }
   state.disposed = true;
 
-  for (const child of [...state.children]) {
+  while (state.children.size > 0) {
+    const child = state.children.values().next().value as bigint | undefined;
+    if (child === undefined) break;
     disposeNode(child);
   }
-  for (const cleanup of [...state.cleanups]) {
+  while (state.cleanups.size > 0) {
+    const cleanup = state.cleanups.values().next().value as NodeCleanup | undefined;
+    if (cleanup === undefined) break;
     cleanup();
+    state.cleanups.delete(cleanup);
   }
 
   if (state.parent !== null) {

@@ -74,7 +74,7 @@ function mountForList(props: Record<string, unknown>): bigint {
 
     const nextKeys = new Set(list.map((item, index) => listItemKey(item, index)));
 
-    for (const [key, node] of [...mounted.entries()]) {
+    for (const [key, node] of mounted.entries()) {
       if (!nextKeys.has(key)) {
         remove(node);
         mounted.delete(key);
