@@ -154,9 +154,7 @@ pub extern "C" fn js_nui_set_number(node: u64, property: f64, value: f64) {
         _ => return,
     };
     let session = session().lock().expect("host session");
-    session
-        .host
-        .set_number(node_from_raw(node), prop, value);
+    session.host.set_number(node_from_raw(node), prop, value);
 }
 
 #[no_mangle]
