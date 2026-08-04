@@ -77,6 +77,30 @@ test("TypeScript renderer rejects semantic u64 instead of mapping it to number",
   assert.throws(() => renderTypeScriptProtocol(manifests), /must not render semantic u64/);
 });
 
+test("TypeScript renderer uses explicit null for optional HandleRef fields", () => {
+  const manifests = {
+    common: structuredClone(common.manifest),
+    ui: structuredClone(contracts.ui.manifest),
+    system: structuredClone(contracts.system.manifest),
+  };
+  manifests.ui.types.push({
+    name: "OptionalHandleFixture",
+    kind: "record",
+    fields: [
+      {
+        name: "anchor",
+        type: "common.HandleRef",
+        handleKind: "common.Node",
+        optional: true,
+      },
+    ],
+  });
+
+  const typescript = renderTypeScriptProtocol(manifests);
+  assert.match(typescript, /readonly anchor: Common\.HandleRef \| null/);
+  assert.doesNotMatch(typescript, /readonly anchor\?: Common\.HandleRef/);
+});
+
 test("protocol generator writes once, then detects missing, changed, and unexpected artifacts", () => {
   const temporaryRoot = mkdtempSync(path.join(tmpdir(), "nexa-ui-protocol-codegen-"));
   try {

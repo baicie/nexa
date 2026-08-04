@@ -37,6 +37,18 @@ function typescriptType(type, namespace) {
   return owner === namespace ? name : namespaceName(owner) + "." + name;
 }
 
+function isOptionalHandle(value) {
+  return value.optional && value.type === "common.HandleRef";
+}
+
+function optionalMarker(value) {
+  return value.optional && !isOptionalHandle(value) ? "?" : "";
+}
+
+function withOptionalHandleNull(value, renderedType) {
+  return renderedType + (isOptionalHandle(value) ? " | null" : "");
+}
+
 function renderRecord(type, namespace) {
   if (namespace === "common" && type.name === "HandleRef") {
     return [
@@ -51,12 +63,12 @@ function renderRecord(type, namespace) {
 
   const fields = type.fields
     .map((field) => {
-      const optional = field.optional ? "?" : "";
-      const fieldType =
+      const baseType =
         namespace === "common" && type.name === "NexaError" && field.name === "domain"
           ? '"protocol" | "ui" | "system"'
           : typescriptType(field.type, namespace);
-      return "    readonly " + field.name + optional + ": " + fieldType + ";";
+      const fieldType = withOptionalHandleNull(field, baseType);
+      return "    readonly " + field.name + optionalMarker(field) + ": " + fieldType + ";";
     })
     .join("\n");
   return ["  export interface " + type.name + " {", fields, "  }"].join("\n");
@@ -99,10 +111,8 @@ function renderCommandMaps(commands, namespace) {
   const params = commands
     .map((command) => {
       const tuple = command.params.map((param) => {
-        const optionalHandle = param.optional && param.type === "common.HandleRef";
-        const optional = param.optional && !optionalHandle ? "?" : "";
-        const type = typescriptType(param.type, namespace) + (optionalHandle ? " | null" : "");
-        return param.name + optional + ": " + type;
+        const type = withOptionalHandleNull(param, typescriptType(param.type, namespace));
+        return param.name + optionalMarker(param) + ": " + type;
       });
       const prefix = "    readonly [CommandId." + command.name + "]: readonly [";
       const singleLine = prefix + tuple.join(", ") + "];";
