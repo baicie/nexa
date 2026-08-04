@@ -69,6 +69,7 @@ test("workflow, script, and root config changes route to their owners", () => {
     [".github/workflows/native-smoke.yml", ["typescript", "native"]],
     [".github/workflows/docs.yml", ["typescript", "docs"]],
     ["scripts/build-native.sh", ["rust", "typescript", "ffi", "native"]],
+    ["protocol/nui-host.json", ["rust", "typescript", "ffi", "perry"]],
     ["tools/ci-path-filters.test.mjs", ["typescript"]],
     ["Cargo.toml", ["rust", "ffi", "perry", "native"]],
     ["rust-toolchain.toml", ["rust", "ffi", "perry", "native"]],

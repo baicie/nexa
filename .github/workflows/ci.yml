@@ -32,6 +32,7 @@ jobs:
         with:
           filters: |
             rust:
+              - 'protocol/**'
               - 'crates/**'
               - 'examples/rust-counter/**'
               - 'packages/nui-host/Cargo.toml'
@@ -49,6 +50,7 @@ jobs:
               - '.github/workflows/rust.yml'
               - '.github/workflows/ci.yml'
             typescript:
+              - 'protocol/**'
               - 'packages/**'
               - 'examples/clipboard-demo/**'
               - 'examples/counter/**'
@@ -71,6 +73,7 @@ jobs:
               - 'tools/**'
               - '.github/workflows/*.yml'
             ffi:
+              - 'protocol/**'
               - 'crates/**'
               - 'packages/nui-host/**'
               - 'packages/system-host/**'
@@ -89,6 +92,7 @@ jobs:
               - '.github/workflows/ffi.yml'
               - '.github/workflows/ci.yml'
             perry:
+              - 'protocol/**'
               - 'crates/**'
               - 'packages/nui-host/**'
               - 'packages/adapter-solid/**'
