@@ -44,8 +44,7 @@ export function createHostElement(tag: string): NuiNode {
         : normalized === "image"
           ? NodeType.Image
           : NodeType.View;
-  const id =
-    nodeType === NodeType.Text ? createText("") : createNode(nodeType);
+  const id = nodeType === NodeType.Text ? createText("") : createNode(nodeType);
   const node = blankNode(id, normalized, {
     isText: nodeType === NodeType.Text,
     isComment: false,

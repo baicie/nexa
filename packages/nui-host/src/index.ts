@@ -31,12 +31,7 @@ export {
   createHostInput,
 } from "./node";
 
-export {
-  applyElementDefaults,
-  applyNumericProp,
-  applyHostProp,
-  applyHostProps,
-} from "./props";
+export { applyElementDefaults, applyNumericProp, applyHostProp, applyHostProps } from "./props";
 
 export {
   unlink,
@@ -48,11 +43,7 @@ export {
   getNextSibling,
 } from "./tree";
 
-export {
-  getWindowTitle,
-  setWindowTitle,
-  resetWindowTitle,
-} from "./title";
+export { getWindowTitle, setWindowTitle, resetWindowTitle } from "./title";
 
 export type { TextInputClient, TextRange, TextSelection, Rect } from "./text-input";
 export type { Semantics } from "./semantics";

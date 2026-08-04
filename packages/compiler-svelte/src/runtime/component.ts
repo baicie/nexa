@@ -41,5 +41,7 @@ export function create_component(component: ComponentBag): void {
 export function noop(): void {}
 
 export function safe_not_equal(a: unknown, b: unknown): boolean {
-  return a != a ? b == b : a !== b || (a !== null && typeof a === "object") || typeof a === "function";
+  return a != a
+    ? b == b
+    : a !== b || (a !== null && typeof a === "object") || typeof a === "function";
 }

@@ -1,4 +1,11 @@
-import { commit, createHostRoot, getWindowTitle, resetWindowTitle, run, type NuiNode } from "@nexa/nui-host";
+import {
+  commit,
+  createHostRoot,
+  getWindowTitle,
+  resetWindowTitle,
+  run,
+  type NuiNode,
+} from "@nexa/nui-host";
 
 import { renderer } from "./renderer";
 

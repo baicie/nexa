@@ -9,19 +9,11 @@ export function Fragment(props: { children?: unknown }): unknown {
   return props.children;
 }
 
-export function jsx(
-  type: unknown,
-  props: Record<string, unknown> | null,
-  _key?: unknown,
-): unknown {
+export function jsx(type: unknown, props: Record<string, unknown> | null, _key?: unknown): unknown {
   return { type, props: props ?? {} };
 }
 
-export function jsxs(
-  type: unknown,
-  props: Record<string, unknown> | null,
-  key?: unknown,
-): unknown {
+export function jsxs(type: unknown, props: Record<string, unknown> | null, key?: unknown): unknown {
   return jsx(type, props, key);
 }
 

@@ -17,7 +17,11 @@
   },
   "perry": {
     "allow": {
-      "nativeLibrary": ["@nexa/nui-host", "@nexa/system-host", "@nexa/ui"]
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/ui"
+      ]
     }
   }
 }

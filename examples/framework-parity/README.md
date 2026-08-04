@@ -2,13 +2,13 @@
 
 Same Counter shape across frameworks, all targeting the NUI Host:
 
-| Framework | Example | Build |
-|-----------|---------|-------|
-| Minimal TSX | `examples/counter` | `perry compile main.tsx -o counter` |
-| Solid | `examples/solid-counter` | `pnpm build` |
-| Vue 3 | `examples/vue-counter` | `perry compile main.ts -o vue-counter` |
-| React | `examples/react-counter` | `perry compile main.tsx -o react-counter` |
-| Svelte | `examples/svelte-counter` | `perry compile main.ts -o svelte-counter` |
+| Framework   | Example                   | Build                                     |
+| ----------- | ------------------------- | ----------------------------------------- |
+| Minimal TSX | `examples/counter`        | `perry compile main.tsx -o counter`       |
+| Solid       | `examples/solid-counter`  | `pnpm build`                              |
+| Vue 3       | `examples/vue-counter`    | `perry compile main.ts -o vue-counter`    |
+| React       | `examples/react-counter`  | `perry compile main.tsx -o react-counter` |
+| Svelte      | `examples/svelte-counter` | `perry compile main.ts -o svelte-counter` |
 
 ## Checklist
 

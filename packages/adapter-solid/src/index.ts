@@ -24,16 +24,7 @@ export const {
   use,
 } = renderer;
 
-export {
-  For,
-  Show,
-  Index,
-  Switch,
-  Match,
-  ErrorBoundary,
-  Suspense,
-  SuspenseList,
-} from "solid-js";
+export { For, Show, Index, Switch, Match, ErrorBoundary, Suspense, SuspenseList } from "solid-js";
 
 export {
   createSignal,

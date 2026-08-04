@@ -2,12 +2,7 @@
  * Mount a Minimal TSX tree onto the NUI Host and run the native window.
  */
 
-import {
-  commit,
-  getWindowTitle,
-  resetWindowTitle,
-  run,
-} from "@nexa/nui-host";
+import { commit, getWindowTitle, resetWindowTitle, run } from "@nexa/nui-host";
 
 import type { NexaElement } from "../jsx-runtime";
 import type { PrimitiveElement } from "../primitives";

@@ -1,10 +1,4 @@
-import {
-  commit,
-  createHostRoot,
-  getWindowTitle,
-  resetWindowTitle,
-  run,
-} from "@nexa/nui-host";
+import { commit, createHostRoot, getWindowTitle, resetWindowTitle, run } from "@nexa/nui-host";
 import { createRenderer, type App } from "@vue/runtime-core";
 
 import { nodeOps } from "./node-ops";

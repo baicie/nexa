@@ -8,8 +8,7 @@ import { For, Show, createSignal, render } from "@nexa/adapter-solid";
 
 function App() {
   const [count, setCount] = createSignal(0);
-  const hints = () =>
-    Array.from({ length: Math.min(count(), 5) }, (_, i) => `tick-${i + 1}`);
+  const hints = () => Array.from({ length: Math.min(count(), 5) }, (_, i) => `tick-${i + 1}`);
 
   return (
     <window title="Nexa UI — Solid Counter">

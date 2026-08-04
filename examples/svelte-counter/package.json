@@ -16,7 +16,10 @@
   },
   "perry": {
     "allow": {
-      "nativeLibrary": ["@nexa/nui-host", "@nexa/compiler-svelte"]
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/compiler-svelte"
+      ]
     }
   }
 }

@@ -20,8 +20,7 @@ function App() {
             const marker = `nexa-clipboard-${Date.now()}`;
             await writeText(marker);
             const got = await readText();
-            status.value =
-              got === marker ? `OK: ${got}` : `Mismatch: wrote=${marker} read=${got}`;
+            status.value = got === marker ? `OK: ${got}` : `Mismatch: wrote=${marker} read=${got}`;
           }}
         >
           Round-trip write/read

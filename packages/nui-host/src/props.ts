@@ -82,10 +82,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
   }
 
   const lower = name.toLowerCase();
-  if (
-    (lower === "onclick" || name === "onClick") &&
-    typeof value === "function"
-  ) {
+  if ((lower === "onclick" || name === "onClick") && typeof value === "function") {
     addClickListener(node.id, value as () => void);
     return;
   }
@@ -98,10 +95,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     return;
   }
 
-  if (
-    (lower === "onsubmit" || name === "onSubmit") &&
-    typeof value === "function"
-  ) {
+  if ((lower === "onsubmit" || name === "onSubmit") && typeof value === "function") {
     addSubmitListener(node.id, value as (v: string) => void);
     return;
   }
@@ -146,10 +140,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
   }
 }
 
-export function applyHostProps(
-  node: NuiNode,
-  props: Record<string, unknown>,
-): void {
+export function applyHostProps(node: NuiNode, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
     if (value == null && key !== "children") {
       continue;

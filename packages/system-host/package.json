@@ -28,7 +28,9 @@
         },
         {
           "name": "js_nexa_clipboard_write_text",
-          "params": ["string"],
+          "params": [
+            "string"
+          ],
           "returns": "i32"
         }
       ],
@@ -37,7 +39,9 @@
           "crate": ".",
           "lib": "libperry_ext_nexa_system_host.a",
           "cargo_features": [],
-          "libs": ["c++"],
+          "libs": [
+            "c++"
+          ],
           "frameworks": [
             "AppKit",
             "Foundation"

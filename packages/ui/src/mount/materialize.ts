@@ -29,11 +29,7 @@ import {
 
 type Component = (props: Record<string, unknown>) => unknown;
 
-function applyBoxProps(
-  node: bigint,
-  props: Record<string, unknown>,
-  direction?: 0 | 1,
-): void {
+function applyBoxProps(node: bigint, props: Record<string, unknown>, direction?: 0 | 1): void {
   if (direction !== undefined) {
     setNumber(node, PropertyId.FlexDirection, direction);
   }
@@ -293,8 +289,7 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       setNumber(textNode, PropertyId.TextColor, rgba(0x11, 0x18, 0x27));
       insert(textNode, container);
 
-      const placeholder =
-        typeof props.placeholder === "string" ? props.placeholder : "";
+      const placeholder = typeof props.placeholder === "string" ? props.placeholder : "";
       registerInput(container, textNode, placeholder);
 
       if (isSignal(props.value)) {

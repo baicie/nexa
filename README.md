@@ -35,16 +35,16 @@ docs/decisions/   ADR-004 … ADR-006
 
 ### 框架 Counter 一览
 
-| 框架 | 目录 | 命令 |
-|------|------|------|
-| Minimal TSX | `examples/counter` | `perry compile main.tsx -o counter` |
-| Solid | `examples/solid-counter` | `pnpm build` |
-| Vue 3 | `examples/vue-counter` | `perry compile main.ts -o vue-counter` |
-| React | `examples/react-counter` | `perry compile main.tsx -o react-counter` |
-| Svelte | `examples/svelte-counter` | `perry compile main.ts -o svelte-counter` |
-| Layout | `examples/layout-playground` | `perry compile main.tsx -o layout-playground` |
-| Image | `examples/image-demo` | `cd examples/image-demo && pnpm start` |
-| Clipboard | `examples/clipboard-demo` | `cd examples/clipboard-demo && pnpm start` |
+| 框架        | 目录                         | 命令                                          |
+| ----------- | ---------------------------- | --------------------------------------------- |
+| Minimal TSX | `examples/counter`           | `perry compile main.tsx -o counter`           |
+| Solid       | `examples/solid-counter`     | `pnpm build`                                  |
+| Vue 3       | `examples/vue-counter`       | `perry compile main.ts -o vue-counter`        |
+| React       | `examples/react-counter`     | `perry compile main.tsx -o react-counter`     |
+| Svelte      | `examples/svelte-counter`    | `perry compile main.ts -o svelte-counter`     |
+| Layout      | `examples/layout-playground` | `perry compile main.tsx -o layout-playground` |
+| Image       | `examples/image-demo`        | `cd examples/image-demo && pnpm start`        |
+| Clipboard   | `examples/clipboard-demo`    | `cd examples/clipboard-demo && pnpm start`    |
 
 对照清单见 [examples/framework-parity](examples/framework-parity/README.md)。
 
@@ -69,22 +69,22 @@ pnpm install && pnpm typecheck && pnpm format:check
 
 ## 垂直切片路线
 
-| Slice | 目标 | 状态 |
-| ----: | ---- | ---- |
-| 0 | 静态窗口 | 完成 |
-| 1 | Rust Counter | 完成 |
-| 2 | Perry Host FFI | 完成 |
-| 3 | Minimal TSX | 完成 |
-| 4 | Todo + Taffy + Scroll | 完成 |
-| 5 | Solid Adapter | 完成 |
-| 6 | Vue 3 Adapter | 完成 |
-| 7 | React Adapter | 完成 |
-| 8 | Svelte compiler backend | 完成（Counter 子集 runtime） |
-| 9 | Input（单行） | 完成（Host focus + IME/键盘 + Todo） |
-| 10 | ADR §11 复合组件 | 完成（Stack / Spacer / Card + flexGrow/align） |
-| 11 | Image（本地） | 完成（set_image + Skia decode/paint + image-demo） |
-| 12 | System Host + Clipboard | 完成（ADR-005、`@nexa/clipboard`） |
-| — | ADR-006 P0 契约 | 完成（文档 + `nui-text` / `nui-app-runtime` 骨架 + Semantics） |
+| Slice | 目标                    | 状态                                                           |
+| ----: | ----------------------- | -------------------------------------------------------------- |
+|     0 | 静态窗口                | 完成                                                           |
+|     1 | Rust Counter            | 完成                                                           |
+|     2 | Perry Host FFI          | 完成                                                           |
+|     3 | Minimal TSX             | 完成                                                           |
+|     4 | Todo + Taffy + Scroll   | 完成                                                           |
+|     5 | Solid Adapter           | 完成                                                           |
+|     6 | Vue 3 Adapter           | 完成                                                           |
+|     7 | React Adapter           | 完成                                                           |
+|     8 | Svelte compiler backend | 完成（Counter 子集 runtime）                                   |
+|     9 | Input（单行）           | 完成（Host focus + IME/键盘 + Todo）                           |
+|    10 | ADR §11 复合组件        | 完成（Stack / Spacer / Card + flexGrow/align）                 |
+|    11 | Image（本地）           | 完成（set_image + Skia decode/paint + image-demo）             |
+|    12 | System Host + Clipboard | 完成（ADR-005、`@nexa/clipboard`）                             |
+|     — | ADR-006 P0 契约         | 完成（文档 + `nui-text` / `nui-app-runtime` 骨架 + Semantics） |
 
 ## 刻意未做（ADR）
 

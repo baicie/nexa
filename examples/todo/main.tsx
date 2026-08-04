@@ -9,18 +9,7 @@
  * ```
  */
 
-import {
-  Button,
-  Column,
-  For,
-  Input,
-  Row,
-  Scroll,
-  Text,
-  Window,
-  mount,
-  signal,
-} from "@nexa/ui";
+import { Button, Column, For, Input, Row, Scroll, Text, Window, mount, signal } from "@nexa/ui";
 
 type Todo = { id: number; text: string; done: boolean };
 
@@ -54,12 +43,7 @@ function App() {
       <Column width={360} padding={24} gap={16}>
         <Text fontSize={24}>Todo</Text>
         <Row gap={8}>
-          <Input
-            width={220}
-            placeholder="New task"
-            value={draft}
-            onSubmit={add}
-          />
+          <Input width={220} placeholder="New task" value={draft} onSubmit={add} />
           <Button onClick={add}>Add</Button>
         </Row>
         <Scroll height={260} width={320}>

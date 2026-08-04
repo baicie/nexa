@@ -10,11 +10,7 @@ export function unlink(node: NuiNode): void {
 }
 
 /** Insert `node` under `parent` before `anchor` (or append when omitted/null). */
-export function insertBefore(
-  parent: NuiNode,
-  node: NuiNode,
-  anchor?: NuiNode | null,
-): void {
+export function insertBefore(parent: NuiNode, node: NuiNode, anchor?: NuiNode | null): void {
   unlink(node);
   node.parent = parent;
   if (anchor) {

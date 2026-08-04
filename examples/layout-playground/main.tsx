@@ -2,18 +2,7 @@
  * Layout Playground — Flexbox subset + ADR §11 composites (Stack / Card / Spacer).
  */
 
-import {
-  Button,
-  Card,
-  Column,
-  Row,
-  Scroll,
-  Spacer,
-  Stack,
-  Text,
-  Window,
-  mount,
-} from "@nexa/ui";
+import { Button, Card, Column, Row, Scroll, Spacer, Stack, Text, Window, mount } from "@nexa/ui";
 
 function App() {
   return (

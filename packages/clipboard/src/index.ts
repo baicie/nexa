@@ -4,10 +4,7 @@
  * Promise-shaped for future async Executor; Slice 12 settles synchronously.
  */
 
-import {
-  clipboardReadText as hostRead,
-  clipboardWriteText as hostWrite,
-} from "@nexa/system-host";
+import { clipboardReadText as hostRead, clipboardWriteText as hostWrite } from "@nexa/system-host";
 
 /** Read UTF-8 text from the system clipboard. */
 export async function readText(): Promise<string> {
