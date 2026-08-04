@@ -57,7 +57,7 @@
 
 | ID    | Todo                                 | Acceptance                                                                        | Verify                                       | Dependencies | Files                                                            | Size |
 | ----- | ------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------- | ------------ | ---------------------------------------------------------------- | ---- |
-| G1-01 | [ ] 编写 Protocol/Handle/Error ADR   | 明确版本兼容、feature bits、handle 表示、错误码和废弃规则                         | ADR review checklist                         | G0           | 新 ADR、decisions index                                          | S    |
+| G1-01 | [x] 编写 Protocol/Handle/Error ADR   | 明确版本兼容、feature bits、handle 表示、错误码和废弃规则                         | ADR review checklist                         | G0           | 新 ADR、decisions index                                          | S    |
 | G1-02 | [ ] 建立 UI protocol manifest        | Node/Property/Event/Command/Error 有唯一数值源和 schema 校验                      | schema parse test                            | G1-01        | `protocol/nui-host.json`、schema、fixture                        | M    |
 | G1-03 | [ ] 建立 System protocol manifest    | Command/Permission/Task/Resource/Error 与 UI ID 空间分离                          | schema parse test                            | G1-01        | `protocol/system-host.json`、schema、fixture                     | M    |
 | G1-04 | [ ] 实现协议生成器                   | 生成 Rust/TS/Perry 片段，重复运行稳定，手改生成物会使 CI 失败                     | generator snapshot + `git diff --exit-code`  | G1-02、G1-03 | 生成脚本、两类模板、根脚本、测试                                 | M    |
