@@ -21,7 +21,7 @@ G0 已恢复可重复的工程基线，但当前 Host 边界仍有四类问题�
 
 - 稳定协议版本为 major/minor/patch 三元组；major 不同拒绝启动，minor 只允许向后兼容的增量，patch 不改变 wire contract。
 - Transport、UI 与 System 使用独立的 feature namespace，UI/System 使用独立 error code domain；未知 optional feature 忽略，未知或缺失的 required feature 结构化失败。
-- 逻辑句柄是 HandleRef { slot: u32, generation: u32 }。TS 表面使用固定 shape 对象；FFI 入参展开为两个 u32，返回值由 native 构造 jsvalue 对象，不通过 JS number 传 packed u64。
+- 逻辑句柄是 HandleRef { slot: u32, generation: u32 }。TS 表面使用固定 shape 对象；FFI 入参展开为两个 u32，创建结果中的 HandleRef 编码为规范 ASCII token，不通过 JS number 传 packed u64。
 - Handle 的 kind、owner 和生命周期 state 存在 native registry 中，由 host 根据操作验证；它们不是客户端可伪造的信任字段。
 - 所有稳定调用以结构化 NexaResult<T> 返回；错误使用稳定数值 code 和 symbolic name。message 只用于诊断，不是兼容合同。
 - 数值 ID 永不复用。删除的命令、属性、事件、feature 和 error code 保留 tombstone；破坏 wire shape 或语义必须提升 major。
@@ -104,7 +104,7 @@ protocol/common.json、protocol/nui-host.json 和 protocol/system-host.json 共�
       replacement: qualified name | null
     }
 
-Command 另外声明 native symbol、语义参数/返回、Perry transport codec 和 required feature；Property 声明 value type、nullable 与 clear/default 语义；Event 声明 payload fields；Error 声明默认 retryability、severity 与 context keys；Task/Resource 声明对应 Handle kind。只有这些 metadata 完整时，生成器才允许输出 Rust、TypeScript 与 Perry 片段。
+Command 另外声明语义参数/返回和 required feature；Property 声明 value type、nullable 与 clear/default 语义；Event 声明 payload fields；Error 声明默认 retryability、severity 与 context keys；Task/Resource 声明对应 Handle kind。独立的 `ffiFunctions` registry 声明 ABI slot、native symbol、Perry primitive params/return、对应 Command 和 v1/legacy 状态。一个语义 Command 可以映射一个或多个 FFI function，避免把 AddEventListener 等语义命令错误压成单一 legacy symbol。只有这些 metadata 完整且交叉引用可解析时，生成器才允许输出 Rust、TypeScript 与 Perry 片段。
 
 生成的 Rust、TypeScript 和 Perry manifest 是派生物。手改生成物、重复 ID、复用 tombstone ID、同一 namespace 的名称冲突都必须使 drift 校验失败。
 
@@ -123,15 +123,17 @@ slot 可以为 0；generation == 0 表示无效句柄。可选句柄使用 null�
 
 FFI ABI 约束：
 
-- 产生句柄的 function 使用 Perry manifest returns: "jsvalue"，由 native 返回固定 shape 的 {slot, generation} object；对应 Rust `extern "C"` symbol 必须返回 `f64`，用 `f64::from_bits(JsValue.bits())` 保持 Perry 的 LLVM `double` ABI，不能直接返回 `JsValue/u64`；
+- HandleRef 的私有 wire token 固定为小写 ASCII `h1/<slot-8hex>/<generation-8hex>`。稳定 command 的 Perry manifest returns: "string"，承载版本化 `NexaResult` JSON；HandleRef success value 使用该 token，生成的 TS codec 解析后才构造 public object；
+- Rust 字符串返回使用 `alloc_string(...).as_raw()` 并声明为 `*mut StringHeader`，对应 Perry LLVM `ptr` ABI；空串和 null 都不能作为失败 sentinel；
 - 接收句柄的 function 将逻辑 HandleRef 展开为 params: ["u32", "u32", ...]；Rust 只接收两个已定宽的整数，不把任意 Perry pointer 当 ObjectHeader 读取；
 - 可选 HandleRef 在 TS API 中仍使用 null；FFI 展开为 params: ["u32", "u32", "u32"] 的 presence/slot/generation，presence == 0 时后两项必须为 0，presence == 1 时按正常 HandleRef 验证；
-- jsvalue native C ABI 以 f64 bits 表示，业务代码不能直接依赖 raw pointer 或 NaN-box tag；
+- Perry `u32` boundary guard 必须先验证有限整数与 0..=2^32-1；native 仍验证 presence 只能为 0/1、generation 不能为 0；
+- output-only jsvalue 若未来用于其他 payload，其 native C ABI 以 f64 bits 表示；Handle v1 不依赖手写 NaN-box 或 object shape；
 - pod 在固定 Perry revision 中是 parameter-only descriptor，不能作为 return descriptor，因此不把 POD return 作为 v1 合同；
 - packed u64 只允许留在 Rust 内部（例如 NodeId 的存储），禁止经过 JS number 或 manifest u64 参数/返回；
 - 过渡期 legacy bigint/u64 exports 不属于 v1，迁移完成后必须从稳定 Host kit 和 manifest 移除。
 
-固定 Perry revision 06137858dc8c6f80975238377138f2f948d6ef88 的证据是：perry-ffi 提供安全构造返回对象所需的 JsValue、object shape allocation 和 field setters；native manifest 支持 u32/jsvalue，并明确拒绝 pod 作为 return。它没有可在 native 边界安全区分任意 object、array 与 closure pointer 的公开 shape introspection API，因此 v1 禁止用 jsvalue 接收 HandleRef。返回对象的 u32 字段使用 `JsValue::from_number(value as f64)`，不能使用仅覆盖有符号 i32 的 `from_int32`。G1-08 必须以最大 slot/generation fixture 做真实 Perry round-trip，并让 TS codec 拒绝 null、数组、closure、getter、缺字段、额外字段、非整数和越界值。
+固定 Perry revision 06137858dc8c6f80975238377138f2f948d6ef88 的证据是：Perry 对 string input 先执行 string/SSO guard 并物化为 `StringHeader*`，string return 使用 LLVM `ptr`；对 u32 input 验证类型、有限整数和 0..=2^32-1。它没有可在 native 边界安全区分任意 object、array 与 closure pointer 的公开 shape introspection API，因此 v1 禁止用 jsvalue 接收 HandleRef。G1-08 必须以最大 slot/generation token 做真实 Perry round-trip，并让 TS codec 拒绝非规范大小写/长度、generation 0、负数、小数、NaN、Infinity 和 2^32。
 
 ### 4.2 Native registry 与所有权
 
@@ -183,7 +185,7 @@ generation 从 1 开始，slot 进入可复用状态时递增；generation 溢�
       readonly cause?: NexaError;
     };
 
-FFI 不得让 Rust panic 穿过边界。native failure、错误字符串、false、-1 和空指针都必须在边界内转换为 NexaResult；legacy sentinel 只在迁移适配层消化，不能进入新 manifest。
+FFI 不得让 Rust panic 穿过边界。v1 function 通过 Perry string 返回版本化 JSON `NexaResult` envelope，TS wrapper 必须先做完整 shape/range 校验再暴露结果。native failure、错误字符串、false、-1、空串和空指针都必须在边界内转换为 NexaResult；legacy sentinel 只在迁移适配层消化，不能进入新 manifest。
 
 本节取代 PROJECT-DESIGN 6.10 中 `code: string` 的候选类型。稳定身份是 domain + numeric code；name 供可读分支与生成代码使用。cause 表达 source chain，runtimeVersion 记录产生错误的 Host runtime，severity 对齐 ErrorSupervisor 的四级路由。
 
@@ -246,10 +248,10 @@ FFI 不得让 Rust panic 穿过边界。native failure、错误字符串、false
 G1 按以下顺序落地：
 
 1. 将 common/UI/System protocol manifest、JSON schema 和 ID registry 加入仓库；
-2. 生成 Rust/TypeScript/Perry declarations，并在 CI 做重复运行和 drift 校验；
+2. 从语义 registry 和独立 ffiFunctions registry 生成 Rust/TypeScript/Perry declarations，并在 CI 做重复运行和 drift 校验；
 3. 在 TS Host kit 增加 HandleRef shape validation/tuple codec，在 bridge 中增加双 u32 codec 与 NexaResult/NexaError 构造器；新增 `_v1` symbol，不能原地改变 legacy u64 symbol 的 C ABI；
 4. 新增 handshake export 和 TS wrapper，先在 Perry smoke 中覆盖 major mismatch、feature intersection 和 required missing；
-5. 把 Node/Task/Resource 的创建返回迁移到 jsvalue 结果对象，把操作入参迁移到双 u32 HandleRef tuple；完成最大 slot/generation round-trip 后再删除 asU64；
+5. 把 Node/Task/Resource 的创建返回迁移到 string NexaResult + canonical HandleRef token，把操作入参迁移到双 u32 HandleRef tuple；完成最大 slot/generation round-trip 后再删除 asU64；
 6. 按 command 逐个把 void、空字符串、false、-1 迁移为 NexaResult，并为 stale、kind、owner、state 建立原子失败测试；
 7. 旧 manifest function 在迁移期标记 deprecated，不得与 v1 新 function 共用相同 numeric ID。
 
@@ -260,9 +262,9 @@ G1 按以下顺序落地：
 | 方案 | 结论 | 原因 |
 |---|---|---|
 | packed u64 经过 JS number | 拒绝 | 超过 2^53 - 1 后丢失 generation/slot 位 |
-| HandleRef 作为 jsvalue 入参和返回 | 拒绝作为入参 | 当前 Perry 无公开、安全的 object shape introspection；错误 pointer kind 可能被当作 ObjectHeader |
+| HandleRef 作为 jsvalue 入参和返回 | 拒绝 | 当前 Perry 无公开、安全的 object shape introspection；错误 pointer kind 可能被当作 ObjectHeader，output 还需手工匹配 double/NaN-box ABI |
 | HandleRef 作为 POD 参数 | 暂缓 | 固定 revision 支持 parameter-only POD，但不能返回；双向表示不对称且尚无真实 Perry object-to-POD 双平台证据 |
-| 每个 HandleRef 展开为两个 u32 入参，jsvalue/f64 bits 返回 | 采用 | 单字段均可精确传输，native 入参无 pointer shape 风险，TS 仍可提供 opaque object |
+| 每个 HandleRef 展开为两个 u32 入参，string result 中使用 canonical token | 采用 | 单字段均可精确传输，string/u32 都有 Perry boundary guard，native 不依赖 pointer shape 或手写 NaN-box |
 | packed u64/BigInt native ABI | 暂缓 | 当前 Perry u64 JS 表面仍依赖 safe integer；未来只能通过新 feature/ABI 评估 |
 
 ## 10. Consequences
@@ -276,7 +278,7 @@ G1 按以下顺序落地：
 
 代价与约束：
 
-- 句柄返回比单个数字多一次对象分配，句柄入参比 packed value 多一个 u32 参数；P0 优先正确性，后续可通过批量 command 和 profile 数据优化；
+- 句柄创建需分配并解析短字符串结果，句柄入参比 packed value 多一个 u32 参数；P0 优先正确性，后续可通过批量 command 和 profile 数据优化；
 - session-scoped closed tombstone 的空间开销与已关闭句柄数线性相关；实现必须在 session 销毁时清空并设置可观测的资源预算；
 - 所有边界调用都需要构造/解析 Result，旧的 void API 迁移工作量增加；
 - ID registry 和生成器成为发布流程的一部分，任何协议改动都必须伴随 schema、fixture 和 drift 证据。
@@ -288,7 +290,7 @@ G1 按以下顺序落地：
 | Version major/minor/patch 与拒绝条件明确 | 通过 |
 | Transport/UI/System feature namespace 分离，unknown/required 规则明确 | 通过 |
 | Handle 的宽度、null、generation、owner、kind、state 与 tombstone 保留明确 | 通过 |
-| 固定 Perry revision 的实际 ABI 能力已核验，禁止 jsvalue 入参和 POD return 误用 | 通过 |
+| 固定 Perry revision 的实际 ABI 能力已核验，Handle 只用 guarded string/u32 transport | 通过 |
 | 最大 slot/generation round-trip 的实现证据路径已定义 | 通过 |
 | Error code/name/domain、sentinel 禁止和 FFI panic 边界明确 | 通过 |
 | stale、wrong owner/kind、invalid state 和幂等 close 语义明确 | 通过 |

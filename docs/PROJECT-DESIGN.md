@@ -176,7 +176,7 @@ Created -> Active -> Closing -> Closed
                        \-> Invalidated
 ```
 
-Perry FFI 入参将每个 HandleRef 展开为两个 `u32`，返回值由 native 构造固定 shape 的 `jsvalue`。对应 Rust export 返回 `f64` bits，以匹配 Perry 的 `double` C ABI。当前 Perry revision 没有安全的任意 object shape introspection，因此 native 不接收 HandleRef `jsvalue`。可选句柄在 TS 表面为 `null`，FFI 使用显式 presence/slot/generation 三元组。
+Perry FFI 入参将每个 HandleRef 展开为两个 `u32`；创建结果通过 guarded string ABI 返回，HandleRef success value 使用规范 `h1/<slot-8hex>/<generation-8hex>` token，TS 校验后封装为 opaque object。当前 Perry revision 没有安全的任意 object shape introspection，因此 native 不接收或返回 HandleRef `jsvalue`。可选句柄在 TS 表面为 `null`，FFI 使用显式 presence/slot/generation 三元组。
 
 所有操作验证 kind、generation、owner window/app 与状态。重复 close/cancel 为幂等；过期 handle 返回 `STALE_HANDLE`，不得静默忽略或 panic。
 
