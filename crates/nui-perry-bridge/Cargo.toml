@@ -8,9 +8,12 @@ description = "NUI Host engine for Perry FFI (Perry ABI stays in packages/nui-ho
 
 [dependencies]
 nui-core = { path = "../nui-core" }
+nui-protocol = { path = "../../protocol" }
 nui-layout-taffy = { path = "../nui-layout-taffy" }
 nui-platform-winit = { path = "../nui-platform-winit" }
 nui-render-skia = { path = "../nui-render-skia" }
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -856,7 +856,10 @@ dependencies = [
  "nui-core",
  "nui-layout-taffy",
  "nui-platform-winit",
+ "nui-protocol",
  "nui-render-skia",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

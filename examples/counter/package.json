@@ -6,7 +6,8 @@
   "type": "module",
   "dependencies": {
     "@nexa/ui": "workspace:*",
-    "@nexa/nui-host": "workspace:*"
+    "@nexa/nui-host": "workspace:*",
+    "@nexa/protocol": "workspace:*"
   },
   "scripts": {
     "build": "perry compile main.tsx -o counter",

@@ -123,6 +123,13 @@
             "string"
           ],
           "returns": "void"
+        },
+        {
+          "name": "js_nui_handshake_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
         }
       ],
       "targets": {

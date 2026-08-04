@@ -1,4 +1,4 @@
-import { Ui } from "@nexa/protocol";
+import { NodeType as GeneratedNodeType, PropertyId as GeneratedPropertyId } from "@nexa/protocol";
 
 /**
  * Perry native-library FFI wrappers.
@@ -8,6 +8,7 @@ import { Ui } from "@nexa/protocol";
  */
 
 declare function js_nui_create_node(type: number): bigint | number;
+declare function js_nui_handshake_v1(helloJson: string): string;
 declare function js_nui_create_text(text: string): bigint | number;
 declare function js_nui_insert(
   child: bigint | number,
@@ -48,10 +49,14 @@ function asNodeId(id: bigint | number): bigint {
   return typeof id === "bigint" ? id : BigInt(id);
 }
 
-export const NodeType = Ui.NodeType;
-export type NodeType = Ui.NodeType;
-export const PropertyId = Ui.PropertyId;
-export type PropertyId = Ui.PropertyId;
+export const NodeType = GeneratedNodeType;
+export type NodeType = (typeof GeneratedNodeType)[keyof typeof GeneratedNodeType];
+export const PropertyId = GeneratedPropertyId;
+export type PropertyId = (typeof GeneratedPropertyId)[keyof typeof GeneratedPropertyId];
+
+export function handshakeRaw(helloJson: string): string {
+  return js_nui_handshake_v1(helloJson);
+}
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */
 export function rgba(r: number, g: number, b: number, a = 255): number {

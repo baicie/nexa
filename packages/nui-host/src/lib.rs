@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use nui_core::{NodeId, NodeType, PropertyId};
-use nui_perry_bridge::{HostUiEvent, NuiHost};
+use nui_perry_bridge::{handshake_json, HostUiEvent, NuiHost};
 use perry_ffi::{
     alloc_string, gc_register_mutable_root_scanner_named, read_string, JsClosure, JsString,
     JsValue, RawClosureHeader, StringHeader,
@@ -72,6 +72,16 @@ fn call_string_callback(cb: i64, value: &str) {
     let handle = alloc_string(value);
     let arg = f64::from_bits(JsValue::from_string_ptr(handle.as_raw()).0);
     let _ = unsafe { closure.call1(arg) };
+}
+
+/// # Safety
+/// `hello_ptr` must be null or a Perry-runtime `StringHeader`.
+#[no_mangle]
+pub unsafe extern "C" fn js_nui_handshake_v1(hello_ptr: *const StringHeader) -> *const StringHeader {
+    let handle = JsString::from_raw(hello_ptr as *mut StringHeader);
+    let hello = read_string(handle).unwrap_or("");
+    let result = handshake_json(hello);
+    alloc_string(&result).as_raw()
 }
 
 #[no_mangle]

@@ -107,6 +107,20 @@ function renderNumericEnum(name, entries, idKey) {
   return ["  export enum " + name + " {", variants, "  }"].join("\n");
 }
 
+function renderTopLevelNumericObject(name, entries, idKey) {
+  if (entries.length === 0) return "";
+  const variants = [...entries]
+    .sort((left, right) => left[idKey] - right[idKey])
+    .map((entry) => "  " + toPascalCase(entry.name) + ": " + entry[idKey] + ",")
+    .join("\n");
+  return [
+    "export const " + name + " = {",
+    variants,
+    "} as const;",
+    "export type " + name + " = (typeof " + name + ")[keyof typeof " + name + "];",
+  ].join("\n");
+}
+
 function renderCommandMaps(commands, namespace) {
   const params = commands
     .map((command) => {
@@ -275,6 +289,12 @@ export function renderTypeScriptProtocol({ common, ui, system }) {
     "// Source: protocol/common.json, protocol/nui-host.json, protocol/system-host.json.",
     "",
     "declare const handleRefBrand: unique symbol;",
+    "",
+    renderTopLevelNumericObject("NodeType", ui.nodeTypes, "id"),
+    "",
+    renderTopLevelNumericObject("PropertyId", ui.properties, "id"),
+    "",
+    renderTopLevelNumericObject("EventId", ui.events, "id"),
     "",
     renderCommon(common),
     "",

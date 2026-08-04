@@ -7,9 +7,11 @@
 //! Tree state is `Arc`-shared so Perry click callbacks can `set_text` while
 //! the window event loop owns the same arena (Slice 2→3 fix).
 
+mod handshake;
 mod host;
 mod window;
 
+pub use handshake::handshake_json;
 pub use host::{pack_rgba, HostUiEvent, NuiHost};
 
 #[cfg(test)]

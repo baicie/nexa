@@ -1,4 +1,9 @@
-import { Ui } from "@nexa/protocol";
+import {
+  EventId as GeneratedEventId,
+  NodeType as GeneratedNodeType,
+  PropertyId as GeneratedPropertyId,
+  Ui,
+} from "@nexa/protocol";
 import type { Common } from "@nexa/protocol";
 
 /**
@@ -8,12 +13,12 @@ import type { Common } from "@nexa/protocol";
  */
 
 export type NodeId = Common.HandleRef;
-export const NodeType = Ui.NodeType;
-export type NodeType = Ui.NodeType;
-export const PropertyId = Ui.PropertyId;
-export type PropertyId = Ui.PropertyId;
-export const EventType = Ui.EventId;
-export type EventType = Ui.EventId;
+export const NodeType = GeneratedNodeType;
+export type NodeType = (typeof GeneratedNodeType)[keyof typeof GeneratedNodeType];
+export const PropertyId = GeneratedPropertyId;
+export type PropertyId = (typeof GeneratedPropertyId)[keyof typeof GeneratedPropertyId];
+export const EventType = GeneratedEventId;
+export type EventType = (typeof GeneratedEventId)[keyof typeof GeneratedEventId];
 
 export interface HostOps {
   createNode(type: NodeType): NodeId;

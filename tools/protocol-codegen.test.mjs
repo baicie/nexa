@@ -50,7 +50,7 @@ test("protocol generator renders deterministic Rust, TypeScript, and Perry artif
   assert.match(typescript, /declare const handleRefBrand: unique symbol/);
   assert.match(typescript, /export type NexaResult<T>/);
   assert.match(typescript, /export namespace Ui/);
-  assert.match(typescript, /export enum NodeType/);
+  assert.match(typescript, /export const NodeType = \{/);
   assert.match(typescript, /Cancelled = 16777223/);
   assert.doesNotMatch(typescript, /CANCELLED =/);
   assert.match(typescript, /before: Common\.HandleRef \| null/);
@@ -84,8 +84,10 @@ test("checked-in Perry package manifests match generated legacy functions", () =
 
   for (const [relativePath, generated] of packages) {
     const configured = readPackageManifest(relativePath).perry.nativeLibrary.functions;
-    const generatedLegacy = generated.functions.filter((entry) => !entry.name.endsWith("_v1"));
-    assert.deepEqual(configured, generatedLegacy, relativePath);
+    const generatedConfigured = generated.functions.filter(
+      (entry) => !entry.name.endsWith("_v1") || entry.name === "js_nui_handshake_v1",
+    );
+    assert.deepEqual(configured, generatedConfigured, relativePath);
   }
 });
 

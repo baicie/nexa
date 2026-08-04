@@ -3,6 +3,43 @@
 
 declare const handleRefBrand: unique symbol;
 
+export const NodeType = {
+  Root: 0,
+  View: 1,
+  Text: 2,
+  Image: 3,
+  Scroll: 4,
+} as const;
+export type NodeType = (typeof NodeType)[keyof typeof NodeType];
+
+export const PropertyId = {
+  Width: 1,
+  Height: 2,
+  MinWidth: 3,
+  MinHeight: 4,
+  Padding: 5,
+  Gap: 6,
+  FlexDirection: 7,
+  AlignItems: 8,
+  JustifyContent: 9,
+  BackgroundColor: 10,
+  BorderRadius: 11,
+  Opacity: 12,
+  FontSize: 13,
+  FontWeight: 14,
+  TextColor: 15,
+  ScrollOffsetY: 16,
+  FlexGrow: 17,
+} as const;
+export type PropertyId = (typeof PropertyId)[keyof typeof PropertyId];
+
+export const EventId = {
+  Click: 1,
+  Change: 2,
+  Submit: 3,
+} as const;
+export type EventId = (typeof EventId)[keyof typeof EventId];
+
 export namespace Common {
   export interface ProtocolVersion {
     readonly major: number;

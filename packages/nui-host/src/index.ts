@@ -21,6 +21,8 @@ export {
   run,
 } from "./ffi";
 
+export { handshake } from "./protocol";
+
 export type { NuiNode } from "./types";
 export {
   normalizeTag,
