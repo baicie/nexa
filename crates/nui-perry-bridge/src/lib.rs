@@ -97,7 +97,11 @@ mod tests {
         }
         let inner = host.inner.lock().expect("host inner");
         assert_eq!(
-            inner.arena.get(text).and_then(|n| n.text.clone()).as_deref(),
+            inner
+                .arena
+                .get(text)
+                .and_then(|n| n.text.clone())
+                .as_deref(),
             Some("Hi")
         );
     }

@@ -6,8 +6,8 @@
 use bytemuck::{cast_slice, cast_slice_mut};
 use nui_core::{Arena, ColorRgba, NodeId, NodeType};
 use skia_safe::{
-    images, surfaces, AlphaType, Color, ColorType, Data, Font, FontMgr, FontStyle, ImageInfo, Paint,
-    PaintStyle, Point, RRect, Rect,
+    images, surfaces, AlphaType, Color, ColorType, Data, Font, FontMgr, FontStyle, ImageInfo,
+    Paint, PaintStyle, Point, RRect, Rect,
 };
 
 use nui_core::VERSION as CORE_VERSION;

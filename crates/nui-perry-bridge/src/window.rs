@@ -139,10 +139,8 @@ impl WindowApp for HostWindowApp {
         }
         let event = {
             let mut inner = self.shared.lock().expect("host inner");
-            insert_text_at_caret(&mut inner, text).map(|(node, value)| HostUiEvent::Change {
-                node,
-                value,
-            })
+            insert_text_at_caret(&mut inner, text)
+                .map(|(node, value)| HostUiEvent::Change { node, value })
         };
         match event {
             Some(ev) => {

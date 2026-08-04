@@ -3,13 +3,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use nui_core::{
-    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
-};
+use nui_core::{hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId};
 use nui_layout_taffy::layout_tree;
-use nui_render_skia::{
-    decode_image_file, paint_tree, FocusedPaint, ImagePaint, PaintHints,
-};
+use nui_render_skia::{decode_image_file, paint_tree, FocusedPaint, ImagePaint, PaintHints};
 
 use crate::window::HostWindowApp;
 
@@ -70,7 +66,10 @@ impl NuiHost {
         let mut inner = self.inner.lock().expect("host inner");
         let id = inner.arena.create(node_type);
         if inner.root.is_none()
-            && matches!(node_type, NodeType::Root | NodeType::View | NodeType::Scroll)
+            && matches!(
+                node_type,
+                NodeType::Root | NodeType::View | NodeType::Scroll
+            )
         {
             inner.root = Some(id);
         }
@@ -306,8 +305,16 @@ impl NuiHost {
         let inner = self.inner.lock().expect("host inner");
         let root = inner.root.ok_or("nui host has no root node")?;
         let hints = paint_hints_from_inner(&inner);
-        paint_tree(&inner.arena, root, pixels, width, height, scale, Some(&hints))
-            .map_err(|e| e.to_string())
+        paint_tree(
+            &inner.arena,
+            root,
+            pixels,
+            width,
+            height,
+            scale,
+            Some(&hints),
+        )
+        .map_err(|e| e.to_string())
     }
 
     #[must_use]

@@ -253,9 +253,7 @@ impl ApplicationHandler for Host {
                     _ => {
                         // Fallback for layouts that only populate `text`.
                         if let Some(t) = text.as_ref() {
-                            if !t.is_empty()
-                                && t.chars().all(|c| !c.is_control())
-                            {
+                            if !t.is_empty() && t.chars().all(|c| !c.is_control()) {
                                 self.app.text_input(t)
                             } else {
                                 false

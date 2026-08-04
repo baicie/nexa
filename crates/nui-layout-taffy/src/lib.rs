@@ -2,9 +2,9 @@
 
 use nui_core::layout::measure_text;
 use nui_core::{Arena, FlexDirection, LayoutRect, NodeId, NodeType};
+use taffy::geometry::Point;
 use taffy::prelude::*;
 use taffy::style::Overflow;
-use taffy::geometry::Point;
 use taffy::TaffyTree;
 
 use nui_core::VERSION as CORE_VERSION;
@@ -32,9 +32,14 @@ struct MeasureCtx {
 pub fn layout_tree(arena: &mut Arena, root: NodeId, viewport_width: f32, viewport_height: f32) {
     let mut tree: TaffyTree<MeasureCtx> = TaffyTree::new();
 
-    let Ok(taffy_root) =
-        build_node(&mut tree, arena, root, true, viewport_width, viewport_height)
-    else {
+    let Ok(taffy_root) = build_node(
+        &mut tree,
+        arena,
+        root,
+        true,
+        viewport_width,
+        viewport_height,
+    ) else {
         return;
     };
 
@@ -49,7 +54,10 @@ pub fn layout_tree(arena: &mut Arena, root: NodeId, viewport_width: f32, viewpor
             available,
             |known_dimensions, _available_space, _node_id, node_context, _style| {
                 if let (Some(w), Some(h)) = (known_dimensions.width, known_dimensions.height) {
-                    return Size { width: w, height: h };
+                    return Size {
+                        width: w,
+                        height: h,
+                    };
                 }
                 let Some(ctx) = node_context else {
                     return Size::ZERO;
