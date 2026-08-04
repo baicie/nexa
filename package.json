@@ -27,7 +27,8 @@
     "@perryts/perry": "0.5.1220",
     "oxlint": "1.77.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "yaml": "2.9.0"
   },
   "perry": {
     "allow": {

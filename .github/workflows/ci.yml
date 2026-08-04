@@ -17,6 +17,7 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       typescript: ${{ steps.filter.outputs.typescript }}
+      ffi: ${{ steps.filter.outputs.ffi }}
       docs: ${{ steps.filter.outputs.docs }}
       native: ${{ steps.filter.outputs.native }}
     steps:
@@ -28,14 +29,32 @@ jobs:
             rust:
               - 'crates/**'
               - 'examples/rust-counter/**'
+              - 'packages/nui-host/Cargo.toml'
+              - 'packages/nui-host/Cargo.lock'
+              - 'packages/nui-host/src/**/*.rs'
+              - 'packages/system-host/Cargo.toml'
+              - 'packages/system-host/Cargo.lock'
+              - 'packages/system-host/src/**/*.rs'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - 'rustfmt.toml'
+              - 'scripts/**'
               - '.github/workflows/rust.yml'
               - '.github/workflows/ci.yml'
             typescript:
               - 'packages/**'
+              - 'examples/clipboard-demo/**'
               - 'examples/counter/**'
+              - 'examples/image-demo/**'
+              - 'examples/layout-playground/**'
+              - 'examples/perry-counter/**'
+              - 'examples/react-counter/**'
+              - 'examples/solid-counter/**'
+              - 'examples/svelte-counter/**'
+              - 'examples/todo/**'
+              - 'examples/vue-counter/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -43,16 +62,37 @@ jobs:
               - '.npmrc'
               - '.prettierrc.json'
               - '.prettierignore'
+              - 'scripts/**'
+              - 'tools/**'
               - '.github/workflows/typescript.yml'
+              - '.github/workflows/ci.yml'
+            ffi:
+              - 'packages/nui-host/**'
+              - 'packages/system-host/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'rust-toolchain.toml'
+              - '.npmrc'
+              - '.cargo/**'
+              - 'scripts/**'
+              - '.github/workflows/ffi.yml'
               - '.github/workflows/ci.yml'
             native:
               - 'crates/nui-platform-winit/**'
               - 'crates/nui-render-skia/**'
               - 'examples/rust-counter/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - 'scripts/**'
               - '.github/workflows/native-smoke.yml'
+              - '.github/workflows/ci.yml'
             docs:
               - 'docs/**'
               - '**/*.md'
+              - '.github/workflows/docs.yml'
               - '.github/workflows/README.md'
 
   rust:
@@ -89,6 +129,7 @@ jobs:
     steps:
       - name: Aggregate required checks
         env:
+          CHANGES: ${{ needs.changes.result }}
           RUST: ${{ needs.rust.result }}
           TS: ${{ needs.typescript.result }}
           DOCS: ${{ needs.docs.result }}
@@ -98,6 +139,10 @@ jobs:
         run: |
           set -euo pipefail
           fail=0
+          if [[ "$CHANGES" != "success" ]]; then
+            echo "Change detection failed: $CHANGES"
+            fail=1
+          fi
           if [[ "$RUST_NEEDED" == "true" && "$RUST" != "success" ]]; then
             echo "Rust gate failed: $RUST"
             fail=1
