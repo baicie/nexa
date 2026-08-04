@@ -13,6 +13,7 @@
     "typecheck": "node tools/workspace-checks.mjs typecheck",
     "test": "node tools/workspace-checks.mjs test",
     "lint": "node tools/workspace-checks.mjs lint",
+    "lint:source": "node tools/lint.mjs",
     "test:workspace": "node --test tools/workspace-checks.test.mjs",
     "workspace:validate": "node tools/workspace-checks.mjs validate",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@perryts/perry": "0.5.1220",
+    "oxlint": "1.77.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2"
   },

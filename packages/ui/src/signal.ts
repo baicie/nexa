@@ -34,7 +34,8 @@ class SignalImpl<T> {
       return;
     }
     this._value = next;
-    for (const effect of [...this.subs]) {
+    const subscribers = [...this.subs];
+    for (const effect of subscribers) {
       effect.run();
     }
   }

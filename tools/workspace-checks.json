@@ -4,7 +4,6 @@
     "no-package-tests": "No package-level test suite is defined yet; the gap remains visible in this matrix.",
     "source-package": "This source package is consumed directly and has no standalone build artifact.",
     "native-build-gate": "Native-library builds are owned by the dedicated FFI verification gate.",
-    "root-lint-pending": "The repository-wide lint implementation is introduced by G0-13.",
     "shared-lint": "This project is covered by the repository-wide root lint command."
   },
   "projects": [
@@ -14,7 +13,7 @@
         "typecheck": { "skip": "orchestrator" },
         "test": { "script": "test:workspace" },
         "build": { "skip": "orchestrator" },
-        "lint": { "skip": "root-lint-pending" }
+        "lint": { "script": "lint:source" }
       }
     },
     {

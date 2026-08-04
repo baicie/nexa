@@ -33,7 +33,8 @@ export function removeNode(node: NuiNode): void {
 }
 
 export function clearChildren(parent: NuiNode): void {
-  for (const child of [...parent.children]) {
+  const children = [...parent.children];
+  for (const child of children) {
     removeNode(child);
   }
 }
