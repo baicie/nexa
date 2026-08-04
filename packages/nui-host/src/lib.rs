@@ -9,7 +9,8 @@ use std::sync::{Mutex, OnceLock};
 
 use nui_core::{NodeId, NodeType, PropertyId};
 use nui_perry_bridge::{
-    handshake_json, node_handle_result_json, node_invalid_argument_result_json, HostUiEvent, NuiHost,
+    handshake_json, invalid_property_result_json, node_handle_result_json,
+    node_invalid_argument_result_json, property_result_json, HostUiEvent, NuiHost,
 };
 use perry_ffi::{
     alloc_string, gc_register_mutable_root_scanner_named, read_string, JsClosure, JsString,
@@ -61,6 +62,29 @@ fn ensure_closure_scanner() {
 
 fn node_from_raw(raw: u64) -> NodeId {
     NodeId::from_raw(raw)
+}
+
+fn property_from_u32(property: u32) -> Option<PropertyId> {
+    Some(match property {
+        1 => PropertyId::Width,
+        2 => PropertyId::Height,
+        3 => PropertyId::MinWidth,
+        4 => PropertyId::MinHeight,
+        5 => PropertyId::Padding,
+        6 => PropertyId::Gap,
+        7 => PropertyId::FlexDirection,
+        8 => PropertyId::AlignItems,
+        9 => PropertyId::JustifyContent,
+        10 => PropertyId::BackgroundColor,
+        11 => PropertyId::BorderRadius,
+        12 => PropertyId::Opacity,
+        13 => PropertyId::FontSize,
+        14 => PropertyId::FontWeight,
+        15 => PropertyId::TextColor,
+        16 => PropertyId::ScrollOffsetY,
+        17 => PropertyId::FlexGrow,
+        _ => return None,
+    })
 }
 
 fn call_string_callback(cb: i64, value: &str) {
@@ -164,28 +188,28 @@ pub unsafe extern "C" fn js_nui_set_text(node: u64, text_ptr: *const StringHeade
 
 #[no_mangle]
 pub extern "C" fn js_nui_set_number(node: u64, property: f64, value: f64) {
-    let prop = match property as u16 {
-        1 => PropertyId::Width,
-        2 => PropertyId::Height,
-        3 => PropertyId::MinWidth,
-        4 => PropertyId::MinHeight,
-        5 => PropertyId::Padding,
-        6 => PropertyId::Gap,
-        7 => PropertyId::FlexDirection,
-        8 => PropertyId::AlignItems,
-        9 => PropertyId::JustifyContent,
-        10 => PropertyId::BackgroundColor,
-        11 => PropertyId::BorderRadius,
-        12 => PropertyId::Opacity,
-        13 => PropertyId::FontSize,
-        14 => PropertyId::FontWeight,
-        15 => PropertyId::TextColor,
-        16 => PropertyId::ScrollOffsetY,
-        17 => PropertyId::FlexGrow,
-        _ => return,
+    let Some(prop) = property_from_u32(property as u32) else {
+        return;
     };
     let session = session().lock().expect("host session");
     session.host.set_number(node_from_raw(node), prop, value);
+}
+
+/// Clear a property through the stable v1 string-result ABI.
+#[no_mangle]
+pub extern "C" fn js_nui_clear_property_v1(
+    node_slot: u32,
+    node_generation: u32,
+    property: u32,
+) -> *const StringHeader {
+    let Some(property) = property_from_u32(property) else {
+        let result = invalid_property_result_json(property);
+        return alloc_string(&result).as_raw();
+    };
+    let node = NodeId::new(node_slot, node_generation);
+    let session = session().lock().expect("host session");
+    let result = property_result_json(session.host.clear_property(node, property));
+    alloc_string(&result).as_raw()
 }
 
 #[no_mangle]

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use nui_core::{
-    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
+    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId, Style,
     TreeMutationError,
 };
 use nui_layout_taffy::layout_tree;
@@ -18,6 +18,12 @@ pub enum HostUiEvent {
     Click(NodeId),
     Change { node: NodeId, value: String },
     Submit { node: NodeId, value: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostPropertyError {
+    StaleNode(NodeId),
+    InvalidProperty(PropertyId),
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +168,8 @@ impl NuiHost {
         match property {
             PropertyId::Width => n.style.width = Some(v),
             PropertyId::Height => n.style.height = Some(v),
+            PropertyId::MinWidth => n.style.min_width = Some(v.max(0.0)),
+            PropertyId::MinHeight => n.style.min_height = Some(v.max(0.0)),
             PropertyId::Padding => n.style.padding = v,
             PropertyId::Gap => n.style.gap = v,
             PropertyId::FlexDirection => {
@@ -175,7 +183,11 @@ impl NuiHost {
             PropertyId::JustifyContent => n.style.justify_content = Align::from_f64(value),
             PropertyId::FlexGrow => n.style.flex_grow = v.max(0.0),
             PropertyId::BorderRadius => n.style.border_radius = v,
+            PropertyId::Opacity => n.style.opacity = v.clamp(0.0, 1.0),
             PropertyId::FontSize => n.style.font_size = v,
+            PropertyId::FontWeight => {
+                n.style.font_weight = value.max(0.0).min(u32::MAX as f64) as u32
+            }
             PropertyId::BackgroundColor => {
                 n.style.background = Some(color_from_u32(value as u32));
             }
@@ -185,11 +197,40 @@ impl NuiHost {
             PropertyId::ScrollOffsetY => {
                 n.style.scroll_offset_y = v.max(0.0);
             }
-            PropertyId::MinWidth
-            | PropertyId::MinHeight
-            | PropertyId::Opacity
-            | PropertyId::FontWeight => {}
         }
+    }
+
+    /// Clear a property and restore its protocol-declared default/unset value.
+    pub fn clear_property(
+        &self,
+        node: NodeId,
+        property: PropertyId,
+    ) -> Result<(), HostPropertyError> {
+        let mut inner = self.inner.lock().expect("host inner");
+        let Some(n) = inner.arena.get_mut(node) else {
+            return Err(HostPropertyError::StaleNode(node));
+        };
+        let defaults = Style::default();
+        match property {
+            PropertyId::Width => n.style.width = defaults.width,
+            PropertyId::Height => n.style.height = defaults.height,
+            PropertyId::MinWidth => n.style.min_width = defaults.min_width,
+            PropertyId::MinHeight => n.style.min_height = defaults.min_height,
+            PropertyId::Padding => n.style.padding = defaults.padding,
+            PropertyId::Gap => n.style.gap = defaults.gap,
+            PropertyId::FlexDirection => n.style.flex_direction = defaults.flex_direction,
+            PropertyId::AlignItems => n.style.align_items = defaults.align_items,
+            PropertyId::JustifyContent => n.style.justify_content = defaults.justify_content,
+            PropertyId::BackgroundColor => n.style.background = defaults.background,
+            PropertyId::BorderRadius => n.style.border_radius = defaults.border_radius,
+            PropertyId::Opacity => n.style.opacity = defaults.opacity,
+            PropertyId::FontSize => n.style.font_size = defaults.font_size,
+            PropertyId::FontWeight => n.style.font_weight = defaults.font_weight,
+            PropertyId::TextColor => n.style.color = defaults.color,
+            PropertyId::ScrollOffsetY => n.style.scroll_offset_y = defaults.scroll_offset_y,
+            PropertyId::FlexGrow => n.style.flex_grow = defaults.flex_grow,
+        }
+        Ok(())
     }
 
     pub fn add_click_listener(&self, node: NodeId, token: u64) {

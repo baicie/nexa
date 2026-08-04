@@ -1,7 +1,7 @@
 import { Common } from "@nexa/protocol";
 
-import { createNodeV1Raw, handshakeRaw } from "./ffi";
-import type { NodeType } from "./ffi";
+import { clearPropertyV1Raw, createNodeV1Raw, handshakeRaw } from "./ffi";
+import type { NodeType, PropertyId } from "./ffi";
 import { decodeHandleToken } from "./handle";
 
 type JsonRecord = Record<string, unknown>;
@@ -204,5 +204,29 @@ export function createNodeV1(type: NodeType): Common.NexaResult<Common.HandleRef
       return decodeHandleToken(value);
     },
     "createNode",
+  );
+}
+
+/** Clear a property through the stable v1 string-result ABI. */
+export function clearPropertyV1(node: bigint, property: PropertyId): Common.NexaResult<null> {
+  let raw: string;
+  try {
+    raw = clearPropertyV1Raw(node, property);
+  } catch (error) {
+    return {
+      ok: false,
+      error: localProtocolError(
+        `clearProperty transport failed: ${String(error)}`,
+        "clearProperty",
+      ),
+    };
+  }
+  return parseResult(
+    raw,
+    (value) => {
+      if (value !== null) throw new TypeError("clearProperty result must be null");
+      return null;
+    },
+    "clearProperty",
   );
 }

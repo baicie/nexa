@@ -14,7 +14,7 @@ mod window;
 
 pub use handle::{decode_handle_token, encode_handle_token, handle_to_node_id, node_id_to_handle};
 pub use handshake::handshake_json;
-pub use host::{pack_rgba, HostUiEvent, NuiHost};
+pub use host::{pack_rgba, HostPropertyError, HostUiEvent, NuiHost};
 
 /// Encode a node creation result as the v1 JSON result envelope.
 pub fn node_handle_result_json(id: nui_core::NodeId) -> String {
@@ -50,6 +50,62 @@ pub fn node_invalid_argument_result_json(message: &str) -> String {
             "retryable": false,
             "message": message,
             "runtimeVersion": env!("CARGO_PKG_VERSION")
+        }
+    })
+    .to_string()
+}
+
+/// Encode a clear-property result for the v1 string-result ABI.
+pub fn property_result_json(result: Result<(), HostPropertyError>) -> String {
+    match result {
+        Ok(()) => serde_json::json!({ "ok": true, "value": null }).to_string(),
+        Err(HostPropertyError::StaleNode(node)) => serde_json::json!({
+            "ok": false,
+            "error": {
+                "domain": "ui",
+                "code": nui_protocol::ui::ErrorCode::StaleHandle as u32,
+                "name": "STALE_HANDLE",
+                "severity": "RecoverableOperation",
+                "operation": "clearProperty",
+                "retryable": false,
+                "message": "node handle is stale or belongs to another owner",
+                "runtimeVersion": env!("CARGO_PKG_VERSION"),
+                "context": { "slot": node.slot(), "generation": node.generation() }
+            }
+        })
+        .to_string(),
+        Err(HostPropertyError::InvalidProperty(property)) => serde_json::json!({
+            "ok": false,
+            "error": {
+                "domain": "ui",
+                "code": nui_protocol::ui::ErrorCode::InvalidArgument as u32,
+                "name": "INVALID_ARGUMENT",
+                "severity": "RecoverableOperation",
+                "operation": "clearProperty",
+                "retryable": false,
+                "message": "property cannot be cleared",
+                "runtimeVersion": env!("CARGO_PKG_VERSION"),
+                "context": { "property": property as u32 }
+            }
+        })
+        .to_string(),
+    }
+}
+
+/// Encode a v1 invalid-property result when the raw ABI value is unknown.
+pub fn invalid_property_result_json(property: u32) -> String {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "domain": "ui",
+            "code": nui_protocol::ui::ErrorCode::InvalidArgument as u32,
+            "name": "INVALID_ARGUMENT",
+            "severity": "RecoverableOperation",
+            "operation": "clearProperty",
+            "retryable": false,
+            "message": "property cannot be cleared",
+            "runtimeVersion": env!("CARGO_PKG_VERSION"),
+            "context": { "property": property }
         }
     })
     .to_string()
@@ -146,6 +202,51 @@ mod tests {
         let inner = host.inner.lock().expect("host inner");
         assert_eq!(inner.arena.get(root).unwrap().children, vec![child]);
         assert_eq!(inner.arena.get(child).unwrap().parent, Some(root));
+    }
+
+    #[test]
+    fn clear_property_restores_declared_defaults() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        for (property, value) in [
+            (PropertyId::MinWidth, 80.0),
+            (PropertyId::MinHeight, 40.0),
+            (PropertyId::Padding, 12.0),
+            (PropertyId::Opacity, 0.25),
+            (PropertyId::FontSize, 28.0),
+            (PropertyId::FontWeight, 700.0),
+        ] {
+            host.set_number(node, property, value);
+            host.clear_property(node, property).expect("clear property");
+        }
+        host.set_number(
+            node,
+            PropertyId::BackgroundColor,
+            pack_rgba(255, 0, 0, 255) as f64,
+        );
+        host.clear_property(node, PropertyId::BackgroundColor)
+            .expect("clear background");
+
+        let inner = host.inner.lock().expect("host inner");
+        let style = &inner.arena.get(node).unwrap().style;
+        assert_eq!(style.min_width, None);
+        assert_eq!(style.min_height, None);
+        assert_eq!(style.padding, 0.0);
+        assert_eq!(style.opacity, 1.0);
+        assert_eq!(style.font_size, 16.0);
+        assert_eq!(style.font_weight, 400);
+        assert_eq!(style.background, None);
+    }
+
+    #[test]
+    fn clear_property_rejects_stale_nodes() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        host.remove(node);
+        assert_eq!(
+            host.clear_property(node, PropertyId::Padding),
+            Err(HostPropertyError::StaleNode(node))
+        );
     }
 
     #[test]

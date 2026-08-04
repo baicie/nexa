@@ -1,12 +1,15 @@
 import { Column, signal, Text, Window } from "@nexa/ui";
 import {
   commit,
+  clearPropertyV1,
   createNodeV1,
   decodeHandleToken,
   encodeHandleToken,
   handshake,
   NodeType,
+  PropertyId,
   remove,
+  setNumber,
 } from "@nexa/nui-host";
 import { Common } from "@nexa/protocol";
 import { mountNode } from "../../packages/ui/src/mount/materialize";
@@ -85,6 +88,12 @@ const root = mountNode(
 
 if (root === null) {
   throw new Error("Minimal TSX smoke produced no root node");
+}
+
+setNumber(root, PropertyId.Padding, 24);
+const clearResult = clearPropertyV1(root, PropertyId.Padding);
+if (!clearResult.ok) {
+  throw new Error("Perry clear-property smoke failed");
 }
 
 commit();

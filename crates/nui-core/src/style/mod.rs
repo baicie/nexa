@@ -55,6 +55,8 @@ impl ColorRgba {
 pub struct Style {
     pub width: Option<f32>,
     pub height: Option<f32>,
+    pub min_width: Option<f32>,
+    pub min_height: Option<f32>,
     pub padding: f32,
     pub gap: f32,
     pub flex_direction: FlexDirection,
@@ -63,7 +65,9 @@ pub struct Style {
     pub flex_grow: f32,
     pub background: Option<ColorRgba>,
     pub border_radius: f32,
+    pub opacity: f32,
     pub font_size: f32,
+    pub font_weight: u32,
     pub color: ColorRgba,
     /// Scroll content offset (positive = content moved up). Only meaningful on Scroll.
     pub scroll_offset_y: f32,
@@ -74,6 +78,8 @@ impl Default for Style {
         Self {
             width: None,
             height: None,
+            min_width: None,
+            min_height: None,
             padding: 0.0,
             gap: 0.0,
             flex_direction: FlexDirection::Column,
@@ -82,7 +88,9 @@ impl Default for Style {
             flex_grow: 0.0,
             background: None,
             border_radius: 0.0,
+            opacity: 1.0,
             font_size: 16.0,
+            font_weight: 400,
             color: ColorRgba::rgb(0x11, 0x18, 0x27),
             scroll_offset_y: 0.0,
         }

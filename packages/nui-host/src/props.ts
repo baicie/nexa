@@ -9,50 +9,58 @@ import {
   setText,
 } from "./ffi";
 import type { NuiNode } from "./types";
+import { clearPropertyV1 } from "./protocol";
 import { setWindowTitle } from "./title";
 
 export { applyElementDefaults } from "./defaults";
 
-export function applyNumericProp(node: NuiNode, name: string, value: unknown): void {
-  if (typeof value !== "number") {
-    return;
-  }
+function propertyForName(name: string): PropertyId | null {
   switch (name) {
     case "width":
-      setNumber(node.id, PropertyId.Width, value);
-      break;
+      return PropertyId.Width;
     case "height":
-      setNumber(node.id, PropertyId.Height, value);
-      break;
+      return PropertyId.Height;
+    case "minWidth":
+      return PropertyId.MinWidth;
+    case "minHeight":
+      return PropertyId.MinHeight;
     case "padding":
-      setNumber(node.id, PropertyId.Padding, value);
-      break;
+      return PropertyId.Padding;
     case "gap":
-      setNumber(node.id, PropertyId.Gap, value);
-      break;
+      return PropertyId.Gap;
     case "fontSize":
-      setNumber(node.id, PropertyId.FontSize, value);
-      break;
+      return PropertyId.FontSize;
+    case "fontWeight":
+      return PropertyId.FontWeight;
+    case "opacity":
+      return PropertyId.Opacity;
     case "borderRadius":
-      setNumber(node.id, PropertyId.BorderRadius, value);
-      break;
+      return PropertyId.BorderRadius;
     case "color":
-      setNumber(node.id, PropertyId.TextColor, value);
-      break;
+      return PropertyId.TextColor;
     case "backgroundColor":
-      setNumber(node.id, PropertyId.BackgroundColor, value);
-      break;
+      return PropertyId.BackgroundColor;
     case "flexGrow":
-      setNumber(node.id, PropertyId.FlexGrow, value);
-      break;
+      return PropertyId.FlexGrow;
     case "alignItems":
-      setNumber(node.id, PropertyId.AlignItems, value);
-      break;
+      return PropertyId.AlignItems;
     case "justifyContent":
-      setNumber(node.id, PropertyId.JustifyContent, value);
-      break;
+      return PropertyId.JustifyContent;
     default:
-      break;
+      return null;
+  }
+}
+
+export function applyNumericProp(node: NuiNode, name: string, value: unknown): void {
+  if (typeof value !== "number") return;
+  const property = propertyForName(name);
+  if (property !== null) setNumber(node.id, property, value);
+}
+
+export function clearNumericProp(node: NuiNode, name: string): void {
+  const property = propertyForName(name);
+  if (property !== null) {
+    clearPropertyV1(node.id, property);
   }
 }
 
@@ -69,6 +77,11 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     return;
   }
 
+  if (value == null) {
+    clearNumericProp(node, name);
+    return;
+  }
+
   if (name === "title" && typeof value === "string") {
     setWindowTitle(value);
     return;
@@ -76,7 +89,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
 
   if (name === "style" && value && typeof value === "object") {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      applyNumericProp(node, k, v);
+      applyHostProp(node, k, v);
     }
     return;
   }
@@ -142,9 +155,6 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
 
 export function applyHostProps(node: NuiNode, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (value == null && key !== "children") {
-      continue;
-    }
     applyHostProp(node, key, value);
   }
 }

@@ -155,6 +155,10 @@ fn to_taffy_style(
         width: width.map_or_else(Dimension::auto, length),
         height: height.map_or_else(Dimension::auto, length),
     };
+    t_style.min_size = Size {
+        width: style.min_width.map_or_else(Dimension::auto, length),
+        height: style.min_height.map_or_else(Dimension::auto, length),
+    };
 
     t_style
 }

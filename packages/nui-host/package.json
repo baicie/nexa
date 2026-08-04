@@ -137,6 +137,15 @@
             "u32"
           ],
           "returns": "string"
+        },
+        {
+          "name": "js_nui_clear_property_v1",
+          "params": [
+            "u32",
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
         }
       ],
       "targets": {
