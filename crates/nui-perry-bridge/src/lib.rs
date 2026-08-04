@@ -12,7 +12,10 @@ mod handshake;
 mod host;
 mod window;
 
-pub use handle::{decode_handle_token, encode_handle_token, handle_to_node_id, node_id_to_handle};
+pub use handle::{
+    decode_handle_token, encode_handle_token, handle_parts_to_node_id, handle_to_node_id,
+    node_id_to_handle,
+};
 pub use handshake::handshake_json;
 pub use host::{pack_rgba, HostPropertyError, HostUiEvent, NuiHost};
 
@@ -59,7 +62,10 @@ pub fn node_invalid_argument_result_json(message: &str) -> String {
 pub fn property_result_json(result: Result<(), HostPropertyError>) -> String {
     match result {
         Ok(()) => serde_json::json!({ "ok": true, "value": null }).to_string(),
-        Err(HostPropertyError::StaleNode(node)) => serde_json::json!({
+        Err(HostPropertyError::StaleNode {
+            node,
+            current_generation,
+        }) => serde_json::json!({
             "ok": false,
             "error": {
                 "domain": "ui",
@@ -70,7 +76,11 @@ pub fn property_result_json(result: Result<(), HostPropertyError>) -> String {
                 "retryable": false,
                 "message": "node handle is stale or belongs to another owner",
                 "runtimeVersion": env!("CARGO_PKG_VERSION"),
-                "context": { "slot": node.slot(), "generation": node.generation() }
+                "context": {
+                    "slot": node.slot(),
+                    "generation": node.generation(),
+                    "currentGeneration": current_generation
+                }
             }
         })
         .to_string(),
@@ -85,7 +95,11 @@ pub fn property_result_json(result: Result<(), HostPropertyError>) -> String {
                 "retryable": false,
                 "message": "property cannot be cleared",
                 "runtimeVersion": env!("CARGO_PKG_VERSION"),
-                "context": { "property": property as u32 }
+                "context": {
+                    "parameter": "property",
+                    "expected": "clearable ui.PropertyId",
+                    "actual": property as u32
+                }
             }
         })
         .to_string(),
@@ -105,7 +119,34 @@ pub fn invalid_property_result_json(property: u32) -> String {
             "retryable": false,
             "message": "property cannot be cleared",
             "runtimeVersion": env!("CARGO_PKG_VERSION"),
-            "context": { "property": property }
+            "context": {
+                "parameter": "property",
+                "expected": "known ui.PropertyId",
+                "actual": property
+            }
+        }
+    })
+    .to_string()
+}
+
+/// Encode invalid HandleRef parts using the protocol INVALID_ARGUMENT context contract.
+pub fn invalid_handle_result_json(operation: &str, parameter: &str, actual: u32) -> String {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "domain": "ui",
+            "code": nui_protocol::ui::ErrorCode::InvalidArgument as u32,
+            "name": "INVALID_ARGUMENT",
+            "severity": "RecoverableOperation",
+            "operation": operation,
+            "retryable": false,
+            "message": "handle generation must be a non-zero uint32",
+            "runtimeVersion": env!("CARGO_PKG_VERSION"),
+            "context": {
+                "parameter": parameter,
+                "expected": "1..=4294967295",
+                "actual": actual
+            }
         }
     })
     .to_string()
@@ -113,7 +154,7 @@ pub fn invalid_property_result_json(property: u32) -> String {
 
 #[cfg(test)]
 mod tests {
-    use nui_core::{NodeType, PropertyId};
+    use nui_core::{NodeId, NodeType, PropertyId};
 
     use super::*;
     use crate::host::{backspace_at_caret, insert_text_at_caret};
@@ -209,12 +250,22 @@ mod tests {
         let host = NuiHost::new();
         let node = host.create_node(NodeType::View);
         for (property, value) in [
+            (PropertyId::Width, 320.0),
+            (PropertyId::Height, 200.0),
             (PropertyId::MinWidth, 80.0),
             (PropertyId::MinHeight, 40.0),
             (PropertyId::Padding, 12.0),
+            (PropertyId::Gap, 8.0),
+            (PropertyId::FlexDirection, 1.0),
+            (PropertyId::AlignItems, 1.0),
+            (PropertyId::JustifyContent, 2.0),
+            (PropertyId::BorderRadius, 6.0),
             (PropertyId::Opacity, 0.25),
             (PropertyId::FontSize, 28.0),
             (PropertyId::FontWeight, 700.0),
+            (PropertyId::TextColor, pack_rgba(0, 255, 0, 255) as f64),
+            (PropertyId::ScrollOffsetY, 14.0),
+            (PropertyId::FlexGrow, 1.0),
         ] {
             host.set_number(node, property, value);
             host.clear_property(node, property).expect("clear property");
@@ -229,13 +280,23 @@ mod tests {
 
         let inner = host.inner.lock().expect("host inner");
         let style = &inner.arena.get(node).unwrap().style;
+        assert_eq!(style.width, None);
+        assert_eq!(style.height, None);
         assert_eq!(style.min_width, None);
         assert_eq!(style.min_height, None);
         assert_eq!(style.padding, 0.0);
+        assert_eq!(style.gap, 0.0);
+        assert_eq!(style.flex_direction, nui_core::FlexDirection::Column);
+        assert_eq!(style.align_items, nui_core::Align::Start);
+        assert_eq!(style.justify_content, nui_core::Align::Start);
+        assert_eq!(style.flex_grow, 0.0);
+        assert_eq!(style.background, None);
+        assert_eq!(style.border_radius, 0.0);
         assert_eq!(style.opacity, 1.0);
         assert_eq!(style.font_size, 16.0);
         assert_eq!(style.font_weight, 400);
-        assert_eq!(style.background, None);
+        assert_eq!(style.color, nui_core::ColorRgba::rgb(0x11, 0x18, 0x27));
+        assert_eq!(style.scroll_offset_y, 0.0);
     }
 
     #[test]
@@ -243,10 +304,54 @@ mod tests {
         let host = NuiHost::new();
         let node = host.create_node(NodeType::View);
         host.remove(node);
-        assert_eq!(
-            host.clear_property(node, PropertyId::Padding),
-            Err(HostPropertyError::StaleNode(node))
-        );
+        let error = host
+            .clear_property(node, PropertyId::Padding)
+            .expect_err("removed node must be stale");
+        assert!(matches!(
+            error,
+            HostPropertyError::StaleNode {
+                node: actual,
+                current_generation: Some(_),
+            } if actual == node
+        ));
+    }
+
+    #[test]
+    fn invalid_property_uses_manifest_context_keys() {
+        let value: serde_json::Value =
+            serde_json::from_str(&invalid_property_result_json(99)).unwrap();
+        let context = value["error"]["context"].as_object().unwrap();
+        let mut keys: Vec<_> = context.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["actual", "expected", "parameter"]);
+    }
+
+    #[test]
+    fn invalid_handle_uses_manifest_context_keys() {
+        let value: serde_json::Value = serde_json::from_str(&invalid_handle_result_json(
+            "clearProperty",
+            "node.generation",
+            0,
+        ))
+        .unwrap();
+        assert_eq!(value["error"]["name"], "INVALID_ARGUMENT");
+        assert_eq!(value["error"]["context"]["parameter"], "node.generation");
+        assert_eq!(value["error"]["context"]["actual"], 0);
+    }
+
+    #[test]
+    fn stale_property_uses_manifest_context_keys() {
+        let value: serde_json::Value =
+            serde_json::from_str(&property_result_json(Err(HostPropertyError::StaleNode {
+                node: NodeId::new(3, 7),
+                current_generation: Some(8),
+            })))
+            .unwrap();
+        let context = value["error"]["context"].as_object().unwrap();
+        let mut keys: Vec<_> = context.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["currentGeneration", "generation", "slot"]);
+        assert_eq!(context["currentGeneration"], 8);
     }
 
     #[test]

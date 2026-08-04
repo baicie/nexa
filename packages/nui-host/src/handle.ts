@@ -10,7 +10,7 @@ function isUint32(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff;
 }
 
-function isHandleRef(value: unknown): value is Common.HandleRef {
+export function isHandleRef(value: unknown): value is Common.HandleRef {
   if (!isRecord(value)) return false;
   const keys = Object.keys(value).sort();
   return (
@@ -21,6 +21,22 @@ function isHandleRef(value: unknown): value is Common.HandleRef {
     isUint32(value.generation) &&
     value.generation >= Common.handleValidation.generationMinimum
   );
+}
+
+/** Convert an internal legacy packed node id without exposing it on the v1 API. */
+export function handleRefFromLegacyPacked(raw: bigint): Common.HandleRef {
+  const maximum = 0xffff_ffff_ffff_ffffn;
+  if (raw < 0n || raw > maximum) {
+    throw new RangeError("legacy node handle must be an unsigned 64-bit integer");
+  }
+  const handle = {
+    slot: Number(raw & 0xffff_ffffn),
+    generation: Number(raw >> 32n),
+  } as Common.HandleRef;
+  if (!isHandleRef(handle)) {
+    throw new TypeError("legacy node handle contains an invalid generation");
+  }
+  return handle;
 }
 
 /** Encode a validated logical HandleRef using the canonical v1 token. */

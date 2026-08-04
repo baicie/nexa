@@ -9,8 +9,9 @@ use std::sync::{Mutex, OnceLock};
 
 use nui_core::{NodeId, NodeType, PropertyId};
 use nui_perry_bridge::{
-    handshake_json, invalid_property_result_json, node_handle_result_json,
-    node_invalid_argument_result_json, property_result_json, HostUiEvent, NuiHost,
+    handle_parts_to_node_id, handshake_json, invalid_handle_result_json,
+    invalid_property_result_json, node_handle_result_json, node_invalid_argument_result_json,
+    property_result_json, HostUiEvent, NuiHost,
 };
 use perry_ffi::{
     alloc_string, gc_register_mutable_root_scanner_named, read_string, JsClosure, JsString,
@@ -206,7 +207,14 @@ pub extern "C" fn js_nui_clear_property_v1(
         let result = invalid_property_result_json(property);
         return alloc_string(&result).as_raw();
     };
-    let node = NodeId::new(node_slot, node_generation);
+    let node = match handle_parts_to_node_id(node_slot, node_generation) {
+        Ok(node) => node,
+        Err(_) => {
+            let result =
+                invalid_handle_result_json("clearProperty", "node.generation", node_generation);
+            return alloc_string(&result).as_raw();
+        }
+    };
     let session = session().lock().expect("host session");
     let result = property_result_json(session.host.clear_property(node, property));
     alloc_string(&result).as_raw()

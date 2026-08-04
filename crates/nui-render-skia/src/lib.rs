@@ -6,6 +6,7 @@
 use bytemuck::{cast_slice, cast_slice_mut};
 use nui_core::{Arena, ColorRgba, NodeId, NodeType};
 use skia_safe::{
+    font_style::{Slant, Weight, Width},
     images, surfaces, AlphaType, Color, ColorType, Data, Font, FontMgr, FontStyle, ImageInfo,
     Paint, PaintStyle, Point, RRect, Rect,
 };
@@ -157,6 +158,12 @@ fn paint_node(
     let w = rect.width * scale;
     let h = rect.height * scale;
 
+    let opacity = node.style.opacity.clamp(0.0, 1.0);
+    let has_opacity_layer = opacity < 1.0;
+    if has_opacity_layer {
+        canvas.save_layer_alpha_f(None, opacity);
+    }
+
     if let Some(bg) = node.style.background {
         let mut fill = Paint::default();
         fill.set_anti_alias(true);
@@ -176,7 +183,11 @@ fn paint_node(
             .and_then(|h| h.focused.as_ref())
             .filter(|f| f.text_node == id);
         let raw = node.text.as_deref().unwrap_or("");
-        let font = Font::from_typeface(typeface, node.style.font_size * scale);
+        let font = resolve_weighted_font(
+            typeface,
+            node.style.font_size * scale,
+            node.style.font_weight,
+        );
         let baseline = y + node.style.font_size * scale * 0.9;
 
         if raw.is_empty() {
@@ -230,6 +241,35 @@ fn paint_node(
     if is_scroll {
         canvas.restore();
     }
+
+    if has_opacity_layer {
+        canvas.restore();
+    }
+}
+
+fn resolve_weighted_font(fallback: &skia_safe::Typeface, size: f32, weight: u32) -> Font {
+    let requested_weight = weight.clamp(1, 1000) as i32;
+    let style = FontStyle::new(
+        Weight::from(requested_weight),
+        Width::NORMAL,
+        Slant::Upright,
+    );
+    let font_mgr = FontMgr::new();
+    let typeface = [
+        "Helvetica Neue",
+        "Helvetica",
+        "Arial",
+        "Segoe UI",
+        "sans-serif",
+    ]
+    .into_iter()
+    .find_map(|family| font_mgr.match_family_style(family, style))
+    .or_else(|| font_mgr.legacy_make_typeface(None, style))
+    .unwrap_or_else(|| fallback.clone());
+    let synthetic_bold = requested_weight >= 600 && !typeface.is_bold();
+    let mut font = Font::from_typeface(typeface, size);
+    font.set_embolden(synthetic_bold);
+    font
 }
 
 fn paint_image_node(
@@ -474,5 +514,56 @@ mod tests {
         let mut pixels = vec![0_u32; 320 * 200];
         paint_tree(&arena, root, &mut pixels, 320, 200, 1.0, None).expect("paint");
         assert!(pixels.iter().any(|&p| p != 0));
+    }
+
+    fn paint_background_with_opacity(opacity: f32) -> Vec<u32> {
+        let mut arena = Arena::new();
+        let root = arena.create(NodeType::View);
+        arena.set_style(
+            root,
+            Style {
+                width: Some(16.0),
+                height: Some(16.0),
+                background: Some(ColorRgba::rgb(0xff, 0x00, 0x00)),
+                opacity,
+                ..Style::default()
+            },
+        );
+        layout_tree(&mut arena, root, 16.0, 16.0);
+        let mut pixels = vec![0_u32; 16 * 16];
+        paint_tree(&arena, root, &mut pixels, 16, 16, 1.0, None).expect("paint opacity");
+        pixels
+    }
+
+    #[test]
+    fn paint_tree_applies_node_opacity() {
+        let opaque = paint_background_with_opacity(1.0);
+        let transparent = paint_background_with_opacity(0.0);
+        assert_ne!(opaque, transparent);
+    }
+
+    fn paint_text_with_weight(font_weight: u32) -> Vec<u32> {
+        let mut arena = Arena::new();
+        let text = arena.create(NodeType::Text);
+        arena.set_text(text, "Weight");
+        arena.set_style(
+            text,
+            Style {
+                width: Some(160.0),
+                height: Some(48.0),
+                font_size: 32.0,
+                font_weight,
+                ..Style::default()
+            },
+        );
+        layout_tree(&mut arena, text, 160.0, 48.0);
+        let mut pixels = vec![0_u32; 160 * 48];
+        paint_tree(&arena, text, &mut pixels, 160, 48, 1.0, None).expect("paint weight");
+        pixels
+    }
+
+    #[test]
+    fn paint_tree_applies_font_weight() {
+        assert_ne!(paint_text_with_weight(400), paint_text_with_weight(700));
     }
 }

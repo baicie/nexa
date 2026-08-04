@@ -81,6 +81,11 @@ pub fn handle_to_node_id(handle: &common::HandleRef) -> Result<NodeId, HandleCod
     Ok(NodeId::new(handle.slot, handle.generation))
 }
 
+/// Validate wire handle parts before constructing a native node id.
+pub fn handle_parts_to_node_id(slot: u32, generation: u32) -> Result<NodeId, HandleCodecError> {
+    handle_to_node_id(&common::HandleRef { slot, generation })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{decode_handle_token, encode_handle_token, handle_to_node_id, node_id_to_handle};
@@ -126,5 +131,10 @@ mod tests {
         ] {
             assert!(decode_handle_token(token).is_err(), "accepted {token}");
         }
+        assert!(handle_to_node_id(&common::HandleRef {
+            slot: 0,
+            generation: 0,
+        })
+        .is_err());
     }
 }

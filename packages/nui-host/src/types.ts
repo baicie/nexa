@@ -8,4 +8,6 @@ export type NuiNode = {
   parent: NuiNode | null;
   children: NuiNode[];
   text: string;
+  /** Last framework props, retained so removed keys can emit Host clears. */
+  hostProps: Record<string, unknown>;
 };

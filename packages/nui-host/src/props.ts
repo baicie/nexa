@@ -9,7 +9,9 @@ import {
   setText,
 } from "./ffi";
 import type { NuiNode } from "./types";
+import { handleRefFromLegacyPacked } from "./handle";
 import { clearPropertyV1 } from "./protocol";
+import { diffPropRecord, type HostPropRecord } from "./props-state";
 import { setWindowTitle } from "./title";
 
 export { applyElementDefaults } from "./defaults";
@@ -51,17 +53,28 @@ function propertyForName(name: string): PropertyId | null {
   }
 }
 
-export function applyNumericProp(node: NuiNode, name: string, value: unknown): void {
-  if (typeof value !== "number") return;
+export function applyNumericProp(node: NuiNode, name: string, value: unknown): boolean {
+  if (typeof value !== "number") return false;
   const property = propertyForName(name);
-  if (property !== null) setNumber(node.id, property, value);
+  if (property === null) return false;
+  setNumber(node.id, property, value);
+  return true;
 }
 
 export function clearNumericProp(node: NuiNode, name: string): void {
   const property = propertyForName(name);
   if (property !== null) {
-    clearPropertyV1(node.id, property);
+    const result = clearPropertyV1(handleRefFromLegacyPacked(node.id), property);
+    if (!result.ok) {
+      throw new Error(`${result.error.name}: ${result.error.message}`);
+    }
   }
+}
+
+function asPropRecord(value: unknown): HostPropRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as HostPropRecord)
+    : {};
 }
 
 function inputTextChild(node: NuiNode): NuiNode | null {
@@ -77,26 +90,35 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     return;
   }
 
+  const previous = node.hostProps[name];
+
+  if (name === "style") {
+    const nextStyle = asPropRecord(value);
+    for (const [styleName, styleValue] of diffPropRecord(asPropRecord(previous), nextStyle)) {
+      if (styleValue == null) clearNumericProp(node, styleName);
+      else applyNumericProp(node, styleName, styleValue);
+    }
+    if (value == null) delete node.hostProps[name];
+    else node.hostProps[name] = { ...nextStyle };
+    return;
+  }
+
   if (value == null) {
     clearNumericProp(node, name);
+    delete node.hostProps[name];
     return;
   }
 
   if (name === "title" && typeof value === "string") {
     setWindowTitle(value);
-    return;
-  }
-
-  if (name === "style" && value && typeof value === "object") {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      applyHostProp(node, k, v);
-    }
+    node.hostProps[name] = value;
     return;
   }
 
   const lower = name.toLowerCase();
   if ((lower === "onclick" || name === "onClick") && typeof value === "function") {
     addClickListener(node.id, value as () => void);
+    node.hostProps[name] = value;
     return;
   }
 
@@ -105,17 +127,20 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     typeof value === "function"
   ) {
     addChangeListener(node.id, value as (v: string) => void);
+    node.hostProps[name] = value;
     return;
   }
 
   if ((lower === "onsubmit" || name === "onSubmit") && typeof value === "function") {
     addSubmitListener(node.id, value as (v: string) => void);
+    node.hostProps[name] = value;
     return;
   }
 
   if (name.startsWith("on") && typeof value === "function") {
     if (lower === "onclick") {
       addClickListener(node.id, value as () => void);
+      node.hostProps[name] = value;
     }
     return;
   }
@@ -123,6 +148,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
   if (node.tag === "image") {
     if (name === "src" && typeof value === "string") {
       setImage(node.id, value);
+      node.hostProps[name] = value;
       return;
     }
   }
@@ -133,6 +159,7 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
       if (text) {
         registerInput(node.id, text.id, value);
       }
+      node.hostProps[name] = value;
       return;
     }
     if (name === "value" && (typeof value === "string" || typeof value === "number")) {
@@ -141,20 +168,24 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
         text.text = String(value);
         setText(text.id, text.text);
       }
+      node.hostProps[name] = value;
       return;
     }
   }
 
-  applyNumericProp(node, name, value);
+  const applied = applyNumericProp(node, name, value);
 
   if (node.isText && (name === "textContent" || name === "text")) {
     node.text = String(value ?? "");
     setText(node.id, node.text);
   }
+  if (applied || (node.isText && (name === "textContent" || name === "text"))) {
+    node.hostProps[name] = value;
+  }
 }
 
 export function applyHostProps(node: NuiNode, props: Record<string, unknown>): void {
-  for (const [key, value] of Object.entries(props)) {
+  for (const [key, value] of diffPropRecord(node.hostProps, props)) {
     applyHostProp(node, key, value);
   }
 }

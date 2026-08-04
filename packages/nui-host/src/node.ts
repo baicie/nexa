@@ -28,6 +28,7 @@ function blankNode(
     parent: null,
     children: [],
     text: opts.text ?? "",
+    hostProps: {},
   };
 }
 

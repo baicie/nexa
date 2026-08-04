@@ -5,7 +5,6 @@
 import type { RendererOptions } from "@vue/runtime-core";
 import {
   applyHostProp,
-  applyNumericProp,
   clearChildren,
   createHostComment,
   createHostElement,
@@ -69,12 +68,6 @@ export const nodeOps: RendererOptions<NuiNode, NuiNode> = {
   },
 
   patchProp(el: NuiNode, key: string, _prev: unknown, next: unknown): void {
-    if (key === "style" && next && typeof next === "object") {
-      for (const [k, v] of Object.entries(next as Record<string, unknown>)) {
-        applyNumericProp(el, k, v);
-      }
-      return;
-    }
     applyHostProp(el, key, next);
   },
 };

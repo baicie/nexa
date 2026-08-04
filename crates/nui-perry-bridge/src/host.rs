@@ -22,7 +22,10 @@ pub enum HostUiEvent {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostPropertyError {
-    StaleNode(NodeId),
+    StaleNode {
+        node: NodeId,
+        current_generation: Option<u32>,
+    },
     InvalidProperty(PropertyId),
 }
 
@@ -208,7 +211,10 @@ impl NuiHost {
     ) -> Result<(), HostPropertyError> {
         let mut inner = self.inner.lock().expect("host inner");
         let Some(n) = inner.arena.get_mut(node) else {
-            return Err(HostPropertyError::StaleNode(node));
+            return Err(HostPropertyError::StaleNode {
+                node,
+                current_generation: inner.arena.current_generation(node.slot()),
+            });
         };
         let defaults = Style::default();
         match property {

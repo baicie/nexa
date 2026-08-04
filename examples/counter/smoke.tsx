@@ -37,6 +37,10 @@ const v1NodeResult = createNodeV1(NodeType.View);
 if (!v1NodeResult.ok || encodeHandleToken(v1NodeResult.value) !== "h1/00000000/00000001") {
   throw new Error("Perry HandleRef create smoke failed");
 }
+const v1ClearResult = clearPropertyV1(v1NodeResult.value, PropertyId.Padding);
+if (!v1ClearResult.ok) {
+  throw new Error("Perry HandleRef clear-property smoke failed");
+}
 const invalidNodeResult = createNodeV1(99 as NodeType);
 if (invalidNodeResult.ok || invalidNodeResult.error.code !== 0x0100_0001) {
   throw new Error("Perry invalid node argument was not structured");
@@ -91,10 +95,6 @@ if (root === null) {
 }
 
 setNumber(root, PropertyId.Padding, 24);
-const clearResult = clearPropertyV1(root, PropertyId.Padding);
-if (!clearResult.ok) {
-  throw new Error("Perry clear-property smoke failed");
-}
 
 commit();
 count.value = 1;

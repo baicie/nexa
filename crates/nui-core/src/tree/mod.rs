@@ -252,6 +252,19 @@ impl Arena {
         }
     }
 
+    /// Return the generation currently associated with a slot, including an
+    /// empty slot's next generation and a permanently retired slot.
+    #[must_use]
+    pub fn current_generation(&self, slot: u32) -> Option<u32> {
+        match self.slots.get(slot as usize)? {
+            Slot::Empty {
+                next_generation, ..
+            } => Some(*next_generation),
+            Slot::Occupied { generation, .. } => Some(*generation),
+            Slot::Retired => Some(u32::MAX),
+        }
+    }
+
     pub fn insert_child(&mut self, parent: NodeId, child: NodeId) {
         self.insert_child_before(parent, child, None);
     }

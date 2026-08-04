@@ -2,7 +2,7 @@ import { Common } from "@nexa/protocol";
 
 import { clearPropertyV1Raw, createNodeV1Raw, handshakeRaw } from "./ffi";
 import type { NodeType, PropertyId } from "./ffi";
-import { decodeHandleToken } from "./handle";
+import { decodeHandleToken, isHandleRef } from "./handle";
 
 type JsonRecord = Record<string, unknown>;
 const PROTOCOL_MISMATCH_CODE = 0x0001_0001;
@@ -208,10 +208,19 @@ export function createNodeV1(type: NodeType): Common.NexaResult<Common.HandleRef
 }
 
 /** Clear a property through the stable v1 string-result ABI. */
-export function clearPropertyV1(node: bigint, property: PropertyId): Common.NexaResult<null> {
+export function clearPropertyV1(
+  node: Common.HandleRef,
+  property: PropertyId,
+): Common.NexaResult<null> {
+  if (!isHandleRef(node)) {
+    return {
+      ok: false,
+      error: localProtocolError("clearProperty node must be a valid HandleRef", "clearProperty"),
+    };
+  }
   let raw: string;
   try {
-    raw = clearPropertyV1Raw(node, property);
+    raw = clearPropertyV1Raw(node.slot, node.generation, property);
   } catch (error) {
     return {
       ok: false,
