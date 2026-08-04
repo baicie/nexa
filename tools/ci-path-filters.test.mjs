@@ -11,9 +11,11 @@ const perryFrameworksWorkflowUrl = new URL(
   "../.github/workflows/perry-frameworks.yml",
   import.meta.url,
 );
+const rustWorkflowUrl = new URL("../.github/workflows/rust.yml", import.meta.url);
 const typescriptWorkflowUrl = new URL("../.github/workflows/typescript.yml", import.meta.url);
 const rootPackageUrl = new URL("../package.json", import.meta.url);
 const counterPackageUrl = new URL("../examples/counter/package.json", import.meta.url);
+const nuiHostPackageUrl = new URL("../packages/nui-host/package.json", import.meta.url);
 const perrySmokeUrl = new URL("./perry-smoke.mjs", import.meta.url);
 
 const ci = parse(workflow);
@@ -117,6 +119,39 @@ test("the FFI route runs a required two-package verification gate", () => {
       `FFI gate must run ${expected}`,
     );
   }
+});
+
+test("Ubuntu native link gates provision Skia libraries and Perry link flags", () => {
+  const rustWorkflow = parse(readFileSync(rustWorkflowUrl, "utf8"));
+  const ffiWorkflow = parse(readFileSync(ffiWorkflowUrl, "utf8"));
+  const typescriptWorkflow = parse(readFileSync(typescriptWorkflowUrl, "utf8"));
+  const linkingJobs = [
+    ["Rust test", rustWorkflow.jobs.test, "cargo test"],
+    ["Rust build", rustWorkflow.jobs.build, "cargo build"],
+    ["FFI gate", ffiWorkflow.jobs.gate, "Test"],
+    ["TypeScript quality", typescriptWorkflow.jobs.quality, "Build"],
+  ];
+
+  for (const [label, job, firstLinkStep] of linkingJobs) {
+    const installIndex = job.steps.findIndex(
+      (step) => step.name === "Install Linux native dependencies",
+    );
+    const linkIndex = job.steps.findIndex((step) => step.name === firstLinkStep);
+    assert.ok(installIndex >= 0, `${label} must install Linux native dependencies`);
+    assert.ok(installIndex < linkIndex, `${label} must install native dependencies before linking`);
+
+    const command = job.steps[installIndex].run;
+    assert.match(command, /apt-get update/);
+    assert.match(command, /libfontconfig1-dev/);
+    assert.match(command, /libfreetype6-dev/);
+  }
+
+  const nuiHostPackage = JSON.parse(readFileSync(nuiHostPackageUrl, "utf8"));
+  assert.deepEqual(nuiHostPackage.perry.nativeLibrary.targets.linux.libs, [
+    "stdc++",
+    "freetype",
+    "fontconfig",
+  ]);
 });
 
 test("the required Perry framework gate runs four independent clean AOT builds", () => {

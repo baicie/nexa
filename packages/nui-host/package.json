@@ -148,7 +148,12 @@
         "linux": {
           "crate": ".",
           "lib": "libperry_ext_nui_host.a",
-          "cargo_features": []
+          "cargo_features": [],
+          "libs": [
+            "stdc++",
+            "freetype",
+            "fontconfig"
+          ]
         },
         "windows": {
           "crate": ".",

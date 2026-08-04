@@ -21,6 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Linux native dependencies
+        if: matrix.package == 'nui-host'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libfontconfig1-dev libfreetype6-dev
+
       - name: Activate pinned Rust toolchain
         run: rustc --version --verbose
 
