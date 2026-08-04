@@ -203,6 +203,23 @@ test("the required Perry framework gate runs four independent clean AOT builds",
     false,
     "clean AOT jobs must not restore Cargo build output",
   );
+
+  const msvcStep = build.steps.find(
+    (step) => step.uses === "ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756",
+  );
+  assert.ok(msvcStep, "Windows AOT jobs must initialize the MSVC SDK environment");
+  assert.equal(msvcStep.if, "runner.os == 'Windows'");
+
+  const windowsSkiaStep = build.steps.find((step) => step.name === "Stage Windows Skia binaries");
+  assert.ok(windowsSkiaStep, "Windows AOT jobs must stage Skia outside Cargo's deep OUT_DIR");
+  assert.equal(windowsSkiaStep.if, "runner.os == 'Windows'");
+  assert.equal(windowsSkiaStep.shell, "pwsh");
+  assert.match(windowsSkiaStep.run, /curl\.exe/);
+  assert.match(windowsSkiaStep.run, /Get-FileHash -Algorithm SHA256/);
+  assert.match(windowsSkiaStep.run, /SKIA_BINARIES_URL/);
+  assert.match(build.env.SKIA_WINDOWS_ARCHIVE_URL, /rust-skia\/skia-binaries/);
+  assert.match(build.env.SKIA_WINDOWS_ARCHIVE_SHA256, /^[a-f0-9]{64}$/);
+
   const commands = build.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
   assert.ok(commands.includes("pnpm install --frozen-lockfile"));
   assert.ok(commands.includes("pnpm test:perry ${{ matrix.framework }}"));

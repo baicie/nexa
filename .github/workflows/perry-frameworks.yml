@@ -19,8 +19,27 @@ jobs:
         os: [macos-15, windows-2022]
     env:
       PERRY_NO_CACHE: "1"
+      SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
+      SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
     steps:
       - uses: actions/checkout@v4
+
+      - name: Initialize MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Stage Windows Skia binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "skia-bindings-windows-x64.tar.gz"
+          curl.exe --location --fail --silent --show-error --retry 3 --output $archive $env:SKIA_WINDOWS_ARCHIVE_URL
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
+            throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
+          }
+          $fileUrl = "file://" + $archive.Replace('\', '/')
+          "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - uses: pnpm/action-setup@v4
 
