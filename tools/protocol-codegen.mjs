@@ -11,7 +11,7 @@ const workspaceRoot = path.resolve(toolsDir, "..");
 
 export const GENERATED_ARTIFACT_PATHS = Object.freeze([
   "protocol/generated/protocol.rs",
-  "protocol/generated/protocol.ts",
+  "packages/protocol/src/index.ts",
   "protocol/generated/nui-host.perry.json",
   "protocol/generated/system-host.perry.json",
 ]);
@@ -58,7 +58,7 @@ export function generateProtocolArtifacts() {
 
   return {
     "protocol/generated/protocol.rs": renderRustProtocol(manifests),
-    "protocol/generated/protocol.ts": renderTypeScriptProtocol(manifests),
+    "packages/protocol/src/index.ts": renderTypeScriptProtocol(manifests),
     "protocol/generated/nui-host.perry.json": renderPerryFragment(
       manifests.common,
       manifests.ui,
@@ -73,21 +73,23 @@ export function generateProtocolArtifacts() {
 }
 
 function generatedFiles(root) {
-  const generatedRoot = path.join(root, "protocol/generated");
-  if (!existsSync(generatedRoot)) return [];
-
   const files = [];
-  const visit = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(absolutePath);
-      } else if (entry.isFile()) {
-        files.push(path.relative(root, absolutePath).split(path.sep).join("/"));
+  for (const generatedRoot of ["protocol/generated", "packages/protocol/src"]) {
+    const absoluteRoot = path.join(root, generatedRoot);
+    if (!existsSync(absoluteRoot)) continue;
+
+    const visit = (directory) => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const absolutePath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          visit(absolutePath);
+        } else if (entry.isFile()) {
+          files.push(path.relative(root, absolutePath).split(path.sep).join("/"));
+        }
       }
-    }
-  };
-  visit(generatedRoot);
+    };
+    visit(absoluteRoot);
+  }
   return files.sort();
 }
 

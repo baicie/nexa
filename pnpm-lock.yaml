@@ -222,7 +222,13 @@ importers:
         specifier: ^4.2.19
         version: 4.2.20
 
-  packages/nui-host: {}
+  packages/nui-host:
+    dependencies:
+      '@nexa/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+
+  packages/protocol: {}
 
   packages/system:
     dependencies:
@@ -237,6 +243,9 @@ importers:
       '@nexa/nui-host':
         specifier: workspace:*
         version: link:../nui-host
+      '@nexa/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
 packages:
 

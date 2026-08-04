@@ -73,6 +73,15 @@
       }
     },
     {
+      "path": "packages/protocol",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "skip": "source-package" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
       "path": "packages/system",
       "checks": {
         "typecheck": { "script": "typecheck" },

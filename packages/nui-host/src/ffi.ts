@@ -1,3 +1,5 @@
+import { Ui } from "@nexa/protocol";
+
 /**
  * Perry native-library FFI wrappers.
  *
@@ -46,33 +48,10 @@ function asNodeId(id: bigint | number): bigint {
   return typeof id === "bigint" ? id : BigInt(id);
 }
 
-export enum NodeType {
-  Root = 0,
-  View = 1,
-  Text = 2,
-  Image = 3,
-  Scroll = 4,
-}
-
-export enum PropertyId {
-  Width = 1,
-  Height = 2,
-  MinWidth = 3,
-  MinHeight = 4,
-  Padding = 5,
-  Gap = 6,
-  FlexDirection = 7,
-  AlignItems = 8,
-  JustifyContent = 9,
-  BackgroundColor = 10,
-  BorderRadius = 11,
-  Opacity = 12,
-  FontSize = 13,
-  FontWeight = 14,
-  TextColor = 15,
-  ScrollOffsetY = 16,
-  FlexGrow = 17,
-}
+export const NodeType = Ui.NodeType;
+export type NodeType = Ui.NodeType;
+export const PropertyId = Ui.PropertyId;
+export type PropertyId = Ui.PropertyId;
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */
 export function rgba(r: number, g: number, b: number, a = 255): number {

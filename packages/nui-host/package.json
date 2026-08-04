@@ -17,6 +17,9 @@
     "nexa",
     "nui"
   ],
+  "dependencies": {
+    "@nexa/protocol": "workspace:*"
+  },
   "perry": {
     "nativeLibrary": {
       "abiVersion": "0.5",

@@ -21,16 +21,16 @@ test("validation matrix classifies every workspace check", () => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const report = JSON.parse(result.stdout);
   assert.deepEqual(report.checks, ["typecheck", "test", "build", "lint"]);
-  assert.equal(report.projectCount, 20);
-  assert.equal(report.classifiedCheckCount, 80);
+  assert.equal(report.projectCount, 21);
+  assert.equal(report.classifiedCheckCount, 84);
   assert.deepEqual(report.unclassified, []);
 });
 
 const expectedPlans = {
-  typecheck: { runnable: 19, skipped: 1, inherited: 0 },
-  test: { runnable: 2, skipped: 18, inherited: 0 },
-  build: { runnable: 11, skipped: 9, inherited: 0 },
-  lint: { runnable: 1, skipped: 0, inherited: 19 },
+  typecheck: { runnable: 20, skipped: 1, inherited: 0 },
+  test: { runnable: 2, skipped: 19, inherited: 0 },
+  build: { runnable: 11, skipped: 10, inherited: 0 },
+  lint: { runnable: 1, skipped: 0, inherited: 20 },
 };
 
 for (const [check, expected] of Object.entries(expectedPlans)) {
@@ -40,7 +40,7 @@ for (const [check, expected] of Object.entries(expectedPlans)) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const report = JSON.parse(result.stdout);
     assert.equal(report.check, check);
-    assert.equal(report.entries.length, 20);
+    assert.equal(report.entries.length, 21);
     assert.equal(report.runnableCount, expected.runnable);
     assert.equal(report.skippedCount, expected.skipped);
     assert.equal(report.inheritedCount, expected.inherited);
