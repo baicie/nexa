@@ -8,7 +8,7 @@
 | --------- | ----------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
 | Node.js   | CI `node-version`                   | 22.x                                       | CI 使用 Node 22 LTS；本地至少满足根 `engines`                    |
 | pnpm      | 根 `packageManager`                 | 10.34.3                                    | `pnpm/action-setup` 只读取此处，不重复声明版本                   |
-| Rust      | `rust-toolchain.toml`               | 1.96.0                                     | 开发与 required CI 使用精确版本，并安装 rustfmt、Clippy          |
+| Rust      | `rust-toolchain.toml`               | 1.88.0                                     | 开发与 required CI 使用精确版本，并安装 rustfmt、Clippy          |
 | Rust MSRV | 根 `workspace.package.rust-version` | 1.88                                       | 兼容性下限，不用于替代固定的开发工具链                           |
 | Perry CLI | 根 `devDependencies`                | 0.5.1220                                   | 通过 `pnpm exec perry` 调用，禁止依赖全局浮动版本                |
 | Perry FFI | 两个 FFI `Cargo.toml`               | `06137858dc8c6f80975238377138f2f948d6ef88` | 对应 Perry `v0.5.1220`，两个 nativeLibrary 必须使用同一 revision |
