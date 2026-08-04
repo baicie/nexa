@@ -375,8 +375,8 @@ dependencies = [
 
 [[package]]
 name = "perry-ffi"
-version = "0.5.1280"
-source = "git+https://github.com/PerryTS/perry?branch=main#721180f216d096d75d584f3965c86a6c6998aa62"
+version = "0.5.1220"
+source = "git+https://github.com/PerryTS/perry?rev=06137858dc8c6f80975238377138f2f948d6ef88#06137858dc8c6f80975238377138f2f948d6ef88"
 dependencies = [
  "dashmap",
  "once_cell",

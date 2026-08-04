@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@perryts/perry':
+        specifier: 0.5.1220
+        version: 0.5.1220
       prettier:
         specifier: ^3.6.2
         version: 3.9.6
@@ -387,6 +390,50 @@ packages:
   '@nicolo-ribaudo/chokidar-2@2.1.8-no-fsevents.3':
     resolution: {integrity: sha512-s88O1aVtXftvp5bCPB7WnmXc5IwOZZ7YPuwNPt+GtOOXpPvad1LfbmjYv+qII7zP6RU2QGnqve27dnLycEnyEQ==}
 
+  '@perryts/perry-darwin-arm64@0.5.1220':
+    resolution: {integrity: sha512-5FLa1ciHZwLZVtoecQqhiJ6K7pGjzcBay9y5DiDuSX4+7R4EJDmx9oXKXDXKz1xv5q00seMcLAZkIMQj/hyquw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@perryts/perry-darwin-x64@0.5.1220':
+    resolution: {integrity: sha512-ZVJPZT+NKLf5dWejqOVYoElJGOap0Ic9FEjy4qiTC2IMnZ+5xtxkRMinpEVv61TdAf1pRWAFYw5CzHI88WFvzQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@perryts/perry-linux-arm64-musl@0.5.1220':
+    resolution: {integrity: sha512-rizM9uW3wyBQc1VS7rJaWO0XYeH1dSGI0NC9FBxv3/CT31nniyYQEShGhHKTd6gaisxJNSC/rwqhEqy5NQi3iw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@perryts/perry-linux-arm64@0.5.1220':
+    resolution: {integrity: sha512-qJeup8XTMstoXWDrREZCmhQjqnwJlML3zmBZLhKp3nNRTzn3cEhQFUempEtL3++M2MQjP3CLmzgMh+ZHGZUO7Q==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@perryts/perry-linux-x64-musl@0.5.1220':
+    resolution: {integrity: sha512-OFJLceB+qNlzYTTHl5rK1PaDReNrwxtYJB+xDMf0RKq+MofecKpNjdICHQzKdtO47Guok2bTnTghOTdsHpdR7w==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@perryts/perry-linux-x64@0.5.1220':
+    resolution: {integrity: sha512-N8QG2AboPzw3cBdv1pQdFGc75xTpAwUcWIgik4O6WlU3zMIrOHxIaqj8UWZ1XN8nAxCueBjvGGu8CPi856SvPQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@perryts/perry-win32-x64@0.5.1220':
+    resolution: {integrity: sha512-p33zkG/s3fMfYgAgtfHTWfjTlmlxxaTYZ/Yhw6HzFtyPeBXxz4DtKdbmwNu95ZgFYVAIknF/Fd2Loym56FeXXg==}
+    cpu: [x64]
+    os: [win32]
+
+  '@perryts/perry@0.5.1220':
+    resolution: {integrity: sha512-hgeFCUE8usn/9vObDwlHkE+gRkZm3kjppz6KIefU/+dJ1523bYLI4hAsKk6lnZnaUc6iaiuK8yBF8wklqqVDwQ==}
+    engines: {node: '>=16'}
+    hasBin: true
+
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
@@ -540,14 +587,12 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
 
   html-entities@2.3.3:
     resolution: {integrity: sha512-DV5Ln36z34NNTDgnz0EWGBLZENelNAtkiFA4kyNOG2tDI6Mz1uSWiq1wAKdyjnJwyDiDO7Fa2SO1CTxPXL8VxA==}
 
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
-    deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
@@ -950,6 +995,37 @@ snapshots:
 
   '@nicolo-ribaudo/chokidar-2@2.1.8-no-fsevents.3':
     optional: true
+
+  '@perryts/perry-darwin-arm64@0.5.1220':
+    optional: true
+
+  '@perryts/perry-darwin-x64@0.5.1220':
+    optional: true
+
+  '@perryts/perry-linux-arm64-musl@0.5.1220':
+    optional: true
+
+  '@perryts/perry-linux-arm64@0.5.1220':
+    optional: true
+
+  '@perryts/perry-linux-x64-musl@0.5.1220':
+    optional: true
+
+  '@perryts/perry-linux-x64@0.5.1220':
+    optional: true
+
+  '@perryts/perry-win32-x64@0.5.1220':
+    optional: true
+
+  '@perryts/perry@0.5.1220':
+    optionalDependencies:
+      '@perryts/perry-darwin-arm64': 0.5.1220
+      '@perryts/perry-darwin-x64': 0.5.1220
+      '@perryts/perry-linux-arm64': 0.5.1220
+      '@perryts/perry-linux-arm64-musl': 0.5.1220
+      '@perryts/perry-linux-x64': 0.5.1220
+      '@perryts/perry-linux-x64-musl': 0.5.1220
+      '@perryts/perry-win32-x64': 0.5.1220
 
   '@types/estree@1.0.9': {}
 

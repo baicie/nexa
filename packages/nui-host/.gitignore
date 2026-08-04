@@ -2,4 +2,3 @@
 target/
 *.a
 *.lib
-Cargo.lock

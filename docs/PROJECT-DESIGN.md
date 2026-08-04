@@ -459,7 +459,7 @@ docs/
 
 | 层        | 技术                                     | 当前/目标约束                      |
 | --------- | ---------------------------------------- | ---------------------------------- |
-| Language  | Rust 2021、TypeScript 5.9+               | Rust MSRV 1.85；Node >=22          |
+| Language  | Rust 2021、TypeScript 5.9+               | Rust MSRV 1.88；Node >=22          |
 | AOT/FFI   | Perry nativeLibrary ABI 0.5              | 必须增加 NUI 自有协议版本          |
 | Window    | winit 0.30                               | 单 UI 线程，macOS/Windows P0       |
 | Layout    | Taffy 0.12 Flexbox                       | 只开放类型化子集                   |
