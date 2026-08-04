@@ -1,0 +1,43 @@
+name: Perry frameworks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: AOT (${{ matrix.framework }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [solid, vue, react, svelte]
+        os: [macos-15, windows-2022]
+    env:
+      PERRY_NO_CACHE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Toolchain versions
+        run: |
+          node --version
+          pnpm --version
+          rustc --version
+          pnpm exec perry --version
+
+      - name: Clean AOT build
+        run: pnpm test:perry ${{ matrix.framework }}

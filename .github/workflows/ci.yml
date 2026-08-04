@@ -18,6 +18,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       typescript: ${{ steps.filter.outputs.typescript }}
       ffi: ${{ steps.filter.outputs.ffi }}
+      perry: ${{ steps.filter.outputs.perry }}
       docs: ${{ steps.filter.outputs.docs }}
       native: ${{ steps.filter.outputs.native }}
     steps:
@@ -64,8 +65,7 @@ jobs:
               - '.prettierignore'
               - 'scripts/**'
               - 'tools/**'
-              - '.github/workflows/typescript.yml'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/*.yml'
             ffi:
               - 'crates/**'
               - 'packages/nui-host/**'
@@ -83,6 +83,29 @@ jobs:
               - 'scripts/**'
               - 'tools/perry-smoke.mjs'
               - '.github/workflows/ffi.yml'
+              - '.github/workflows/ci.yml'
+            perry:
+              - 'crates/**'
+              - 'packages/nui-host/**'
+              - 'packages/adapter-solid/**'
+              - 'packages/adapter-vue/**'
+              - 'packages/adapter-react/**'
+              - 'packages/compiler-svelte/**'
+              - 'examples/solid-counter/**'
+              - 'examples/vue-counter/**'
+              - 'examples/react-counter/**'
+              - 'examples/svelte-counter/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.base.json'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+              - '.npmrc'
+              - '.cargo/**'
+              - 'tools/perry-frameworks.mjs'
+              - 'tools/perry-frameworks.test.mjs'
+              - '.github/workflows/perry-frameworks.yml'
               - '.github/workflows/ci.yml'
             native:
               - 'crates/nui-platform-winit/**'
@@ -119,6 +142,12 @@ jobs:
     if: needs.changes.outputs.ffi == 'true'
     uses: ./.github/workflows/ffi.yml
 
+  perry-frameworks:
+    name: Perry frameworks
+    needs: changes
+    if: needs.changes.outputs.perry == 'true'
+    uses: ./.github/workflows/perry-frameworks.yml
+
   docs:
     name: Docs
     needs: changes
@@ -136,7 +165,7 @@ jobs:
   result:
     name: result
     if: always()
-    needs: [changes, rust, typescript, ffi, docs, native-smoke]
+    needs: [changes, rust, typescript, ffi, perry-frameworks, docs, native-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
@@ -145,11 +174,13 @@ jobs:
           RUST: ${{ needs.rust.result }}
           TS: ${{ needs.typescript.result }}
           FFI: ${{ needs.ffi.result }}
+          PERRY: ${{ needs.perry-frameworks.result }}
           DOCS: ${{ needs.docs.result }}
           NATIVE: ${{ needs.native-smoke.result }}
           RUST_NEEDED: ${{ needs.changes.outputs.rust }}
           TS_NEEDED: ${{ needs.changes.outputs.typescript }}
           FFI_NEEDED: ${{ needs.changes.outputs.ffi }}
+          PERRY_NEEDED: ${{ needs.changes.outputs.perry }}
         run: |
           set -euo pipefail
           fail=0
@@ -167,6 +198,10 @@ jobs:
           fi
           if [[ "$FFI_NEEDED" == "true" && "$FFI" != "success" ]]; then
             echo "FFI gate failed: $FFI"
+            fail=1
+          fi
+          if [[ "$PERRY_NEEDED" == "true" && "$PERRY" != "success" ]]; then
+            echo "Perry framework gate failed: $PERRY"
             fail=1
           fi
           # docs / native-smoke are advisory or opt-in; do not fail the aggregator on skip

@@ -7,7 +7,12 @@ import { parse } from "yaml";
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
+const perryFrameworksWorkflowUrl = new URL(
+  "../.github/workflows/perry-frameworks.yml",
+  import.meta.url,
+);
 const typescriptWorkflowUrl = new URL("../.github/workflows/typescript.yml", import.meta.url);
+const rootPackageUrl = new URL("../package.json", import.meta.url);
 const counterPackageUrl = new URL("../examples/counter/package.json", import.meta.url);
 const perrySmokeUrl = new URL("./perry-smoke.mjs", import.meta.url);
 
@@ -53,18 +58,19 @@ test("both independent FFI crates trigger Rust and future FFI checks", () => {
 
 test("workflow, script, and root config changes route to their owners", () => {
   const fixtures = new Map([
-    [".github/workflows/ci.yml", ["rust", "typescript", "ffi", "native"]],
-    [".github/workflows/rust.yml", ["rust"]],
+    [".github/workflows/ci.yml", ["rust", "typescript", "ffi", "perry", "native"]],
+    [".github/workflows/rust.yml", ["rust", "typescript"]],
     [".github/workflows/typescript.yml", ["typescript"]],
-    [".github/workflows/ffi.yml", ["ffi"]],
-    [".github/workflows/native-smoke.yml", ["native"]],
-    [".github/workflows/docs.yml", ["docs"]],
+    [".github/workflows/ffi.yml", ["typescript", "ffi"]],
+    [".github/workflows/perry-frameworks.yml", ["typescript", "perry"]],
+    [".github/workflows/native-smoke.yml", ["typescript", "native"]],
+    [".github/workflows/docs.yml", ["typescript", "docs"]],
     ["scripts/build-native.sh", ["rust", "typescript", "ffi", "native"]],
     ["tools/ci-path-filters.test.mjs", ["typescript"]],
-    ["Cargo.toml", ["rust", "ffi", "native"]],
-    ["rust-toolchain.toml", ["rust", "ffi", "native"]],
+    ["Cargo.toml", ["rust", "ffi", "perry", "native"]],
+    ["rust-toolchain.toml", ["rust", "ffi", "perry", "native"]],
     ["rustfmt.toml", ["rust", "ffi"]],
-    ["tsconfig.base.json", ["typescript"]],
+    ["tsconfig.base.json", ["typescript", "perry"]],
   ]);
 
   for (const [path, expectedFilters] of fixtures) {
@@ -76,7 +82,10 @@ test("workflow, script, and root config changes route to their owners", () => {
 
 test("the required result check fails closed when change detection fails", () => {
   assert.match(workflow, /^\s+if: always\(\)$/m);
-  assert.match(workflow, /^\s+needs: \[changes, rust, typescript, ffi, docs, native-smoke\]$/m);
+  assert.match(
+    workflow,
+    /^\s+needs: \[changes, rust, typescript, ffi, perry-frameworks, docs, native-smoke\]$/m,
+  );
   assert.match(workflow, /^\s+CHANGES: \$\{\{ needs\.changes\.result \}\}$/m);
   assert.match(workflow, /if \[\[ "\$CHANGES" != "success" \]\]; then/);
 });
@@ -84,7 +93,10 @@ test("the required result check fails closed when change detection fails", () =>
 test("the FFI route runs a required two-package verification gate", () => {
   assert.ok(existsSync(ffiWorkflowUrl), "ffi.yml must exist");
   assert.match(workflow, /^  ffi:\n(?:    .+\n)+?    uses: \.\/\.github\/workflows\/ffi\.yml$/m);
-  assert.match(workflow, /^\s+needs: \[changes, rust, typescript, ffi, docs, native-smoke\]$/m);
+  assert.match(
+    workflow,
+    /^\s+needs: \[changes, rust, typescript, ffi, perry-frameworks, docs, native-smoke\]$/m,
+  );
   assert.match(workflow, /^\s+FFI: \$\{\{ needs\.ffi\.result \}\}$/m);
   assert.match(workflow, /^\s+FFI_NEEDED: \$\{\{ needs\.changes\.outputs\.ffi \}\}$/m);
   assert.match(workflow, /if \[\[ "\$FFI_NEEDED" == "true" && "\$FFI" != "success" \]\]; then/);
@@ -105,6 +117,60 @@ test("the FFI route runs a required two-package verification gate", () => {
       `FFI gate must run ${expected}`,
     );
   }
+});
+
+test("the required Perry framework gate runs four independent clean AOT builds", () => {
+  assert.ok(existsSync(perryFrameworksWorkflowUrl), "perry-frameworks.yml must exist");
+  assert.ok(filters.perry, "ci.yml must define the Perry framework path filter");
+
+  for (const path of [
+    "crates/nui-core/src/lib.rs",
+    "packages/nui-host/src/ffi.ts",
+    "packages/adapter-solid/src/index.ts",
+    "packages/adapter-vue/src/index.ts",
+    "packages/adapter-react/src/index.ts",
+    "packages/compiler-svelte/src/index.ts",
+    "examples/solid-counter/main.tsx",
+    "examples/vue-counter/main.ts",
+    "examples/react-counter/main.tsx",
+    "examples/svelte-counter/main.ts",
+    "tools/perry-frameworks.mjs",
+    "tools/perry-frameworks.test.mjs",
+  ]) {
+    assert.equal(routes(path, "perry"), true, `${path} must route to Perry frameworks`);
+  }
+
+  const rootPackage = JSON.parse(readFileSync(rootPackageUrl, "utf8"));
+  assert.equal(rootPackage.scripts["test:perry"], "node tools/perry-frameworks.mjs");
+
+  assert.match(workflow, /^\s+perry: \$\{\{ steps\.filter\.outputs\.perry \}\}$/m);
+  assert.match(
+    workflow,
+    /^  perry-frameworks:\n(?:    .+\n)+?    uses: \.\/\.github\/workflows\/perry-frameworks\.yml$/m,
+  );
+  assert.match(workflow, /^\s+PERRY: \$\{\{ needs\.perry-frameworks\.result \}\}$/m);
+  assert.match(workflow, /^\s+PERRY_NEEDED: \$\{\{ needs\.changes\.outputs\.perry \}\}$/m);
+  assert.match(workflow, /if \[\[ "\$PERRY_NEEDED" == "true" && "\$PERRY" != "success" \]\]; then/);
+
+  const perryWorkflow = parse(readFileSync(perryFrameworksWorkflowUrl, "utf8"));
+  const build = perryWorkflow.jobs.build;
+  assert.equal(build.name, "AOT (${{ matrix.framework }}, ${{ matrix.os }})");
+  assert.equal(build.strategy["fail-fast"], false);
+  assert.deepEqual(build.strategy.matrix.framework, ["solid", "vue", "react", "svelte"]);
+  assert.deepEqual(build.strategy.matrix.os, ["macos-15", "windows-2022"]);
+  assert.equal(build["runs-on"], "${{ matrix.os }}");
+  assert.equal(build["timeout-minutes"], 60);
+  assert.equal(build["continue-on-error"], undefined);
+  assert.equal(
+    build.steps.some((step) =>
+      typeof step.uses === "string" ? step.uses.startsWith("Swatinem/rust-cache") : false,
+    ),
+    false,
+    "clean AOT jobs must not restore Cargo build output",
+  );
+  const commands = build.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
+  assert.ok(commands.includes("pnpm install --frozen-lockfile"));
+  assert.ok(commands.includes("pnpm test:perry ${{ matrix.framework }}"));
 });
 
 test("the required FFI gate executes the Minimal TSX Perry runtime smoke", () => {
