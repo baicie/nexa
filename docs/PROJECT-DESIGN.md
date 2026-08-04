@@ -4,7 +4,7 @@
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 日期：2026-08-04
-- 关联决策：ADR-004、ADR-005、ADR-006
+- 关联决策：ADR-004、ADR-005、ADR-006、ADR-007
 - 配套计划：[`ROADMAP.md`](./ROADMAP.md)、[`../TODO.md`](../TODO.md)
 
 > 本文是组合现有 ADR 的提案，不自动把新的协议格式、文本依赖、产品定位或公开 API 变成 Accepted 决策。标为候选或待确认的事项必须先通过对应 ADR/产品评审。
@@ -142,16 +142,16 @@ flowchart TB
 
 ### 6.1 协议版本与唯一来源
 
-新增机器可读的 `protocol/nui-host.json` 和 `protocol/system-host.json`。生成器输出 Rust 与 TypeScript 定义，生成物带 `@generated` 标记并由 CI 校验无漂移。
+新增机器可读的 `protocol/common.json`、`protocol/nui-host.json` 和 `protocol/system-host.json`。common manifest 唯一定义 bootstrap、版本、transport feature、Handle kind 和 protocol error；namespace manifest 定义各自命令与数据合同。生成器输出 Rust、TypeScript 与 Perry 定义，生成物带 `@generated` 标记并由 CI 校验无漂移。
 
 协议握手最少返回：
 
 ```text
 ProtocolVersion { major, minor, patch }
-RuntimeVersion
+ClientRuntimeVersion / HostRuntimeVersion
 AbiVersion
-FeatureBits
-TargetTriple
+Transport / UI / System FeatureBits
+ClientTargetTriple / HostTargetTriple
 ```
 
 - `major` 不同：启动失败并给出结构化不兼容错误。
@@ -175,6 +175,8 @@ TS 表面可以封装成 opaque object；不得允许业务代码算术操作。
 Created -> Active -> Closing -> Closed
                        \-> Invalidated
 ```
+
+Perry FFI 入参将每个 HandleRef 展开为两个 `u32`，返回值由 native 构造固定 shape 的 `jsvalue`。对应 Rust export 返回 `f64` bits，以匹配 Perry 的 `double` C ABI。当前 Perry revision 没有安全的任意 object shape introspection，因此 native 不接收 HandleRef `jsvalue`。可选句柄在 TS 表面为 `null`，FFI 使用显式 presence/slot/generation 三元组。
 
 所有操作验证 kind、generation、owner window/app 与状态。重复 close/cancel 为幂等；过期 handle 返回 `STALE_HANDLE`，不得静默忽略或 panic。
 
@@ -322,11 +324,17 @@ P0 保留全量布局/绘制实现，但建立 dirty flags 和可观测计数；
 
 ```ts
 export type NexaError = {
-  code: string;
+  domain: "protocol" | "ui" | "system";
+  code: number;
+  name: string;
+  severity: "ProtocolViolation" | "RecoverableOperation" | "FrameFailure" | "FatalRuntime";
   message: string;
   operation: string;
   retryable: boolean;
+  runtimeVersion: string;
+  context?: Readonly<Record<string, string | number | boolean>>;
   platformCode?: string;
+  cause?: NexaError;
 };
 
 export type Task<T> = {
