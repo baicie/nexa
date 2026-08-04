@@ -52,6 +52,7 @@ export {
   getFirstChild,
   getNextSibling,
 } from "./tree";
+export { activeNodeCount, attachNode, disposeNode, registerNodeCleanup } from "./lifecycle";
 
 export { getWindowTitle, setWindowTitle, resetWindowTitle } from "./title";
 

@@ -1,4 +1,5 @@
 import { insert as hostInsert, remove as hostRemove } from "./ffi";
+import { attachNode, disposeNode } from "./lifecycle";
 import type { NuiNode } from "./types";
 
 export function unlink(node: NuiNode): void {
@@ -25,10 +26,12 @@ export function insertBefore(parent: NuiNode, node: NuiNode, anchor?: NuiNode | 
     parent.children.push(node);
     hostInsert(node.id, parent.id);
   }
+  attachNode(node.id, parent.id);
 }
 
 export function removeNode(node: NuiNode): void {
   unlink(node);
+  disposeNode(node.id);
   hostRemove(node.id);
 }
 

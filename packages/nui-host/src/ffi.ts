@@ -3,6 +3,7 @@ import {
   NodeType as GeneratedNodeType,
   PropertyId as GeneratedPropertyId,
 } from "@nexa/protocol";
+import { attachNode, disposeNode } from "./lifecycle";
 
 /**
  * Perry native-library FFI wrappers.
@@ -119,10 +120,12 @@ export function createText(text: string): bigint {
 }
 
 export function insert(child: bigint, parent: bigint, before?: bigint): void {
+  attachNode(child, parent);
   js_nui_insert(asU64(child), asU64(parent), asU64(before ?? 0n));
 }
 
 export function remove(node: bigint): void {
+  disposeNode(node);
   js_nui_remove(asU64(node));
 }
 

@@ -311,6 +311,30 @@ mod tests {
     }
 
     #[test]
+    fn remove_clears_descendant_input_and_image_state() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let input = host.create_node(NodeType::View);
+        let text = host.create_text("draft");
+        let image = host.create_node(NodeType::Image);
+        host.insert(input, root);
+        host.insert(text, input);
+        host.insert(image, root);
+        host.register_input(input, text, "Draft");
+        host.set_image(image, "/tmp/nexa-ui-dispose-missing.png");
+
+        host.remove(root);
+
+        let inner = host.inner.lock().expect("host inner");
+        assert!(inner.inputs.is_empty());
+        assert!(inner.images.is_empty());
+        assert!(inner.arena.get(root).is_none());
+        assert!(inner.arena.get(input).is_none());
+        assert!(inner.arena.get(text).is_none());
+        assert!(inner.arena.get(image).is_none());
+    }
+
+    #[test]
     fn host_try_insert_rejects_stale_parent_atomically() {
         let host = NuiHost::new();
         let root = host.create_node(NodeType::View);

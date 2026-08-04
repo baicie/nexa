@@ -2,6 +2,7 @@ import {
   addChangeListener,
   addClickListener,
   addSubmitListener,
+  registerNodeCleanup,
   createNode,
   createText,
   insert,
@@ -28,6 +29,10 @@ import {
 } from "./children";
 
 type Component = (props: Record<string, unknown>) => unknown;
+
+function bindEffect(node: bigint, fn: () => void): void {
+  registerNodeCleanup(node, effect(fn));
+}
 
 function applyBoxProps(node: bigint, props: Record<string, unknown>, direction?: 0 | 1): void {
   if (direction !== undefined) {
@@ -95,7 +100,7 @@ function mountForList(props: Record<string, unknown>): bigint {
     return container;
   }
 
-  effect(() => {
+  bindEffect(container, () => {
     const list = (isSignal(each) ? each.value : each) as unknown;
     if (!Array.isArray(list)) {
       return;
@@ -237,7 +242,7 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
 
       const children = props.children;
       if (childrenAreReactive(children)) {
-        effect(() => {
+        bindEffect(node, () => {
           setText(node, resolveChildText(children));
         });
       } else {
@@ -259,7 +264,7 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
       setNumber(label, PropertyId.TextColor, rgba(0xff, 0xff, 0xff));
       const children = props.children;
       if (childrenAreReactive(children)) {
-        effect(() => {
+        bindEffect(label, () => {
           setText(label, resolveChildText(children) || "Button");
         });
       } else {
@@ -295,7 +300,7 @@ function mountPrimitive(el: PrimitiveElement): bigint | null {
 
       if (isSignal(props.value)) {
         const signalValue = props.value;
-        effect(() => {
+        bindEffect(textNode, () => {
           setText(textNode, String(signalValue.value ?? ""));
         });
       }
@@ -352,7 +357,7 @@ export function mountNode(node: unknown): bigint | null {
 
   if (isSignal(node)) {
     const text = createText("");
-    effect(() => {
+    bindEffect(text, () => {
       setText(text, String(node.value));
     });
     return text;
@@ -360,7 +365,7 @@ export function mountNode(node: unknown): bigint | null {
 
   if (typeof node === "function") {
     const text = createText("");
-    effect(() => {
+    bindEffect(text, () => {
       setText(text, String((node as () => unknown)()));
     });
     return text;
