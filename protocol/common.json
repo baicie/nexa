@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 1,
+  "namespace": "common",
+  "featureNamespace": "transport",
+  "protocol": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "abi": {
+    "major": 0,
+    "minor": 5
+  },
+  "resultTransport": {
+    "version": 1,
+    "encoding": "json_utf8",
+    "perryReturn": "string",
+    "envelope": "nexa_result_v1"
+  },
+  "resultEnvelope": {
+    "tagField": "ok",
+    "successTag": true,
+    "valueField": "value",
+    "failureTag": false,
+    "errorField": "error",
+    "errorType": "common.NexaError",
+    "unitValue": null,
+    "rejectUnknownFields": true
+  },
+  "handleValidation": {
+    "slotMinimum": 0,
+    "slotMaximum": 4294967295,
+    "generationMinimum": 1,
+    "generationMaximum": 4294967295
+  },
+  "handleTransport": {
+    "logicalType": "HandleRef",
+    "requiredFeature": "transport.handle_ref",
+    "wireToken": {
+      "version": 1,
+      "prefix": "h1",
+      "separator": "/",
+      "slotHexWidth": 8,
+      "generationHexWidth": 8,
+      "hexCase": "lower"
+    },
+    "input": {
+      "perryTypes": ["u32", "u32"],
+      "parts": ["slot", "generation"]
+    },
+    "optionalInput": {
+      "perryTypes": ["u32", "u32", "u32"],
+      "parts": ["presence", "slot", "generation"],
+      "absent": [0, 0, 0]
+    },
+    "result": {
+      "perryType": "string",
+      "codec": "nexa_result_json_v1",
+      "successValueCodec": "handle_token_v1"
+    }
+  },
+  "features": [
+    {
+      "bit": 0,
+      "name": "handle_ref",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "bit": 1,
+      "name": "structured_errors",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "handleKinds": [
+    {
+      "id": 1,
+      "name": "Node",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 2,
+      "name": "Callback",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 3,
+      "name": "Task",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "Subscription",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "NativeResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "ProtocolVersion",
+      "kind": "record",
+      "fields": [
+        { "name": "major", "type": "u32", "optional": false },
+        { "name": "minor", "type": "u32", "optional": false },
+        { "name": "patch", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "AbiVersion",
+      "kind": "record",
+      "fields": [
+        { "name": "major", "type": "u32", "optional": false },
+        { "name": "minor", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "FeatureBits",
+      "kind": "record",
+      "fields": [
+        { "name": "low", "type": "u32", "optional": false },
+        { "name": "high", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "FeatureSet",
+      "kind": "record",
+      "fields": [
+        { "name": "required", "type": "common.FeatureBits", "optional": false },
+        { "name": "optional", "type": "common.FeatureBits", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "ProtocolHello",
+      "kind": "record",
+      "fields": [
+        { "name": "protocol", "type": "common.ProtocolVersion", "optional": false },
+        { "name": "abi", "type": "common.AbiVersion", "optional": false },
+        { "name": "clientRuntimeVersion", "type": "string", "optional": false },
+        { "name": "clientTargetTriple", "type": "string", "optional": false },
+        { "name": "transport", "type": "common.FeatureSet", "optional": false },
+        { "name": "ui", "type": "common.FeatureSet", "optional": false },
+        { "name": "system", "type": "common.FeatureSet", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "ProtocolAccepted",
+      "kind": "record",
+      "fields": [
+        { "name": "protocol", "type": "common.ProtocolVersion", "optional": false },
+        { "name": "abi", "type": "common.AbiVersion", "optional": false },
+        { "name": "hostRuntimeVersion", "type": "string", "optional": false },
+        { "name": "hostTargetTriple", "type": "string", "optional": false },
+        { "name": "transport", "type": "common.FeatureBits", "optional": false },
+        { "name": "ui", "type": "common.FeatureBits", "optional": false },
+        { "name": "system", "type": "common.FeatureBits", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "HandleRef",
+      "kind": "record",
+      "fields": [
+        { "name": "slot", "type": "u32", "optional": false },
+        { "name": "generation", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "ErrorSeverity",
+      "kind": "enum",
+      "values": ["ProtocolViolation", "RecoverableOperation", "FrameFailure", "FatalRuntime"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "ErrorContext",
+      "kind": "map",
+      "valueTypes": ["string", "u32", "f64", "bool"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "NexaError",
+      "kind": "record",
+      "fields": [
+        { "name": "domain", "type": "string", "optional": false },
+        { "name": "code", "type": "u32", "optional": false },
+        { "name": "name", "type": "string", "optional": false },
+        { "name": "severity", "type": "common.ErrorSeverity", "optional": false },
+        { "name": "operation", "type": "string", "optional": false },
+        { "name": "retryable", "type": "bool", "optional": false },
+        { "name": "message", "type": "string", "optional": false },
+        { "name": "runtimeVersion", "type": "string", "optional": false },
+        { "name": "context", "type": "common.ErrorContext", "optional": true },
+        { "name": "platformCode", "type": "string", "optional": true },
+        { "name": "cause", "type": "common.NexaError", "optional": true }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "commands": [
+    {
+      "id": 0,
+      "name": "Handshake",
+      "params": [{ "name": "hello", "type": "common.ProtocolHello", "optional": false }],
+      "returns": { "type": "common.ProtocolAccepted", "result": true },
+      "requiresFeatures": [],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "ffiFunctions": [
+    {
+      "abiIndex": 13,
+      "library": "ui",
+      "name": "js_nui_handshake_v1",
+      "command": "common.Handshake",
+      "params": [{ "name": "helloJson", "type": "string", "mapping": "hello.json" }],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "errors": [
+    {
+      "domain": "protocol",
+      "code": 65537,
+      "name": "PROTOCOL_MISMATCH",
+      "retryable": false,
+      "severity": "ProtocolViolation",
+      "contextKeys": ["clientProtocol", "hostProtocol", "clientAbi", "hostAbi"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "protocol",
+      "code": 65538,
+      "name": "UNSUPPORTED_FEATURE",
+      "retryable": false,
+      "severity": "ProtocolViolation",
+      "contextKeys": ["namespace", "missingRequiredLow", "missingRequiredHigh"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ]
+}

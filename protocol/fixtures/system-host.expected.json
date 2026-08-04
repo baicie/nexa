@@ -1,0 +1,74 @@
+{
+  "manifest": "system-host",
+  "expected": {
+    "namespace": "system",
+    "featureNamespace": "system",
+    "counts": {
+      "features": 3,
+      "types": 0,
+      "commands": 5,
+      "permissions": 2,
+      "taskKinds": 2,
+      "resourceKinds": 6,
+      "ffiFunctions": 7,
+      "errors": 10
+    },
+    "featureBits": {
+      "tasks": 2,
+      "resources": 3,
+      "permissions": 4
+    },
+    "ids": {
+      "commands": {
+        "ClipboardReadText": 1,
+        "ClipboardWriteText": 2,
+        "CancelTask": 3,
+        "CloseResource": 4,
+        "ResetSession": 5
+      },
+      "permissions": {
+        "ClipboardRead": 1,
+        "ClipboardWrite": 2
+      },
+      "taskKinds": {
+        "ClipboardReadText": 1,
+        "ClipboardWriteText": 2
+      },
+      "resourceKinds": {
+        "Window": 1,
+        "File": 2,
+        "FileWatcher": 3,
+        "Process": 4,
+        "HttpRequest": 5,
+        "Socket": 6
+      }
+    },
+    "taskResultTypes": {
+      "ClipboardReadText": "string",
+      "ClipboardWriteText": "void"
+    },
+    "legacyFfiAbiIndexes": {
+      "js_nexa_clipboard_read_text": 0,
+      "js_nexa_clipboard_write_text": 1
+    },
+    "v1FfiAbiIndexes": {
+      "js_nexa_clipboard_read_text_v1": 2,
+      "js_nexa_clipboard_write_text_v1": 3,
+      "js_nexa_cancel_task_v1": 4,
+      "js_nexa_close_resource_v1": 5,
+      "js_nexa_reset_session_v1": 6
+    },
+    "errorCodes": {
+      "INVALID_ARGUMENT": 33554433,
+      "INVALID_KIND": 33554434,
+      "WRONG_OWNER": 33554435,
+      "STALE_HANDLE": 33554436,
+      "INVALID_STATE": 33554437,
+      "NOT_FOUND": 33554438,
+      "PERMISSION_DENIED": 33554439,
+      "CANCELLED": 33554440,
+      "PLATFORM_FAILURE": 33554441,
+      "INTERNAL_FAILURE": 33554442
+    }
+  }
+}

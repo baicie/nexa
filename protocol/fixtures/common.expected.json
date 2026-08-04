@@ -1,0 +1,41 @@
+{
+  "manifest": "common",
+  "expected": {
+    "namespace": "common",
+    "featureNamespace": "transport",
+    "counts": {
+      "features": 2,
+      "handleKinds": 5,
+      "types": 10,
+      "commands": 1,
+      "ffiFunctions": 1,
+      "errors": 2
+    },
+    "featureBits": {
+      "handle_ref": 0,
+      "structured_errors": 1
+    },
+    "handleKindIds": {
+      "Node": 1,
+      "Callback": 2,
+      "Task": 3,
+      "Subscription": 4,
+      "NativeResource": 5
+    },
+    "commandIds": {
+      "Handshake": 0
+    },
+    "ffiAbiIndexes": {
+      "js_nui_handshake_v1": 13
+    },
+    "errorCodes": {
+      "PROTOCOL_MISMATCH": 65537,
+      "UNSUPPORTED_FEATURE": 65538
+    },
+    "maxHandleRef": {
+      "slot": 4294967295,
+      "generation": 4294967295,
+      "token": "h1/ffffffff/ffffffff"
+    }
+  }
+}

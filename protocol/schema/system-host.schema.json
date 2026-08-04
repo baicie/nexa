@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexa-ui.dev/schema/system-host-v1.json",
+  "title": "Nexa System Host Protocol Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "namespace",
+    "featureNamespace",
+    "features",
+    "types",
+    "commands",
+    "permissions",
+    "taskKinds",
+    "resourceKinds",
+    "ffiFunctions",
+    "errors"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "namespace": { "type": "string", "const": "system" },
+    "featureNamespace": { "type": "string", "const": "system" },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/feature" }
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/typeDefinition"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/systemCommand" }
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/idEntry" }
+    },
+    "taskKinds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/taskKind" }
+    },
+    "resourceKinds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resourceKind" }
+    },
+    "ffiFunctions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/systemFfiFunction" }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/systemError" }
+    }
+  },
+  "$defs": {
+    "featureRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(transport|system)\\.[a-z][a-z0-9_]*$"
+      }
+    },
+    "permissionRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+      }
+    },
+    "systemCommand": {
+      "allOf": [
+        { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/command" },
+        {
+          "type": "object",
+          "required": ["requiredPermissions", "createsTaskKind", "createsResourceKind"],
+          "properties": {
+            "requiresFeatures": { "$ref": "#/$defs/featureRefs" },
+            "requiredPermissions": { "$ref": "#/$defs/permissionRefs" },
+            "createsTaskKind": {
+              "type": ["string", "null"],
+              "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+            },
+            "createsResourceKind": {
+              "type": ["string", "null"],
+              "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+            }
+          }
+        }
+      ]
+    },
+    "taskKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "handleKind", "resultType", "requiredPermission", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/u16" },
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "handleKind": { "const": "common.Task" },
+        "resultType": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/typeName"
+        },
+        "requiredPermission": {
+          "type": "string",
+          "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+        },
+        "lifecycle": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/lifecycle"
+        }
+      }
+    },
+    "resourceKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "handleKind", "closeCommand", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/u16" },
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "handleKind": { "const": "common.NativeResource" },
+        "closeCommand": {
+          "type": "string",
+          "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+        },
+        "lifecycle": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/lifecycle"
+        }
+      }
+    },
+    "systemFfiFunction": {
+      "allOf": [
+        { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/ffiFunction" },
+        {
+          "type": "object",
+          "properties": {
+            "library": { "const": "system" },
+            "command": {
+              "type": "string",
+              "pattern": "^system\\.[A-Z][A-Za-z0-9]*$"
+            }
+          }
+        }
+      ]
+    },
+    "systemError": {
+      "allOf": [
+        { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/error" },
+        {
+          "type": "object",
+          "required": ["domain"],
+          "properties": { "domain": { "const": "system" } }
+        }
+      ]
+    }
+  }
+}
