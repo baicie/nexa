@@ -21,7 +21,8 @@ export {
   run,
 } from "./ffi";
 
-export { handshake } from "./protocol";
+export { createNodeV1, handshake } from "./protocol";
+export { decodeHandleToken, encodeHandleToken } from "./handle";
 
 export type { NuiNode } from "./types";
 export {

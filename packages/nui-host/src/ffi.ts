@@ -8,6 +8,7 @@ import { NodeType as GeneratedNodeType, PropertyId as GeneratedPropertyId } from
  */
 
 declare function js_nui_create_node(type: number): bigint | number;
+declare function js_nui_create_node_v1(type: number): string;
 declare function js_nui_handshake_v1(helloJson: string): string;
 declare function js_nui_create_text(text: string): bigint | number;
 declare function js_nui_insert(
@@ -56,6 +57,10 @@ export type PropertyId = (typeof GeneratedPropertyId)[keyof typeof GeneratedProp
 
 export function handshakeRaw(helloJson: string): string {
   return js_nui_handshake_v1(helloJson);
+}
+
+export function createNodeV1Raw(type: number): string {
+  return js_nui_create_node_v1(type);
 }
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */

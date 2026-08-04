@@ -130,6 +130,13 @@
             "string"
           ],
           "returns": "string"
+        },
+        {
+          "name": "js_nui_create_node_v1",
+          "params": [
+            "u32"
+          ],
+          "returns": "string"
         }
       ],
       "targets": {

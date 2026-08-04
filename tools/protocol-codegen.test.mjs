@@ -70,7 +70,7 @@ test("protocol generator renders deterministic Rust, TypeScript, and Perry artif
   assert.equal(systemPerry.functions[2].returns, "string");
 });
 
-test("checked-in Perry package manifests match generated legacy functions", () => {
+test("checked-in Perry package manifests match implemented generated functions", () => {
   const generatedUi = JSON.parse(
     generateProtocolArtifacts()["protocol/generated/nui-host.perry.json"],
   );
@@ -82,10 +82,14 @@ test("checked-in Perry package manifests match generated legacy functions", () =
     ["packages/system-host/package.json", generatedSystem],
   ];
 
+  const implementedV1 = {
+    "packages/nui-host/package.json": new Set(["js_nui_handshake_v1", "js_nui_create_node_v1"]),
+    "packages/system-host/package.json": new Set(),
+  };
   for (const [relativePath, generated] of packages) {
     const configured = readPackageManifest(relativePath).perry.nativeLibrary.functions;
     const generatedConfigured = generated.functions.filter(
-      (entry) => !entry.name.endsWith("_v1") || entry.name === "js_nui_handshake_v1",
+      (entry) => !entry.name.endsWith("_v1") || implementedV1[relativePath].has(entry.name),
     );
     assert.deepEqual(configured, generatedConfigured, relativePath);
   }

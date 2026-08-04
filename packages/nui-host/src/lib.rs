@@ -8,7 +8,9 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use nui_core::{NodeId, NodeType, PropertyId};
-use nui_perry_bridge::{handshake_json, HostUiEvent, NuiHost};
+use nui_perry_bridge::{
+    handshake_json, node_handle_result_json, node_invalid_argument_result_json, HostUiEvent, NuiHost,
+};
 use perry_ffi::{
     alloc_string, gc_register_mutable_root_scanner_named, read_string, JsClosure, JsString,
     JsValue, RawClosureHeader, StringHeader,
@@ -81,6 +83,25 @@ pub unsafe extern "C" fn js_nui_handshake_v1(hello_ptr: *const StringHeader) -> 
     let handle = JsString::from_raw(hello_ptr as *mut StringHeader);
     let hello = read_string(handle).unwrap_or("");
     let result = handshake_json(hello);
+    alloc_string(&result).as_raw()
+}
+
+/// Create a node through the stable v1 HandleRef string-result ABI.
+#[no_mangle]
+pub extern "C" fn js_nui_create_node_v1(node_type: u32) -> *const StringHeader {
+    let ty = match node_type {
+        0 => NodeType::Root,
+        1 => NodeType::View,
+        2 => NodeType::Text,
+        3 => NodeType::Image,
+        4 => NodeType::Scroll,
+        _ => {
+            let result = node_invalid_argument_result_json("unknown node type");
+            return alloc_string(&result).as_raw();
+        }
+    };
+    let session = session().lock().expect("host session");
+    let result = node_handle_result_json(session.host.create_node(ty));
     alloc_string(&result).as_raw()
 }
 

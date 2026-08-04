@@ -1,8 +1,18 @@
 import { Common } from "@nexa/protocol";
 
-import { handshakeRaw } from "./ffi";
+import { createNodeV1Raw, handshakeRaw } from "./ffi";
+import type { NodeType } from "./ffi";
+import { decodeHandleToken } from "./handle";
 
 type JsonRecord = Record<string, unknown>;
+const PROTOCOL_MISMATCH_CODE = 0x0001_0001;
+const PROTOCOL_ERROR_SEVERITY = "ProtocolViolation" as Common.ErrorSeverity;
+const ERROR_SEVERITIES: readonly string[] = [
+  "ProtocolViolation",
+  "RecoverableOperation",
+  "FrameFailure",
+  "FatalRuntime",
+];
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -64,7 +74,7 @@ function isProtocolAccepted(value: unknown): value is Common.ProtocolAccepted {
 }
 
 function isErrorSeverity(value: unknown): value is Common.ErrorSeverity {
-  return Object.values(Common.ErrorSeverity).includes(value as Common.ErrorSeverity);
+  return typeof value === "string" && ERROR_SEVERITIES.includes(value);
 }
 
 function isErrorContext(value: unknown): value is Common.ErrorContext {
@@ -103,16 +113,58 @@ function isNexaError(value: unknown): value is Common.NexaError {
   );
 }
 
-function localProtocolError(message: string): Common.NexaError {
+function localProtocolError(message: string, operation = "handshake"): Common.NexaError {
   return {
     domain: "protocol",
-    code: Common.ErrorCode.ProtocolMismatch,
+    code: PROTOCOL_MISMATCH_CODE,
     name: "PROTOCOL_MISMATCH",
-    severity: Common.ErrorSeverity.ProtocolViolation,
-    operation: "handshake",
+    severity: PROTOCOL_ERROR_SEVERITY,
+    operation,
     retryable: false,
     message,
     runtimeVersion: "@nexa/nui-host",
+  };
+}
+
+function parseResult<T>(
+  raw: string,
+  decodeValue: (value: unknown) => T,
+  operation: string,
+): Common.NexaResult<T> {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch (error) {
+    return {
+      ok: false,
+      error: localProtocolError(`${operation} returned invalid JSON: ${String(error)}`, operation),
+    };
+  }
+  if (!isRecord(value) || !("ok" in value)) {
+    return {
+      ok: false,
+      error: localProtocolError(`${operation} result must be a result envelope`, operation),
+    };
+  }
+  if (value.ok === true && hasExactKeys(value, ["ok", "value"])) {
+    try {
+      return { ok: true, value: decodeValue(value.value) };
+    } catch (error) {
+      return {
+        ok: false,
+        error: localProtocolError(
+          `${operation} result value is invalid: ${String(error)}`,
+          operation,
+        ),
+      };
+    }
+  }
+  if (value.ok === false && hasExactKeys(value, ["ok", "error"]) && isNexaError(value.error)) {
+    return { ok: false, error: value.error };
+  }
+  return {
+    ok: false,
+    error: localProtocolError(`${operation} result failed contract validation`, operation),
   };
 }
 
@@ -124,28 +176,33 @@ export function handshake(hello: Common.ProtocolHello): Common.NexaResult<Common
   } catch (error) {
     return { ok: false, error: localProtocolError(`handshake transport failed: ${String(error)}`) };
   }
+  return parseResult(
+    raw,
+    (value) => {
+      if (!isProtocolAccepted(value)) throw new TypeError("accepted protocol shape is invalid");
+      return value;
+    },
+    "handshake",
+  );
+}
 
-  let value: unknown;
+/** Create a node through the stable v1 string-result ABI. */
+export function createNodeV1(type: NodeType): Common.NexaResult<Common.HandleRef> {
+  let raw: string;
   try {
-    value = JSON.parse(raw);
+    raw = createNodeV1Raw(type);
   } catch (error) {
     return {
       ok: false,
-      error: localProtocolError(`handshake returned invalid JSON: ${String(error)}`),
+      error: localProtocolError(`createNode transport failed: ${String(error)}`, "createNode"),
     };
   }
-  if (!isRecord(value) || !("ok" in value)) {
-    return { ok: false, error: localProtocolError("handshake result must be a result envelope") };
-  }
-  if (
-    value.ok === true &&
-    hasExactKeys(value, ["ok", "value"]) &&
-    isProtocolAccepted(value.value)
-  ) {
-    return { ok: true, value: value.value };
-  }
-  if (value.ok === false && hasExactKeys(value, ["ok", "error"]) && isNexaError(value.error)) {
-    return { ok: false, error: value.error };
-  }
-  return { ok: false, error: localProtocolError("handshake result failed contract validation") };
+  return parseResult(
+    raw,
+    (value) => {
+      if (typeof value !== "string") throw new TypeError("handle result must be a token string");
+      return decodeHandleToken(value);
+    },
+    "createNode",
+  );
 }

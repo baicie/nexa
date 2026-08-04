@@ -7,12 +7,53 @@
 //! Tree state is `Arc`-shared so Perry click callbacks can `set_text` while
 //! the window event loop owns the same arena (Slice 2→3 fix).
 
+mod handle;
 mod handshake;
 mod host;
 mod window;
 
+pub use handle::{decode_handle_token, encode_handle_token, handle_to_node_id, node_id_to_handle};
 pub use handshake::handshake_json;
 pub use host::{pack_rgba, HostUiEvent, NuiHost};
+
+/// Encode a node creation result as the v1 JSON result envelope.
+pub fn node_handle_result_json(id: nui_core::NodeId) -> String {
+    match node_id_to_handle(id).and_then(|handle| encode_handle_token(&handle)) {
+        Ok(token) => serde_json::json!({ "ok": true, "value": token }).to_string(),
+        Err(error) => serde_json::json!({
+            "ok": false,
+            "error": {
+                "domain": "ui",
+                "code": nui_protocol::ui::ErrorCode::InternalFailure as u32,
+                "name": "INTERNAL_FAILURE",
+                "severity": "FatalRuntime",
+                "operation": "createNode",
+                "retryable": false,
+                "message": format!("invalid native handle: {error:?}"),
+                "runtimeVersion": env!("CARGO_PKG_VERSION")
+            }
+        })
+        .to_string(),
+    }
+}
+
+/// Encode a stable UI invalid-argument result for v1 callers.
+pub fn node_invalid_argument_result_json(message: &str) -> String {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "domain": "ui",
+            "code": nui_protocol::ui::ErrorCode::InvalidArgument as u32,
+            "name": "INVALID_ARGUMENT",
+            "severity": "RecoverableOperation",
+            "operation": "createNode",
+            "retryable": false,
+            "message": message,
+            "runtimeVersion": env!("CARGO_PKG_VERSION")
+        }
+    })
+    .to_string()
+}
 
 #[cfg(test)]
 mod tests {
