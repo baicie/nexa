@@ -5,9 +5,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  typecheck:
-    name: typecheck & format
+  quality:
+    name: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +22,20 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Validate workspace matrix
+        run: pnpm workspace:validate
+
       - name: Format
         run: pnpm format:check
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

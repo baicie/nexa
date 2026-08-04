@@ -7,6 +7,7 @@ import { parse } from "yaml";
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
+const typescriptWorkflowUrl = new URL("../.github/workflows/typescript.yml", import.meta.url);
 
 const ci = parse(workflow);
 const filterStep = ci.jobs.changes.steps.find((step) => step.id === "filter");
@@ -101,4 +102,23 @@ test("the FFI route runs a required two-package verification gate", () => {
       `FFI gate must run ${expected}`,
     );
   }
+});
+
+test("the TypeScript gate runs the complete workspace quality sequence", () => {
+  const typescriptWorkflow = parse(readFileSync(typescriptWorkflowUrl, "utf8"));
+  const job = Object.values(typescriptWorkflow.jobs)[0];
+  const commands = job.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
+
+  assert.deepEqual(
+    commands.filter((command) => command.startsWith("pnpm ")),
+    [
+      "pnpm install --frozen-lockfile",
+      "pnpm workspace:validate",
+      "pnpm format:check",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+    ],
+  );
 });
