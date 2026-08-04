@@ -30,6 +30,9 @@ jobs:
       - name: Validate workspace matrix
         run: pnpm workspace:validate
 
+      - name: Check generated protocol drift
+        run: pnpm protocol:check
+
       - name: Format
         run: pnpm format:check
 

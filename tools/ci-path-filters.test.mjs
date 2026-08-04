@@ -399,6 +399,7 @@ test("the TypeScript gate runs the complete workspace quality sequence", () => {
     [
       "pnpm install --frozen-lockfile",
       "pnpm workspace:validate",
+      "pnpm protocol:check",
       "pnpm format:check",
       "pnpm lint",
       "pnpm typecheck",

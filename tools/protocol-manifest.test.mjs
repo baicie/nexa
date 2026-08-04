@@ -15,6 +15,7 @@ import {
   common,
   contracts,
   toMap,
+  validateCombinedAbiLayouts,
   validateCommonSemantics,
   validateNamespaceSemantics,
 } from "./protocol-contract.mjs";
@@ -243,7 +244,10 @@ test("ABI slots are unique, contiguous, and v1 functions use guarded string resu
     "UI",
   );
   assertAbiLayout(
-    contracts.system.manifest.ffiFunctions,
+    [
+      ...common.manifest.ffiFunctions.filter((ffi) => ffi.library === "system"),
+      ...contracts.system.manifest.ffiFunctions,
+    ],
     Array.from({ length: 7 }, (_, index) => index),
     "System",
   );
@@ -256,6 +260,34 @@ test("ABI slots are unique, contiguous, and v1 functions use guarded string resu
     assert.equal(ffi.returns, "string", ffi.name + " v1 return");
     assert.equal(ffi.resultCodec, "nexa_result_json_v1", ffi.name + " v1 codec");
   }
+});
+
+test("combined Perry library ABI rejects common and namespace collisions", () => {
+  const duplicateSlot = structuredClone(common.manifest);
+  duplicateSlot.ffiFunctions.push({
+    ...structuredClone(duplicateSlot.ffiFunctions[0]),
+    library: "system",
+    abiIndex: 0,
+    name: "js_nexa_handshake_v1",
+  });
+  assert.doesNotThrow(() => validateCommonSemantics(duplicateSlot));
+  assert.throws(
+    () => validateCombinedAbiLayouts(duplicateSlot, contracts),
+    /System duplicate ABI slot 0/,
+  );
+
+  const duplicateSymbol = structuredClone(common.manifest);
+  duplicateSymbol.ffiFunctions.push({
+    ...structuredClone(duplicateSymbol.ffiFunctions[0]),
+    library: "system",
+    abiIndex: 7,
+    name: contracts.system.manifest.ffiFunctions[0].name,
+  });
+  assert.doesNotThrow(() => validateCommonSemantics(duplicateSymbol));
+  assert.throws(
+    () => validateCombinedAbiLayouts(duplicateSymbol, contracts),
+    /System duplicate native symbol/,
+  );
 });
 
 test("schemas reject u32 and u16 overflow", () => {
@@ -476,4 +508,34 @@ test("semantic guards reject unsafe HandleRef encodings in v1 FFI inputs", () =>
       namespace + " unsafe HandleRef input",
     );
   }
+});
+
+test("semantic contracts reject u64 while legacy FFI transport remains allowed", () => {
+  const commonU64 = structuredClone(common.manifest);
+  commonU64.types[0].fields[0].type = "u64";
+  assertSchemaAccepts(common.validateSchema, commonU64, "common semantic u64 schema");
+  assert.throws(() => validateCommonSemantics(commonU64), /must not use u64/);
+
+  const mutations = [
+    ["ui command", contracts.ui, (manifest) => (manifest.commands[0].params[0].type = "u64")],
+    ["ui property", contracts.ui, (manifest) => (manifest.properties[0].valueType = "u64")],
+    ["ui event", contracts.ui, (manifest) => (manifest.events[1].payload.fields[0].type = "u64")],
+    ["system task", contracts.system, (manifest) => (manifest.taskKinds[0].resultType = "u64")],
+  ];
+  for (const [label, contract, mutate] of mutations) {
+    const invalid = structuredClone(contract.manifest);
+    mutate(invalid);
+    assertSchemaAccepts(contract.validateSchema, invalid, label + " semantic u64 schema");
+    assertSemanticRejects(invalid, contract, /must not use u64/, label + " semantic u64");
+  }
+
+  assert.equal(
+    contracts.ui.manifest.ffiFunctions.some(
+      (ffi) =>
+        ffi.status === "legacy" &&
+        (ffi.returns === "u64" || ffi.params.some((param) => param.type === "u64")),
+    ),
+    true,
+  );
+  assert.doesNotThrow(() => validateNamespaceSemantics(contracts.ui.manifest, contracts.ui));
 });

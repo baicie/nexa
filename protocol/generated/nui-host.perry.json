@@ -1,0 +1,152 @@
+{
+  "generatedBy": "tools/protocol-codegen.mjs",
+  "source": ["protocol/common.json", "protocol/nui-host.json"],
+  "abiVersion": "0.5",
+  "functions": [
+    {
+      "name": "js_nui_create_node",
+      "params": ["f64"],
+      "returns": "u64"
+    },
+    {
+      "name": "js_nui_create_text",
+      "params": ["string"],
+      "returns": "u64"
+    },
+    {
+      "name": "js_nui_insert",
+      "params": ["u64", "u64", "u64"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_remove",
+      "params": ["u64"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_set_text",
+      "params": ["u64", "string"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_set_number",
+      "params": ["u64", "f64", "f64"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_add_click_listener",
+      "params": ["u64", "ptr"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_register_input",
+      "params": ["u64", "u64", "string"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_add_change_listener",
+      "params": ["u64", "ptr"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_add_submit_listener",
+      "params": ["u64", "ptr"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_set_image",
+      "params": ["u64", "string"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_commit",
+      "params": [],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_run",
+      "params": ["string"],
+      "returns": "void"
+    },
+    {
+      "name": "js_nui_handshake_v1",
+      "params": ["string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_create_node_v1",
+      "params": ["u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_create_text_v1",
+      "params": ["string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_insert_v1",
+      "params": ["u32", "u32", "u32", "u32", "u32", "u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_remove_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_set_text_v1",
+      "params": ["u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_set_property_v1",
+      "params": ["u32", "u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_add_event_listener_v1",
+      "params": ["u32", "u32", "u32", "ptr"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_remove_event_listener_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_commit_v1",
+      "params": [],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_run_v1",
+      "params": ["string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_set_image_v1",
+      "params": ["u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_register_input_v1",
+      "params": ["u32", "u32", "u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_clear_property_v1",
+      "params": ["u32", "u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_set_semantics_v1",
+      "params": ["u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_reset_session_v1",
+      "params": [],
+      "returns": "string"
+    }
+  ]
+}

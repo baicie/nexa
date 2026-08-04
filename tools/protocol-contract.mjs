@@ -186,6 +186,7 @@ function assertKnownReference(reference, symbols, label) {
 }
 
 function assertTypeReference(reference, namespace, symbols, label) {
+  assert.notEqual(reference, "u64", label + " must not use u64 across the JS boundary");
   if (PRIMITIVE_TYPES.has(reference)) return;
   assertKnownReference(qualify(namespace, reference), symbols, label + " type");
 }
@@ -653,6 +654,20 @@ function assertAbiLayout(entries, expectedIndexes, label) {
   );
 }
 
+function validateCombinedAbiLayouts(commonManifest, namespaceContracts) {
+  for (const [library, contract] of Object.entries(namespaceContracts)) {
+    const entries = [
+      ...commonManifest.ffiFunctions.filter((ffi) => ffi.library === library),
+      ...contract.manifest.ffiFunctions.filter((ffi) => ffi.library === library),
+    ];
+    assertAbiLayout(
+      entries,
+      Array.from({ length: entries.length }, (_, index) => index),
+      library[0].toUpperCase() + library.slice(1),
+    );
+  }
+}
+
 function assertCounts(manifest, fixture, label) {
   for (const [key, expectedCount] of Object.entries(fixture.expected.counts)) {
     assert.equal(manifest[key].length, expectedCount, label + " " + key + " count");
@@ -675,6 +690,7 @@ function validateProtocolContracts() {
     );
     validateNamespaceSemantics(contract.manifest, contract);
   }
+  validateCombinedAbiLayouts(common.manifest, contracts);
   return { common, contracts };
 }
 
@@ -691,6 +707,7 @@ export {
   common,
   contracts,
   toMap,
+  validateCombinedAbiLayouts,
   validateCommonSemantics,
   validateNamespaceSemantics,
   validateProtocolContracts,
