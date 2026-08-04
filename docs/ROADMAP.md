@@ -1,7 +1,8 @@
 # Nexa UI 路线图
 
-- 状态：Draft，待评审
-- 基线：`mvp@f3afbeb`
+- 状态：MVP 实施中
+- 规划输入：`mvp@f3afbeb`
+- 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 目标：Desktop Technical Preview
 - 详细设计：[`PROJECT-DESIGN.md`](./PROJECT-DESIGN.md)
 - 执行清单：[`../TODO.md`](../TODO.md)
@@ -315,10 +316,10 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 
 ### Checkpoint A：G0 完成
 
-- [ ] 所有现有门禁可信全绿
-- [ ] clean Perry/FFI 链路可复现
-- [ ] branch protection 生效
-- [ ] 负责人批准详细设计与 G1 合同方向
+- [x] 所有现有门禁可信全绿
+- [x] clean Perry/FFI 链路可复现
+- [x] branch protection 生效
+- [x] 负责人批准详细设计与 G1 合同方向
 
 ### Checkpoint B：G1 完成
 

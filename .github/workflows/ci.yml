@@ -151,11 +151,10 @@ jobs:
   docs:
     name: Docs
     needs: changes
-    if: needs.changes.outputs.docs == 'true' && needs.changes.outputs.rust != 'true' && needs.changes.outputs.typescript != 'true'
+    if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/docs.yml
 
-  # Slice 0+ only: GPU/window smoke. Disabled as required until drawable window exists.
-  # Enable by setting native_smoke_enabled to true after Slice 0 lands.
+  # Native smoke is required for matching paths when the repository variable enables it.
   native-smoke:
     name: Native smoke
     needs: changes
@@ -181,6 +180,9 @@ jobs:
           TS_NEEDED: ${{ needs.changes.outputs.typescript }}
           FFI_NEEDED: ${{ needs.changes.outputs.ffi }}
           PERRY_NEEDED: ${{ needs.changes.outputs.perry }}
+          DOCS_NEEDED: ${{ needs.changes.outputs.docs }}
+          NATIVE_NEEDED: ${{ needs.changes.outputs.native }}
+          NATIVE_ENABLED: ${{ vars.NATIVE_SMOKE_ENABLED }}
         run: |
           set -euo pipefail
           fail=0
@@ -204,13 +206,12 @@ jobs:
             echo "Perry framework gate failed: $PERRY"
             fail=1
           fi
-          # docs / native-smoke are advisory or opt-in; do not fail the aggregator on skip
-          if [[ "$DOCS" == "failure" ]]; then
-            echo "Docs gate failed"
+          if [[ "$DOCS_NEEDED" == "true" && "$DOCS" != "success" ]]; then
+            echo "Docs gate failed: $DOCS"
             fail=1
           fi
-          if [[ "$NATIVE" == "failure" ]]; then
-            echo "Native smoke failed"
+          if [[ "$NATIVE_NEEDED" == "true" && "$NATIVE_ENABLED" == "true" && "$NATIVE" != "success" ]]; then
+            echo "Native smoke failed: $NATIVE"
             fail=1
           fi
           if [[ "$fail" -ne 0 ]]; then

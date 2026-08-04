@@ -1,7 +1,8 @@
 # Nexa UI 项目详细设计
 
-- 状态：Draft，待项目负责人评审
-- 基线：`mvp@f3afbeb`
+- 状态：MVP 实施中（G0 已验证）
+- 规划输入：`mvp@f3afbeb`
+- 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 日期：2026-08-04
 - 关联决策：ADR-004、ADR-005、ADR-006
 - 配套计划：[`ROADMAP.md`](./ROADMAP.md)、[`../TODO.md`](../TODO.md)
@@ -59,15 +60,12 @@
 | System      | 桌面剪贴板与简单权限门禁                              | `crates/nui-system-core`、`packages/clipboard`   |
 | Examples    | Counter、Todo、Layout、Image、Clipboard               | `examples`                                       |
 
-本地基线结果：`cargo test --workspace` 通过 22 个 Rust 测试，`pnpm test` 通过 2 个 TypeScript 测试，`pnpm typecheck` 与 Rust offscreen smoke 通过。
+G0 验证结果见[`BASELINE.md`](./BASELINE.md)：Rust workspace 通过 23 个单元测试，TypeScript workspace 通过 29 个测试；完整 format、lint、typecheck、build、两个 FFI crate、Minimal TSX smoke、8 路框架 AOT 与两平台 native smoke 均通过。
 
-### 3.2 尚未闭环的事实
+### 3.2 尚未闭环的产品事实
 
 | 缺口         | 当前事实                                                                                | 设计影响                                     |
 | ------------ | --------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 交付门禁     | Prettier 失败 26 个文件；`cargo fmt`、`cargo clippy -D warnings` 失败                   | 第一里程碑先恢复可信基线                     |
-| TS 覆盖      | `pnpm lint` 实际运行 0 个 lint；多个包/示例没有 `typecheck` 脚本                        | 不能把聚合命令通过视为完整验证               |
-| FFI CI       | 两个 Rust nativeLibrary 被根 Cargo workspace 排除，`packages/**` 只触发 TS job          | Host/System FFI 改动可能完全未编译           |
 | Protocol     | Rust 与多个 TS 文件重复声明枚举；没有 NUI 协议握手                                      | 先建立唯一协议源和兼容策略                   |
 | Handle       | TS 暴露 `bigint`，实际调用转为 JS `number`；忽略产物出现 native `u64` safe-integer 错误 | 在扩展 handle 前必须确定传输表示             |
 | Commit       | `js_nui_commit()` 是空操作，mutation 立即生效                                           | 无法落实批处理、阶段约束和统一重绘           |
@@ -474,10 +472,13 @@ docs/
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm typecheck
-pnpm test
+pnpm workspace:validate
 pnpm format:check
 pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:perry
 
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -491,14 +492,13 @@ pnpm --filter @nexa/example-react-counter build
 pnpm --filter @nexa/example-svelte-counter build
 ```
 
-注意：截至本文基线，format、rustfmt 与 clippy 尚未通过；`pnpm lint` 没有实际 lint 子任务。
+以上 G0 命令已在固定工具链与 clean hosted runner 上通过；准确版本、runner 和 run 链接见[`BASELINE.md`](./BASELINE.md)。`pnpm test:perry` 证明 clean compile/link，不单独证明运行时 parity。
 
 ### 10.2 计划新增的聚合命令
 
 ```bash
 pnpm verify              # format + lint + typecheck + unit + protocol drift
 pnpm test:contracts      # TS mock Host + Rust protocol fixtures
-pnpm test:perry          # clean Perry compile + headless/native scenarios
 pnpm package:smoke       # 生成并验证独立 app bundle
 ```
 
@@ -552,7 +552,7 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 
 ## 13. 交付和版本策略
 
-- `mvp` 合入主线前，先建立可重复的 CI 证据；25 个未验证提交不直接视为 release candidate。
+- `mvp` 合入主线前必须保持可重复的 CI 证据；提交数量不作为 release candidate 的替代证据。
 - 所有发布包共享一份兼容矩阵：Nexa UI、Protocol、Perry、Rust MSRV、框架版本、平台。
 - Technical Preview 可使用 `0.x`，但 protocol major 与 npm/crate semver 分开管理。
 - package/CLI 必须记录 build metadata，错误报告能够输出完整版本组合。

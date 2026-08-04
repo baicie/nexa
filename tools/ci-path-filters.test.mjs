@@ -7,6 +7,7 @@ import { parse } from "yaml";
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
+const docsWorkflowUrl = new URL("../.github/workflows/docs.yml", import.meta.url);
 const perryFrameworksWorkflowUrl = new URL(
   "../.github/workflows/perry-frameworks.yml",
   import.meta.url,
@@ -90,6 +91,56 @@ test("the required result check fails closed when change detection fails", () =>
   );
   assert.match(workflow, /^\s+CHANGES: \$\{\{ needs\.changes\.result \}\}$/m);
   assert.match(workflow, /if \[\[ "\$CHANGES" != "success" \]\]; then/);
+});
+
+test("the Docs route always runs for documentation changes and fails closed", () => {
+  assert.equal(ci.jobs.docs.if, "needs.changes.outputs.docs == 'true'");
+  assert.match(workflow, /^\s+DOCS: \$\{\{ needs\.docs\.result \}\}$/m);
+  assert.match(workflow, /^\s+DOCS_NEEDED: \$\{\{ needs\.changes\.outputs\.docs \}\}$/m);
+  assert.match(workflow, /if \[\[ "\$DOCS_NEEDED" == "true" && "\$DOCS" != "success" \]\]; then/);
+});
+
+test("enabled native smoke fails closed for every non-success result", () => {
+  assert.match(workflow, /^\s+NATIVE_NEEDED: \$\{\{ needs\.changes\.outputs\.native \}\}$/m);
+  assert.match(workflow, /^\s+NATIVE_ENABLED: \$\{\{ vars\.NATIVE_SMOKE_ENABLED \}\}$/m);
+  assert.match(
+    workflow,
+    /if \[\[ "\$NATIVE_NEEDED" == "true" && "\$NATIVE_ENABLED" == "true" && "\$NATIVE" != "success" \]\]; then/,
+  );
+});
+
+test("the Docs gate validates immutable G0 runs, jobs, and baseline links", () => {
+  const docsWorkflow = parse(readFileSync(docsWorkflowUrl, "utf8"));
+  const gate = docsWorkflow.jobs.adr.steps.find(
+    (step) => step.name === "Verify G0 baseline evidence",
+  );
+
+  assert.ok(gate, "docs.yml must contain the G0 evidence verifier");
+  assert.equal(docsWorkflow.env.G0_QUALITY_RUN_ID, "30878535145");
+  assert.equal(docsWorkflow.env.G0_QUALITY_SHA, docsWorkflow.env.G0_NATIVE_SHA);
+  assert.match(gate.run, /\.name == \$name and \.path == \$path/);
+  assert.match(gate.run, /actions\/runs\/\$G0_QUALITY_RUN_ID\/jobs\?per_page=100/);
+  assert.match(gate.run, /actions\/runs\/\$G0_NATIVE_RUN_ID\/jobs\?per_page=100/);
+  assert.match(gate.run, /require_baseline_job_link/);
+
+  for (const jobName of [
+    "TypeScript / quality",
+    "FFI / nui-host",
+    "FFI / system-host",
+    "Rust / fmt",
+    "Rust / clippy",
+    "Rust / test",
+    "Rust / build",
+    "result",
+    "smoke (macos-latest)",
+    "smoke (windows-latest)",
+  ]) {
+    assert.ok(gate.run.includes(`"${jobName}"`), `Docs gate must validate ${jobName}`);
+  }
+
+  assert.match(gate.run, /for framework in solid vue react svelte; do/);
+  assert.match(gate.run, /for runner in macos-15 windows-2022; do/);
+  assert.match(gate.run, /"Perry frameworks \/ AOT \(\$framework, \$runner\)"/);
 });
 
 test("the FFI route runs a required two-package verification gate", () => {

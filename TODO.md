@@ -1,7 +1,8 @@
 # Nexa UI Todo
 
-- 状态：Draft，待评审
-- 基线：`mvp@f3afbeb`
+- 状态：MVP 实施中
+- 规划输入：`mvp@f3afbeb`
+- 最新证据：[`docs/BASELINE.md`](./docs/BASELINE.md)
 - 路线图：[`docs/ROADMAP.md`](./docs/ROADMAP.md)
 - 详细设计：[`docs/PROJECT-DESIGN.md`](./docs/PROJECT-DESIGN.md)
 
@@ -36,20 +37,21 @@
 | G0-16 | [x] 完整化 TypeScript workflow         | required job 运行 format、lint、typecheck、unit、build，而非只跑前两项                         | PR workflow 绿；故意失败 fixture 能阻断                  | G0-12..G0-14 | `typescript.yml`、根 `package.json`                                                                          | S    |
 | G0-17 | [x] 建立 clean Minimal TSX Perry smoke | 固定工具链从 clean checkout 编译并执行可退出的 Host 场景，覆盖 Perry ABI绑定/handle round-trip | CI smoke 输出版本和成功标记                              | G0-02、G0-15 | 新 smoke 脚本、Counter package、Host manifest、workflow                                                      | M    |
 | G0-18 | [x] 建立框架 Counter 编译矩阵          | Solid/Vue/React/Svelte clean AOT build；失败不伪装成 parity 完成                               | [macOS/Windows matrix 8/8][g0-18-run]                    | G0-17        | workflow、matrix 脚本、parity 状态生成器                                                                     | M    |
-| G0-19 | [ ] 启用 branch protection             | `main` 要求 PR、review 和 `CI / result`；禁止直接绕过                                          | GitHub ruleset API/设置复核                              | G0-14..G0-18 | GitHub repository settings                                                                                   | XS   |
-| G0-20 | [ ] 建立基线证据页                     | 记录准确命令、runner、版本、通过/失败，不再以 Slice 提交替代证据                               | docs check + CI 链接有效                                 | G0-16..G0-19 | `docs/BASELINE.md`、`docs/README.md`                                                                         | S    |
+| G0-19 | [x] 启用 branch protection             | `main` 要求 PR、review 和 `CI / result`；禁止直接绕过                                          | [GitHub API 回读][g0-baseline]                           | G0-14..G0-18 | GitHub repository settings                                                                                   | XS   |
+| G0-20 | [x] 建立基线证据页                     | 记录准确命令、runner、版本、通过/失败，不再以 Slice 提交替代证据                               | docs check + CI 链接有效                                 | G0-16..G0-19 | `docs/BASELINE.md`、`docs/README.md`                                                                         | S    |
 
-[g0-18-run]: https://github.com/baicie/nexa-ui/actions/runs/30878134041
+[g0-18-run]: https://github.com/baicie/nexa-ui/actions/runs/30878535145
+[g0-baseline]: ./docs/BASELINE.md
 
 微检查点：G0-01..02 验证工具链安装；G0-03..05 和 G0-06..08 分别运行局部/全量 Prettier；G0-09..11 运行完整 Rust 门禁；G0-12..13 验证每个 TS 项目实际被检查；G0-14..16 验证 CI 路由和 fail-closed；G0-17..18 验证 clean Perry matrix；G0-19..20 复核 required checks 与证据页。
 
 ### G0 Checkpoint
 
-- [ ] `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build` 全绿
-- [ ] `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` 全绿
-- [ ] 两个独立 FFI crate 与 Perry clean smoke 全绿
-- [ ] macOS/Windows Rust smoke 全绿
-- [ ] `main` required checks 与 branch protection 生效
+- [x] `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build` 全绿
+- [x] `cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` 全绿
+- [x] 两个独立 FFI crate 与 Perry clean smoke 全绿
+- [x] macOS/Windows Rust smoke 全绿
+- [x] `main` required checks 与 branch protection 生效
 
 ## G1：Host Contract v1
 
