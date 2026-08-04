@@ -3,7 +3,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use nui_core::{hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId};
+use nui_core::{
+    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId,
+    TreeMutationError,
+};
 use nui_layout_taffy::layout_tree;
 use nui_render_skia::{decode_image_file, paint_tree, FocusedPaint, ImagePaint, PaintHints};
 
@@ -84,15 +87,31 @@ impl NuiHost {
     }
 
     pub fn insert(&self, child: NodeId, parent: NodeId) {
-        self.insert_before(child, parent, None);
+        let _ = self.try_insert_before(child, parent, None);
     }
 
     pub fn insert_before(&self, child: NodeId, parent: NodeId, before: Option<NodeId>) {
+        let _ = self.try_insert_before(child, parent, before);
+    }
+
+    /// Validate and apply a tree insertion without partially changing links.
+    pub fn try_insert(&self, child: NodeId, parent: NodeId) -> Result<(), TreeMutationError> {
+        self.try_insert_before(child, parent, None)
+    }
+
+    /// Validate and apply a tree insertion without partially changing links.
+    pub fn try_insert_before(
+        &self,
+        child: NodeId,
+        parent: NodeId,
+        before: Option<NodeId>,
+    ) -> Result<(), TreeMutationError> {
         let mut inner = self.inner.lock().expect("host inner");
-        inner.arena.insert_child_before(parent, child, before);
+        inner.arena.try_insert_child_before(parent, child, before)?;
         if inner.root.is_none() {
             inner.root = Some(parent);
         }
+        Ok(())
     }
 
     pub fn detach(&self, parent: NodeId, child: NodeId) {

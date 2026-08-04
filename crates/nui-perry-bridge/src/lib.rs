@@ -130,6 +130,25 @@ mod tests {
     }
 
     #[test]
+    fn host_try_insert_rejects_stale_parent_atomically() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let child = host.create_node(NodeType::View);
+        let stale_parent = host.create_node(NodeType::View);
+        host.insert(child, root);
+        host.remove(stale_parent);
+
+        let result = host.try_insert(child, stale_parent);
+        assert_eq!(
+            result,
+            Err(nui_core::TreeMutationError::StaleParent(stale_parent))
+        );
+        let inner = host.inner.lock().expect("host inner");
+        assert_eq!(inner.arena.get(root).unwrap().children, vec![child]);
+        assert_eq!(inner.arena.get(child).unwrap().parent, Some(root));
+    }
+
+    #[test]
     fn input_insert_and_backspace() {
         let host = NuiHost::new();
         let root = host.create_node(NodeType::View);

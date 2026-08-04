@@ -18,7 +18,7 @@ pub use layout::measure_text;
 pub use scheduler::{FrameScheduler, TickPhase};
 pub use semantics::{SemanticAction, SemanticRole, Semantics};
 pub use style::{Align, ColorRgba, FlexDirection, PropertyId, Style};
-pub use tree::{Arena, LayoutRect, Node, NodeId, NodeType};
+pub use tree::{Arena, LayoutRect, Node, NodeId, NodeType, TreeMutationError};
 
 /// Library version string for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
