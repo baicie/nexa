@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { matchesGlob } from "node:path";
 import { parse } from "yaml";
 
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
+const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
 
 const ci = parse(workflow);
 const filterStep = ci.jobs.changes.steps.find((step) => step.id === "filter");
@@ -71,7 +72,33 @@ test("workflow, script, and root config changes route to their owners", () => {
 
 test("the required result check fails closed when change detection fails", () => {
   assert.match(workflow, /^\s+if: always\(\)$/m);
-  assert.match(workflow, /^\s+needs: \[changes, rust, typescript, docs, native-smoke\]$/m);
+  assert.match(workflow, /^\s+needs: \[changes, rust, typescript, ffi, docs, native-smoke\]$/m);
   assert.match(workflow, /^\s+CHANGES: \$\{\{ needs\.changes\.result \}\}$/m);
   assert.match(workflow, /if \[\[ "\$CHANGES" != "success" \]\]; then/);
+});
+
+test("the FFI route runs a required two-package verification gate", () => {
+  assert.ok(existsSync(ffiWorkflowUrl), "ffi.yml must exist");
+  assert.match(workflow, /^  ffi:\n(?:    .+\n)+?    uses: \.\/\.github\/workflows\/ffi\.yml$/m);
+  assert.match(workflow, /^\s+needs: \[changes, rust, typescript, ffi, docs, native-smoke\]$/m);
+  assert.match(workflow, /^\s+FFI: \$\{\{ needs\.ffi\.result \}\}$/m);
+  assert.match(workflow, /^\s+FFI_NEEDED: \$\{\{ needs\.changes\.outputs\.ffi \}\}$/m);
+  assert.match(workflow, /if \[\[ "\$FFI_NEEDED" == "true" && "\$FFI" != "success" \]\]; then/);
+
+  const ffiWorkflow = parse(readFileSync(ffiWorkflowUrl, "utf8"));
+  const gate = ffiWorkflow.jobs.gate;
+  assert.deepEqual(gate.strategy.matrix.package, ["nui-host", "system-host"]);
+  const commands = gate.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
+  for (const expected of [
+    "cargo fmt",
+    "cargo check",
+    "cargo clippy",
+    "cargo test",
+    "perry native validate",
+  ]) {
+    assert.ok(
+      commands.some((command) => command.includes(expected)),
+      `FFI gate must run ${expected}`,
+    );
+  }
 });

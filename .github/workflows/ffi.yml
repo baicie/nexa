@@ -1,0 +1,56 @@
+name: FFI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [nui-host, system-host]
+    env:
+      FFI_MANIFEST: packages/${{ matrix.package }}/Cargo.toml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Activate pinned Rust toolchain
+        run: rustc --version --verbose
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ffi-${{ matrix.package }}
+          workspaces: packages/${{ matrix.package }} -> target
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: cargo fmt --manifest-path "$FFI_MANIFEST" -- --check
+
+      - name: Check
+        run: cargo check --manifest-path "$FFI_MANIFEST" --all-targets --locked
+
+      - name: Clippy
+        run: cargo clippy --manifest-path "$FFI_MANIFEST" --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --manifest-path "$FFI_MANIFEST" --all-targets --locked
+
+      - name: Validate Perry manifest
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm exec perry native validate

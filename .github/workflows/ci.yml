@@ -107,6 +107,12 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     uses: ./.github/workflows/typescript.yml
 
+  ffi:
+    name: FFI
+    needs: changes
+    if: needs.changes.outputs.ffi == 'true'
+    uses: ./.github/workflows/ffi.yml
+
   docs:
     name: Docs
     needs: changes
@@ -124,7 +130,7 @@ jobs:
   result:
     name: result
     if: always()
-    needs: [changes, rust, typescript, docs, native-smoke]
+    needs: [changes, rust, typescript, ffi, docs, native-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
@@ -132,10 +138,12 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           RUST: ${{ needs.rust.result }}
           TS: ${{ needs.typescript.result }}
+          FFI: ${{ needs.ffi.result }}
           DOCS: ${{ needs.docs.result }}
           NATIVE: ${{ needs.native-smoke.result }}
           RUST_NEEDED: ${{ needs.changes.outputs.rust }}
           TS_NEEDED: ${{ needs.changes.outputs.typescript }}
+          FFI_NEEDED: ${{ needs.changes.outputs.ffi }}
         run: |
           set -euo pipefail
           fail=0
@@ -149,6 +157,10 @@ jobs:
           fi
           if [[ "$TS_NEEDED" == "true" && "$TS" != "success" ]]; then
             echo "TypeScript gate failed: $TS"
+            fail=1
+          fi
+          if [[ "$FFI_NEEDED" == "true" && "$FFI" != "success" ]]; then
+            echo "FFI gate failed: $FFI"
             fail=1
           fi
           # docs / native-smoke are advisory or opt-in; do not fail the aggregator on skip
