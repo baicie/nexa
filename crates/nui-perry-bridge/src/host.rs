@@ -4,13 +4,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use nui_core::{
-    hit_test, Align, Arena, ColorRgba, FlexDirection, NodeId, NodeType, PropertyId, Style,
+    hit_test, Align, Arena, ColorRgba, EventId, FlexDirection, NodeId, NodeType, PropertyId, Style,
     TreeMutationError,
 };
 use nui_layout_taffy::layout_tree;
 use nui_render_skia::{decode_image_file, paint_tree, FocusedPaint, ImagePaint, PaintHints};
 
 use crate::window::HostWindowApp;
+use crate::{CallbackHandle, ListenerKey};
 
 /// UI events delivered while the native window loop runs.
 #[derive(Debug, Clone)]
@@ -27,6 +28,14 @@ pub enum HostPropertyError {
         current_generation: Option<u32>,
     },
     InvalidProperty(PropertyId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostListenerError {
+    StaleNode {
+        node: NodeId,
+        current_generation: Option<u32>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +63,9 @@ pub(crate) struct HostInner {
     pub(crate) click_tokens: HashMap<u64, u64>,
     pub(crate) change_tokens: HashMap<u64, u64>,
     pub(crate) submit_tokens: HashMap<u64, u64>,
+    /// Stable v1 listener bindings. Closure pointers live in the FFI session;
+    /// this map only records which callback handle owns each target.
+    pub(crate) v1_listeners: HashMap<ListenerKey, CallbackHandle>,
     /// Focusable input containers (View) → text child + caret.
     pub(crate) inputs: HashMap<u64, InputField>,
     pub(crate) focused: Option<NodeId>,
@@ -128,14 +140,26 @@ impl NuiHost {
         inner.arena.detach_child(parent, child);
     }
 
-    pub fn remove(&self, node: NodeId) {
+    pub fn remove(&self, node: NodeId) -> Vec<CallbackHandle> {
         let mut inner = self.inner.lock().expect("host inner");
+        let mut removed_listeners = Vec::new();
         let mut stack = vec![node];
         while let Some(id) = stack.pop() {
             if let Some(n) = inner.arena.get(id) {
                 stack.extend(n.children.iter().copied());
             }
             let raw = id.raw();
+            let keys: Vec<_> = inner
+                .v1_listeners
+                .keys()
+                .filter(|key| key.node_raw == raw)
+                .copied()
+                .collect();
+            for key in keys {
+                if let Some(handle) = inner.v1_listeners.remove(&key) {
+                    removed_listeners.push(handle);
+                }
+            }
             inner.click_tokens.remove(&raw);
             inner.change_tokens.remove(&raw);
             inner.submit_tokens.remove(&raw);
@@ -149,6 +173,7 @@ impl NuiHost {
             inner.root = None;
         }
         inner.arena.remove(node);
+        removed_listeners
     }
 
     pub fn set_text(&self, node: NodeId, text: &str) {
@@ -275,6 +300,85 @@ impl NuiHost {
         let mut inner = self.inner.lock().expect("host inner");
         inner.arena.set_clickable(node, true);
         inner.submit_tokens.insert(node.raw(), token);
+    }
+
+    /// Register one stable v1 listener, replacing any prior v1 listener for
+    /// the same `(node,event)` target.
+    pub fn add_event_listener(
+        &self,
+        node: NodeId,
+        event: EventId,
+        callback: CallbackHandle,
+    ) -> Result<Option<CallbackHandle>, HostListenerError> {
+        let mut inner = self.inner.lock().expect("host inner");
+        if inner.arena.get(node).is_none() {
+            return Err(HostListenerError::StaleNode {
+                node,
+                current_generation: inner.arena.current_generation(node.slot()),
+            });
+        }
+        let key = ListenerKey::new(node.raw(), event as u32);
+        let previous = inner.v1_listeners.insert(key, callback);
+        inner.arena.set_clickable(node, true);
+        Ok(previous)
+    }
+
+    /// Remove a stable v1 listener if it still owns the target. A replacement
+    /// or an already-removed callback is an idempotent no-op.
+    pub fn remove_event_listener(
+        &self,
+        node: NodeId,
+        event: EventId,
+        callback: CallbackHandle,
+    ) -> bool {
+        let mut inner = self.inner.lock().expect("host inner");
+        let key = ListenerKey::new(node.raw(), event as u32);
+        if inner.v1_listeners.get(&key).copied() != Some(callback) {
+            return false;
+        }
+        inner.v1_listeners.remove(&key);
+        let still_interactive = inner
+            .v1_listeners
+            .keys()
+            .any(|other| other.node_raw == node.raw())
+            || inner.click_tokens.contains_key(&node.raw())
+            || inner.change_tokens.contains_key(&node.raw())
+            || inner.submit_tokens.contains_key(&node.raw())
+            || inner.inputs.contains_key(&node.raw());
+        inner.arena.set_clickable(node, still_interactive);
+        true
+    }
+
+    /// Return the callback currently bound to a node/event target.
+    #[must_use]
+    pub fn event_listener(&self, node: NodeId, event: EventId) -> Option<CallbackHandle> {
+        let inner = self.inner.lock().expect("host inner");
+        inner
+            .v1_listeners
+            .get(&ListenerKey::new(node.raw(), event as u32))
+            .copied()
+    }
+
+    /// Check a wire node handle without exposing the arena internals.
+    #[must_use]
+    pub fn has_node(&self, node: NodeId) -> bool {
+        self.inner
+            .lock()
+            .expect("host inner")
+            .arena
+            .get(node)
+            .is_some()
+    }
+
+    /// Return the current generation for a wire slot for structured stale
+    /// handle diagnostics.
+    #[must_use]
+    pub fn current_generation(&self, slot: u32) -> Option<u32> {
+        self.inner
+            .lock()
+            .expect("host inner")
+            .arena
+            .current_generation(slot)
     }
 
     /// Load a local image file onto an Image node.

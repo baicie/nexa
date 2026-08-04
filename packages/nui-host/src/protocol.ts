@@ -1,7 +1,13 @@
 import { Common } from "@nexa/protocol";
 
-import { clearPropertyV1Raw, createNodeV1Raw, handshakeRaw } from "./ffi";
-import type { NodeType, PropertyId } from "./ffi";
+import {
+  addEventListenerV1Raw,
+  clearPropertyV1Raw,
+  createNodeV1Raw,
+  handshakeRaw,
+  removeEventListenerV1Raw,
+} from "./ffi";
+import type { EventId, NodeType, PropertyId } from "./ffi";
 import { decodeHandleToken, isHandleRef } from "./handle";
 
 type JsonRecord = Record<string, unknown>;
@@ -126,6 +132,26 @@ function localProtocolError(message: string, operation = "handshake"): Common.Ne
   };
 }
 
+function localInvalidArgumentError(
+  message: string,
+  operation: string,
+  parameter: string,
+  expected: string,
+  actual: string,
+): Common.NexaError {
+  return {
+    domain: "ui",
+    code: 0x0100_0001,
+    name: "INVALID_ARGUMENT",
+    severity: "RecoverableOperation" as Common.ErrorSeverity,
+    operation,
+    retryable: false,
+    message,
+    runtimeVersion: "@nexa/nui-host",
+    context: { parameter, expected, actual },
+  };
+}
+
 function parseResult<T>(
   raw: string,
   decodeValue: (value: unknown) => T,
@@ -237,5 +263,94 @@ export function clearPropertyV1(
       return null;
     },
     "clearProperty",
+  );
+}
+
+/** Add or replace a listener through the stable v1 CallbackHandle ABI. */
+export function addEventListenerV1(
+  node: Common.HandleRef,
+  event: EventId,
+  callback: unknown,
+): Common.NexaResult<Common.HandleRef> {
+  if (!isHandleRef(node)) {
+    return {
+      ok: false,
+      error: localProtocolError(
+        "addEventListener node must be a valid HandleRef",
+        "addEventListener",
+      ),
+    };
+  }
+  if (typeof callback !== "function") {
+    return {
+      ok: false,
+      error: localInvalidArgumentError(
+        "callback must be a function",
+        "addEventListener",
+        "callback",
+        "function",
+        typeof callback,
+      ),
+    };
+  }
+  let raw: string;
+  try {
+    raw = addEventListenerV1Raw(
+      node.slot,
+      node.generation,
+      event,
+      callback as (value: string) => void,
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      error: localProtocolError(
+        `addEventListener transport failed: ${String(error)}`,
+        "addEventListener",
+      ),
+    };
+  }
+  return parseResult(
+    raw,
+    (value) => {
+      if (typeof value !== "string") {
+        throw new TypeError("callback handle result must be a token string");
+      }
+      return decodeHandleToken(value);
+    },
+    "addEventListener",
+  );
+}
+
+/** Remove a listener through the stable v1 CallbackHandle ABI. */
+export function removeEventListenerV1(listener: Common.HandleRef): Common.NexaResult<null> {
+  if (!isHandleRef(listener)) {
+    return {
+      ok: false,
+      error: localProtocolError(
+        "removeEventListener listener must be a valid HandleRef",
+        "removeEventListener",
+      ),
+    };
+  }
+  let raw: string;
+  try {
+    raw = removeEventListenerV1Raw(listener.slot, listener.generation);
+  } catch (error) {
+    return {
+      ok: false,
+      error: localProtocolError(
+        `removeEventListener transport failed: ${String(error)}`,
+        "removeEventListener",
+      ),
+    };
+  }
+  return parseResult(
+    raw,
+    (value) => {
+      if (value !== null) throw new TypeError("removeEventListener result must be null");
+      return null;
+    },
+    "removeEventListener",
   );
 }

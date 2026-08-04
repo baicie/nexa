@@ -1,4 +1,8 @@
-import { NodeType as GeneratedNodeType, PropertyId as GeneratedPropertyId } from "@nexa/protocol";
+import {
+  EventId as GeneratedEventId,
+  NodeType as GeneratedNodeType,
+  PropertyId as GeneratedPropertyId,
+} from "@nexa/protocol";
 
 /**
  * Perry native-library FFI wrappers.
@@ -13,6 +17,16 @@ declare function js_nui_clear_property_v1(
   nodeSlot: number,
   nodeGeneration: number,
   property: number,
+): string;
+declare function js_nui_add_event_listener_v1(
+  nodeSlot: number,
+  nodeGeneration: number,
+  event: number,
+  callback: (value: string) => void,
+): string;
+declare function js_nui_remove_event_listener_v1(
+  listenerSlot: number,
+  listenerGeneration: number,
 ): string;
 declare function js_nui_handshake_v1(helloJson: string): string;
 declare function js_nui_create_text(text: string): bigint | number;
@@ -59,6 +73,8 @@ export const NodeType = GeneratedNodeType;
 export type NodeType = (typeof GeneratedNodeType)[keyof typeof GeneratedNodeType];
 export const PropertyId = GeneratedPropertyId;
 export type PropertyId = (typeof GeneratedPropertyId)[keyof typeof GeneratedPropertyId];
+export const EventId = GeneratedEventId;
+export type EventId = (typeof GeneratedEventId)[keyof typeof GeneratedEventId];
 
 export function handshakeRaw(helloJson: string): string {
   return js_nui_handshake_v1(helloJson);
@@ -74,6 +90,19 @@ export function clearPropertyV1Raw(
   property: number,
 ): string {
   return js_nui_clear_property_v1(nodeSlot, nodeGeneration, property);
+}
+
+export function addEventListenerV1Raw(
+  nodeSlot: number,
+  nodeGeneration: number,
+  event: EventId,
+  callback: (value: string) => void,
+): string {
+  return js_nui_add_event_listener_v1(nodeSlot, nodeGeneration, event, callback);
+}
+
+export function removeEventListenerV1Raw(listenerSlot: number, listenerGeneration: number): string {
+  return js_nui_remove_event_listener_v1(listenerSlot, listenerGeneration);
 }
 
 /** Pack RGBA into the Host color number (`0xRRGGBBAA`). */

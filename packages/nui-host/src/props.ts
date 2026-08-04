@@ -1,16 +1,8 @@
-import {
-  addChangeListener,
-  addClickListener,
-  addSubmitListener,
-  PropertyId,
-  registerInput,
-  setImage,
-  setNumber,
-  setText,
-} from "./ffi";
+import { EventId, PropertyId, registerInput, setImage, setNumber, setText } from "./ffi";
 import type { NuiNode } from "./types";
 import { handleRefFromLegacyPacked } from "./handle";
-import { clearPropertyV1 } from "./protocol";
+import { addEventListenerV1, clearPropertyV1, removeEventListenerV1 } from "./protocol";
+import type { Common } from "@nexa/protocol";
 import { diffPropRecord, type HostPropRecord } from "./props-state";
 import { setWindowTitle } from "./title";
 
@@ -81,6 +73,43 @@ function inputTextChild(node: NuiNode): NuiNode | null {
   return node.children.find((c) => c.isText) ?? null;
 }
 
+function eventForName(name: string): EventId | null {
+  switch (name.toLowerCase()) {
+    case "onclick":
+      return EventId.Click;
+    case "onchange":
+    case "oninput":
+      return EventId.Change;
+    case "onsubmit":
+      return EventId.Submit;
+    default:
+      return null;
+  }
+}
+
+function removeListener(node: NuiNode, event: EventId): void {
+  const handle = node.hostListeners[event];
+  if (handle === undefined) return;
+  const result = removeEventListenerV1(handle);
+  if (!result.ok) {
+    throw new Error(`${result.error.name}: ${result.error.message}`);
+  }
+  delete node.hostListeners[event];
+}
+
+function setListener(node: NuiNode, event: EventId, callback: unknown): void {
+  removeListener(node, event);
+  const result = addEventListenerV1(nodeIdToHandle(node.id), event, callback);
+  if (!result.ok) {
+    throw new Error(`${result.error.name}: ${result.error.message}`);
+  }
+  node.hostListeners[event] = result.value;
+}
+
+function nodeIdToHandle(id: bigint): Common.HandleRef {
+  return handleRefFromLegacyPacked(id);
+}
+
 /**
  * Apply a single framework prop onto a Host mirror node.
  * Handles title / style / click / input / numeric / text content.
@@ -103,45 +132,27 @@ export function applyHostProp(node: NuiNode, name: string, value: unknown): void
     return;
   }
 
-  if (value == null) {
-    clearNumericProp(node, name);
-    delete node.hostProps[name];
-    return;
-  }
-
   if (name === "title" && typeof value === "string") {
     setWindowTitle(value);
     node.hostProps[name] = value;
     return;
   }
 
-  const lower = name.toLowerCase();
-  if ((lower === "onclick" || name === "onClick") && typeof value === "function") {
-    addClickListener(node.id, value as () => void);
-    node.hostProps[name] = value;
-    return;
-  }
-
-  if (
-    (lower === "onchange" || name === "onChange" || name === "onInput") &&
-    typeof value === "function"
-  ) {
-    addChangeListener(node.id, value as (v: string) => void);
-    node.hostProps[name] = value;
-    return;
-  }
-
-  if ((lower === "onsubmit" || name === "onSubmit") && typeof value === "function") {
-    addSubmitListener(node.id, value as (v: string) => void);
-    node.hostProps[name] = value;
-    return;
-  }
-
-  if (name.startsWith("on") && typeof value === "function") {
-    if (lower === "onclick") {
-      addClickListener(node.id, value as () => void);
+  const event = eventForName(name);
+  if (event !== null) {
+    if (typeof value === "function") {
+      setListener(node, event, value);
       node.hostProps[name] = value;
+    } else {
+      removeListener(node, event);
+      delete node.hostProps[name];
     }
+    return;
+  }
+
+  if (value == null) {
+    clearNumericProp(node, name);
+    delete node.hostProps[name];
     return;
   }
 

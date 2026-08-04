@@ -86,6 +86,8 @@ test("checked-in Perry package manifests match implemented generated functions",
     "packages/nui-host/package.json": new Set([
       "js_nui_handshake_v1",
       "js_nui_create_node_v1",
+      "js_nui_add_event_listener_v1",
+      "js_nui_remove_event_listener_v1",
       "js_nui_clear_property_v1",
     ]),
     "packages/system-host/package.json": new Set(),

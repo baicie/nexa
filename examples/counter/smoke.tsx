@@ -1,14 +1,17 @@
 import { Column, signal, Text, Window } from "@nexa/ui";
 import {
+  addEventListenerV1,
   commit,
   clearPropertyV1,
   createNodeV1,
   decodeHandleToken,
   encodeHandleToken,
+  EventId,
   handshake,
   NodeType,
   PropertyId,
   remove,
+  removeEventListenerV1,
   setNumber,
 } from "@nexa/nui-host";
 import { Common } from "@nexa/protocol";
@@ -40,6 +43,23 @@ if (!v1NodeResult.ok || encodeHandleToken(v1NodeResult.value) !== "h1/00000000/0
 const v1ClearResult = clearPropertyV1(v1NodeResult.value, PropertyId.Padding);
 if (!v1ClearResult.ok) {
   throw new Error("Perry HandleRef clear-property smoke failed");
+}
+const firstListener = addEventListenerV1(v1NodeResult.value, EventId.Click, () => {});
+if (!firstListener.ok) {
+  throw new Error("Perry listener add smoke failed");
+}
+const replacementListener = addEventListenerV1(v1NodeResult.value, EventId.Click, () => {});
+if (!replacementListener.ok) {
+  throw new Error("Perry listener replacement smoke failed");
+}
+if (!removeEventListenerV1(firstListener.value).ok) {
+  throw new Error("Perry stale listener remove smoke failed");
+}
+if (!removeEventListenerV1(replacementListener.value).ok) {
+  throw new Error("Perry listener remove smoke failed");
+}
+if (!removeEventListenerV1(replacementListener.value).ok) {
+  throw new Error("Perry listener idempotency smoke failed");
 }
 const invalidNodeResult = createNodeV1(99 as NodeType);
 if (invalidNodeResult.ok || invalidNodeResult.error.code !== 0x0100_0001) {

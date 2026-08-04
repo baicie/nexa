@@ -5,6 +5,7 @@
 export {
   NodeType,
   PropertyId,
+  EventId,
   rgba,
   createNode,
   createText,
@@ -21,7 +22,13 @@ export {
   run,
 } from "./ffi";
 
-export { clearPropertyV1, createNodeV1, handshake } from "./protocol";
+export {
+  addEventListenerV1,
+  clearPropertyV1,
+  createNodeV1,
+  handshake,
+  removeEventListenerV1,
+} from "./protocol";
 export { decodeHandleToken, encodeHandleToken } from "./handle";
 
 export type { NuiNode } from "./types";

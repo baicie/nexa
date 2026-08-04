@@ -7,17 +7,21 @@
 //! Tree state is `Arc`-shared so Perry click callbacks can `set_text` while
 //! the window event loop owns the same arena (Slice 2→3 fix).
 
+mod callback;
 mod handle;
 mod handshake;
 mod host;
 mod window;
 
+pub use callback::{
+    CallbackHandle, CallbackRegistration, CallbackRegistry, ListenerKey, RemoveResult,
+};
 pub use handle::{
     decode_handle_token, encode_handle_token, handle_parts_to_node_id, handle_to_node_id,
     node_id_to_handle,
 };
 pub use handshake::handshake_json;
-pub use host::{pack_rgba, HostPropertyError, HostUiEvent, NuiHost};
+pub use host::{pack_rgba, HostListenerError, HostPropertyError, HostUiEvent, NuiHost};
 
 /// Encode a node creation result as the v1 JSON result envelope.
 pub fn node_handle_result_json(id: nui_core::NodeId) -> String {
@@ -147,6 +151,86 @@ pub fn invalid_handle_result_json(operation: &str, parameter: &str, actual: u32)
                 "expected": "1..=4294967295",
                 "actual": actual
             }
+        }
+    })
+    .to_string()
+}
+
+/// Encode a callback registration result for the stable v1 listener ABI.
+pub fn listener_handle_result_json(result: Result<CallbackHandle, HostListenerError>) -> String {
+    match result {
+        Ok(handle) => {
+            let wire = nui_protocol::common::HandleRef {
+                slot: handle.slot(),
+                generation: handle.generation(),
+            };
+            match encode_handle_token(&wire) {
+                Ok(token) => serde_json::json!({ "ok": true, "value": token }).to_string(),
+                Err(error) => serde_json::json!({
+                    "ok": false,
+                    "error": {
+                        "domain": "ui",
+                        "code": nui_protocol::ui::ErrorCode::InternalFailure as u32,
+                        "name": "INTERNAL_FAILURE",
+                        "severity": "FatalRuntime",
+                        "operation": "addEventListener",
+                        "retryable": false,
+                        "message": format!("invalid callback handle: {error:?}"),
+                        "runtimeVersion": env!("CARGO_PKG_VERSION")
+                    }
+                })
+                .to_string(),
+            }
+        }
+        Err(HostListenerError::StaleNode {
+            node,
+            current_generation,
+        }) => serde_json::json!({
+            "ok": false,
+            "error": {
+                "domain": "ui",
+                "code": nui_protocol::ui::ErrorCode::StaleHandle as u32,
+                "name": "STALE_HANDLE",
+                "severity": "RecoverableOperation",
+                "operation": "addEventListener",
+                "retryable": false,
+                "message": "node handle is stale or belongs to another owner",
+                "runtimeVersion": env!("CARGO_PKG_VERSION"),
+                "context": {
+                    "slot": node.slot(),
+                    "generation": node.generation(),
+                    "currentGeneration": current_generation
+                }
+            }
+        })
+        .to_string(),
+    }
+}
+
+/// Encode a successful listener removal result.
+pub fn listener_unit_result_json() -> String {
+    serde_json::json!({ "ok": true, "value": null }).to_string()
+}
+
+/// Encode an invalid listener argument using the manifest context contract.
+pub fn invalid_listener_argument_result_json(
+    operation: &str,
+    parameter: &str,
+    expected: &str,
+    actual: &str,
+) -> String {
+    serde_json::json!({
+        "ok": false,
+        "error": {
+            "domain": "ui",
+            "code": nui_protocol::ui::ErrorCode::InvalidArgument as u32,
+            "name": "INVALID_ARGUMENT",
+            "severity": "RecoverableOperation",
+            "operation": operation,
+            "retryable": false,
+            "message": format!("invalid {parameter}"),
+            "runtimeVersion": env!("CARGO_PKG_VERSION"),
+            "context": { "parameter": parameter, "expected": expected, "actual": actual }
         }
     })
     .to_string()
@@ -352,6 +436,50 @@ mod tests {
         keys.sort_unstable();
         assert_eq!(keys, ["currentGeneration", "generation", "slot"]);
         assert_eq!(context["currentGeneration"], 8);
+    }
+
+    #[test]
+    fn host_listener_replacement_cannot_be_removed_by_old_handle() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        let first = CallbackHandle::new(1, 1);
+        let second = CallbackHandle::new(2, 1);
+        assert_eq!(
+            host.add_event_listener(node, nui_core::EventId::Click, first)
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            host.add_event_listener(node, nui_core::EventId::Click, second)
+                .unwrap(),
+            Some(first)
+        );
+        assert_eq!(
+            host.event_listener(node, nui_core::EventId::Click),
+            Some(second)
+        );
+        assert!(!host.remove_event_listener(node, nui_core::EventId::Click, first));
+        assert_eq!(
+            host.event_listener(node, nui_core::EventId::Click),
+            Some(second)
+        );
+        assert!(host.remove_event_listener(node, nui_core::EventId::Click, second));
+        assert!(!host.remove_event_listener(node, nui_core::EventId::Click, second));
+    }
+
+    #[test]
+    fn removing_node_returns_all_v1_listener_handles_for_root_cleanup() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        let click = CallbackHandle::new(4, 1);
+        let change = CallbackHandle::new(5, 1);
+        host.add_event_listener(node, nui_core::EventId::Click, click)
+            .unwrap();
+        host.add_event_listener(node, nui_core::EventId::Change, change)
+            .unwrap();
+        let mut removed = host.remove(node);
+        removed.sort_by_key(|handle| handle.slot());
+        assert_eq!(removed, vec![click, change]);
     }
 
     #[test]

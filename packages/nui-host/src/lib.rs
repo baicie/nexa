@@ -7,11 +7,13 @@ mod perry_stdlib_stubs;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use nui_core::{NodeId, NodeType, PropertyId};
+use nui_core::{EventId, NodeId, NodeType, PropertyId};
 use nui_perry_bridge::{
     handle_parts_to_node_id, handshake_json, invalid_handle_result_json,
-    invalid_property_result_json, node_handle_result_json, node_invalid_argument_result_json,
-    property_result_json, HostUiEvent, NuiHost,
+    invalid_listener_argument_result_json, invalid_property_result_json, listener_handle_result_json,
+    listener_unit_result_json, node_handle_result_json, node_invalid_argument_result_json,
+    property_result_json, CallbackHandle, CallbackRegistry, HostUiEvent, ListenerKey, NuiHost,
+    RemoveResult,
 };
 use perry_ffi::{
     alloc_string, gc_register_mutable_root_scanner_named, read_string, JsClosure, JsString,
@@ -24,6 +26,7 @@ struct HostSession {
     closures: HashMap<u64, i64>,
     change_closures: HashMap<u64, i64>,
     submit_closures: HashMap<u64, i64>,
+    callbacks: CallbackRegistry,
 }
 
 impl Default for HostSession {
@@ -33,6 +36,7 @@ impl Default for HostSession {
             closures: HashMap::new(),
             change_closures: HashMap::new(),
             submit_closures: HashMap::new(),
+            callbacks: CallbackRegistry::default(),
         }
     }
 }
@@ -56,6 +60,11 @@ fn ensure_closure_scanner() {
                 for cb in session.submit_closures.values_mut() {
                     visitor.visit_i64_slot(cb);
                 }
+                session
+                    .callbacks
+                    .visit_active_tokens(|cb| {
+                        visitor.visit_i64_slot(cb);
+                    });
             }
         });
     });
@@ -84,6 +93,15 @@ fn property_from_u32(property: u32) -> Option<PropertyId> {
         15 => PropertyId::TextColor,
         16 => PropertyId::ScrollOffsetY,
         17 => PropertyId::FlexGrow,
+        _ => return None,
+    })
+}
+
+fn event_from_u32(event: u32) -> Option<EventId> {
+    Some(match event {
+        1 => EventId::Click,
+        2 => EventId::Change,
+        3 => EventId::Submit,
         _ => return None,
     })
 }
@@ -174,7 +192,10 @@ pub extern "C" fn js_nui_remove(node: u64) {
     session.closures.remove(&node);
     session.change_closures.remove(&node);
     session.submit_closures.remove(&node);
-    session.host.remove(id);
+    let removed_callbacks = session.host.remove(id);
+    for callback in removed_callbacks {
+        let _ = session.callbacks.remove(callback);
+    }
 }
 
 /// # Safety
@@ -217,6 +238,96 @@ pub extern "C" fn js_nui_clear_property_v1(
     };
     let session = session().lock().expect("host session");
     let result = property_result_json(session.host.clear_property(node, property));
+    alloc_string(&result).as_raw()
+}
+
+/// Add or replace one callback through the stable v1 listener ABI.
+#[no_mangle]
+pub extern "C" fn js_nui_add_event_listener_v1(
+    node_slot: u32,
+    node_generation: u32,
+    event: u32,
+    callback: i64,
+) -> *const StringHeader {
+    let node = match handle_parts_to_node_id(node_slot, node_generation) {
+        Ok(node) => node,
+        Err(_) => {
+            let result = invalid_handle_result_json(
+                "addEventListener",
+                "node.generation",
+                node_generation,
+            );
+            return alloc_string(&result).as_raw();
+        }
+    };
+    let Some(event) = event_from_u32(event) else {
+        let result = invalid_listener_argument_result_json(
+            "addEventListener",
+            "event",
+            "known ui.EventId",
+            &event.to_string(),
+        );
+        return alloc_string(&result).as_raw();
+    };
+    if callback == 0 {
+        let result = invalid_listener_argument_result_json(
+            "addEventListener",
+            "callback",
+            "non-null function",
+            "null",
+        );
+        return alloc_string(&result).as_raw();
+    }
+
+    let mut session = session().lock().expect("host session");
+    if !session.host.has_node(node) {
+        let result = listener_handle_result_json(Err(
+            nui_perry_bridge::HostListenerError::StaleNode {
+                node,
+                current_generation: session.host.current_generation(node.slot()),
+            },
+        ));
+        return alloc_string(&result).as_raw();
+    }
+
+    let key = ListenerKey::new(node.raw(), event as u32);
+    let (registration, _replaced) = session.callbacks.add(key, callback);
+    if let Err(error) = session
+        .host
+        .add_event_listener(node, event, registration.handle)
+    {
+        let _ = session.callbacks.remove(registration.handle);
+        let result = listener_handle_result_json(Err(error));
+        return alloc_string(&result).as_raw();
+    }
+    let result = listener_handle_result_json(Ok(registration.handle));
+    alloc_string(&result).as_raw()
+}
+
+/// Remove a callback through the stable v1 listener ABI. Closed and stale
+/// callback handles intentionally resolve as idempotent success.
+#[no_mangle]
+pub extern "C" fn js_nui_remove_event_listener_v1(
+    listener_slot: u32,
+    listener_generation: u32,
+) -> *const StringHeader {
+    if listener_generation == 0 {
+        let result = invalid_handle_result_json(
+            "removeEventListener",
+            "listener.generation",
+            listener_generation,
+        );
+        return alloc_string(&result).as_raw();
+    }
+    let handle = CallbackHandle::new(listener_slot, listener_generation);
+    let mut session = session().lock().expect("host session");
+    if let RemoveResult::Closed(registration) = session.callbacks.remove(handle) {
+        if let Some(event) = event_from_u32(registration.key.event) {
+            let node = node_from_raw(registration.key.node_raw);
+            let _ = session.host.remove_event_listener(node, event, handle);
+        }
+    }
+    let result = listener_unit_result_json();
     alloc_string(&result).as_raw()
 }
 
@@ -298,7 +409,18 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
             HostUiEvent::Click(node) => {
                 let cb = {
                     let session = session().lock().expect("host session");
-                    session.closures.get(&node.raw()).copied()
+                    let key = ListenerKey::new(node.raw(), EventId::Click as u32);
+                    let v1 = session
+                        .host
+                        .event_listener(node, EventId::Click)
+                        .and_then(|handle| {
+                            session
+                                .callbacks
+                                .active_for_key(key)
+                                .filter(|registration| registration.handle == handle)
+                                .map(|registration| registration.token)
+                        });
+                    v1.or_else(|| session.closures.get(&node.raw()).copied())
                 };
                 let Some(cb) = cb else {
                     return false;
@@ -316,7 +438,18 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
             HostUiEvent::Change { node, value } => {
                 let cb = {
                     let session = session().lock().expect("host session");
-                    session.change_closures.get(&node.raw()).copied()
+                    let key = ListenerKey::new(node.raw(), EventId::Change as u32);
+                    let v1 = session
+                        .host
+                        .event_listener(node, EventId::Change)
+                        .and_then(|handle| {
+                            session
+                                .callbacks
+                                .active_for_key(key)
+                                .filter(|registration| registration.handle == handle)
+                                .map(|registration| registration.token)
+                        });
+                    v1.or_else(|| session.change_closures.get(&node.raw()).copied())
                 };
                 if let Some(cb) = cb {
                     call_string_callback(cb, &value);
@@ -326,9 +459,31 @@ pub unsafe extern "C" fn js_nui_run(title_ptr: *const StringHeader) {
             HostUiEvent::Submit { node, value } => {
                 let (submit_cb, change_cb) = {
                     let session = session().lock().expect("host session");
+                    let submit_key = ListenerKey::new(node.raw(), EventId::Submit as u32);
+                    let change_key = ListenerKey::new(node.raw(), EventId::Change as u32);
+                    let submit_v1 = session
+                        .host
+                        .event_listener(node, EventId::Submit)
+                        .and_then(|handle| {
+                            session
+                                .callbacks
+                                .active_for_key(submit_key)
+                                .filter(|registration| registration.handle == handle)
+                                .map(|registration| registration.token)
+                        });
+                    let change_v1 = session
+                        .host
+                        .event_listener(node, EventId::Change)
+                        .and_then(|handle| {
+                            session
+                                .callbacks
+                                .active_for_key(change_key)
+                                .filter(|registration| registration.handle == handle)
+                                .map(|registration| registration.token)
+                        });
                     (
-                        session.submit_closures.get(&node.raw()).copied(),
-                        session.change_closures.get(&node.raw()).copied(),
+                        submit_v1.or_else(|| session.submit_closures.get(&node.raw()).copied()),
+                        change_v1.or_else(|| session.change_closures.get(&node.raw()).copied()),
                     )
                 };
                 if let Some(cb) = submit_cb {
