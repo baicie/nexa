@@ -202,8 +202,8 @@ fn discover_font_paths() -> Vec<PathBuf> {
             PathBuf::from("/usr/local/share/fonts"),
         ]);
         if let Some(home) = std::env::var_os("HOME") {
-            roots.push(PathBuf::from(home).join(".fonts"));
-            roots.push(PathBuf::from(home).join(".local/share/fonts"));
+            roots.push(PathBuf::from(&home).join(".fonts"));
+            roots.push(PathBuf::from(&home).join(".local/share/fonts"));
         }
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]

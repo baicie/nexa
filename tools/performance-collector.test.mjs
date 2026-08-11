@@ -25,6 +25,7 @@ const hostedEnvironment = {
   RUNNER_ENVIRONMENT: "github-hosted",
   GITHUB_SHA: "a".repeat(40),
 };
+const hostedDarwinRuntime = { runtimePlatform: "darwin", runtimeArch: "arm64" };
 
 function nativeEvent({
   outcome = "presented",
@@ -173,6 +174,7 @@ test("drop records are observable and cannot be silently converted to samples", 
         commit: "a".repeat(40),
         runnerImage: "macos-15",
         environment: hostedEnvironment,
+        ...hostedDarwinRuntime,
         artifactName: "reference-notes-macos-arm64",
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
@@ -227,6 +229,7 @@ test("hosted report commit must match the runner revision", () => {
     commit: "b".repeat(40),
     runnerImage: "macos-15",
     environment: hostedEnvironment,
+    ...hostedDarwinRuntime,
     artifactName: "reference-notes-macos-arm64",
     artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
     artifactBytes: 25_000_000,
@@ -424,6 +427,7 @@ test("report creation fails closed for missing measured runs or insufficient pre
         commit: "a".repeat(40),
         runnerImage: "macos-15",
         environment: hostedEnvironment,
+        ...hostedDarwinRuntime,
         artifactName: "reference-notes-macos-arm64",
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
@@ -440,6 +444,7 @@ test("report creation fails closed for missing measured runs or insufficient pre
         commit: "a".repeat(40),
         runnerImage: "macos-15",
         environment: hostedEnvironment,
+        ...hostedDarwinRuntime,
         artifactName: "reference-notes-macos-arm64",
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,

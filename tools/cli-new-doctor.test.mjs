@@ -648,10 +648,11 @@ test("the package bin runs and the default doctor resolves this workspace", () =
     cwd: path.join(workspaceRoot, "examples", "reference-notes"),
     encoding: "utf8",
   });
-  assert.equal(doctor.status, 0, doctor.stderr || doctor.stdout);
+  const supportedTarget = process.platform === "darwin" || process.platform === "win32";
+  assert.equal(doctor.status, supportedTarget ? 0 : 1, doctor.stderr || doctor.stdout);
   assert.equal(doctor.stderr, "");
   const report = JSON.parse(doctor.stdout);
-  assert.equal(report.ok, true);
+  assert.equal(report.ok, supportedTarget);
   assert.equal(checkById(report, "nui-host-abi").actual, expectedVersions.hostAbi);
   assert.equal(checkById(report, "system-host-abi").actual, expectedVersions.hostAbi);
 });

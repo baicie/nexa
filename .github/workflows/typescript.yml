@@ -68,5 +68,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build clean workspace package artifacts
+        run: pnpm release:build
+
       - name: CLI contracts
         run: pnpm --filter @nexa/cli test
