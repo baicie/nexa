@@ -399,6 +399,7 @@ test("report aggregation binds hosted identity, artifact identity, all ten runs 
     commit: "a".repeat(40),
     runnerImage: "macos-15",
     environment: hostedEnvironment,
+    ...hostedDarwinRuntime,
     artifactName: "reference-notes-macos-arm64",
     artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
     artifactBytes: 25_000_000,

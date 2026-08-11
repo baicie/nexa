@@ -1471,34 +1471,40 @@ impl ApplicationHandler<UserEvent> for Host {
                 }
                 let scale = window.scale_factor();
 
-                let mut buffer = match self
-                    .surface
-                    .as_mut()
-                    .expect("ready lifecycle owns a surface")
-                    .buffer_mut()
-                {
-                    Ok(buffer) => buffer,
-                    Err(error) => {
-                        self.handle_surface_loss(
-                            PlatformFailureStage::AcquireFrame,
-                            error.to_string(),
-                        );
-                        return;
-                    }
+                let frame_result = {
+                    let mut render_frame = || -> Result<bool, (PlatformFailureStage, String)> {
+                        let mut buffer = self
+                            .surface
+                            .as_mut()
+                            .expect("ready lifecycle owns a surface")
+                            .buffer_mut()
+                            .map_err(|error| {
+                                (PlatformFailureStage::AcquireFrame, error.to_string())
+                            })?;
+
+                        if !self.app.paint_frame(buffer.as_mut(), width, height, scale) {
+                            return Ok(false);
+                        }
+
+                        self.app.frame_presenting(self.surface_state.generation());
+                        buffer.present().map_err(|error| {
+                            (PlatformFailureStage::PresentFrame, error.to_string())
+                        })?;
+                        Ok(true)
+                    };
+                    render_frame()
                 };
 
-                if !self.app.paint_frame(buffer.as_mut(), width, height, scale) {
-                    return;
-                }
-
-                self.app.frame_presenting(self.surface_state.generation());
-                match buffer.present() {
-                    Ok(()) => {
+                match frame_result {
+                    Ok(true) => {
                         self.publish_frame_presented();
                         self.publish_accessibility_snapshot(&window, false);
                     }
-                    Err(error) => self
-                        .handle_surface_loss(PlatformFailureStage::PresentFrame, error.to_string()),
+                    Ok(false) => return,
+                    Err((stage, error)) => {
+                        self.handle_surface_loss(stage, error);
+                        return;
+                    }
                 }
             }
             _ => {}
