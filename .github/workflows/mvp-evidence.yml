@@ -1,0 +1,141 @@
+name: Hosted MVP evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  local_cases:
+    name: Execute N-01 through N-09
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Collect command-bound local MVP evidence
+        run: node tools/mvp-evidence.mjs collect "$RUNNER_TEMP/mvp-local.json"
+      - name: Verify local evidence before transport
+        run: node tools/mvp-evidence.mjs verify "$RUNNER_TEMP/mvp-local.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mvp-local-evidence
+          path: ${{ runner.temp }}/mvp-local.json
+          if-no-files-found: error
+          retention-days: 7
+
+  typescript:
+    name: Current TypeScript quality gate
+    uses: ./.github/workflows/typescript.yml
+
+  rust:
+    name: Current Rust quality gate
+    uses: ./.github/workflows/rust.yml
+
+  ffi:
+    name: Current FFI quality gate
+    uses: ./.github/workflows/ffi.yml
+
+  perry_frameworks:
+    name: Current Perry framework gate
+    uses: ./.github/workflows/perry-frameworks.yml
+
+  docs:
+    name: Current documentation gate
+    uses: ./.github/workflows/docs.yml
+
+  native_accessibility:
+    name: Native accessibility clients on both platforms
+    uses: ./.github/workflows/native-smoke.yml
+    with:
+      collect_mvp_proof: true
+
+  clean_package_launch:
+    name: Real picker and clean package launch on both platforms
+    uses: ./.github/workflows/reference-notes-package.yml
+    with:
+      collect_mvp_proof: true
+
+  promote:
+    name: Promote N-01 through N-11 evidence
+    needs:
+      - local_cases
+      - typescript
+      - rust
+      - ffi
+      - perry_frameworks
+      - docs
+      - native_accessibility
+      - clean_package_launch
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Download local command evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: mvp-local-evidence
+          path: ${{ runner.temp }}/mvp-local
+      - name: Download both native accessibility platform proofs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: mvp-native-accessibility-*
+          path: ${{ runner.temp }}/mvp-hosted/native
+          merge-multiple: true
+      - name: Download both clean-package platform proofs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: mvp-clean-package-launch-*
+          path: ${{ runner.temp }}/mvp-hosted/package
+          merge-multiple: true
+      - name: Promote only after every current gate succeeds
+        run: >-
+          node tools/mvp-evidence.mjs promote-hosted
+          --input "$RUNNER_TEMP/mvp-local/mvp-local.json"
+          --output "$RUNNER_TEMP/mvp-evidence.json"
+          --revision "$GITHUB_SHA"
+          --ref "$GITHUB_REF"
+          --run-id "$GITHUB_RUN_ID"
+          --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          --typescript-result "${{ needs.typescript.result }}"
+          --rust-result "${{ needs.rust.result }}"
+          --ffi-result "${{ needs.ffi.result }}"
+          --perry-result "${{ needs.perry_frameworks.result }}"
+          --docs-result "${{ needs.docs.result }}"
+          --native-result "${{ needs.native_accessibility.result }}"
+          --package-result "${{ needs.clean_package_launch.result }}"
+          --native-proofs "$RUNNER_TEMP/mvp-hosted/native"
+          --package-proofs "$RUNNER_TEMP/mvp-hosted/package"
+      - name: Independently verify complete hosted evidence
+        run: node tools/mvp-evidence.mjs verify "$RUNNER_TEMP/mvp-evidence.json"
+      - name: Upload N-01 through N-11 proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mvp-evidence
+          path: ${{ runner.temp }}/mvp-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

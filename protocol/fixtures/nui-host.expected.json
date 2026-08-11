@@ -4,18 +4,19 @@
     "namespace": "ui",
     "featureNamespace": "ui",
     "counts": {
-      "features": 2,
-      "types": 2,
+      "features": 3,
+      "types": 18,
       "nodeTypes": 5,
-      "properties": 17,
-      "events": 3,
-      "commands": 15,
-      "ffiFunctions": 28,
+      "properties": 18,
+      "events": 10,
+      "commands": 20,
+      "ffiFunctions": 33,
       "errors": 9
     },
     "featureBits": {
       "mutation_transactions": 2,
-      "semantics": 3
+      "semantics": 3,
+      "text_input_client": 4
     },
     "ids": {
       "nodeTypes": {
@@ -42,12 +43,20 @@
         "FontWeight": 14,
         "TextColor": 15,
         "ScrollOffsetY": 16,
-        "FlexGrow": 17
+        "FlexGrow": 17,
+        "Disabled": 18
       },
       "events": {
         "Click": 1,
         "Change": 2,
-        "Submit": 3
+        "Submit": 3,
+        "Pointer": 4,
+        "Wheel": 5,
+        "Keyboard": 6,
+        "TextInput": 7,
+        "Composition": 8,
+        "Focus": 9,
+        "WindowLifecycle": 10
       },
       "commands": {
         "CreateNode": 1,
@@ -64,7 +73,12 @@
         "RegisterInput": 12,
         "ClearProperty": 13,
         "SetSemantics": 14,
-        "ResetSession": 15
+        "ResetSession": 15,
+        "GetTextInputState": 16,
+        "ReplaceTextInput": 17,
+        "GetCompositionBounds": 18,
+        "ClearSemantics": 19,
+        "RegisterButton": 20
       }
     },
     "propertyValueTypes": {
@@ -84,12 +98,20 @@
       "FontWeight": "u32",
       "TextColor": "u32",
       "ScrollOffsetY": "f64",
-      "FlexGrow": "f64"
+      "FlexGrow": "f64",
+      "Disabled": "u32"
     },
     "eventPayloadFields": {
       "Click": [],
       "Change": ["value"],
-      "Submit": ["value"]
+      "Submit": ["value"],
+      "Pointer": ["kind", "pointerId", "x", "y", "buttons", "pressure", "context"],
+      "Wheel": ["deltaX", "deltaY", "x", "y", "context"],
+      "Keyboard": ["kind", "key", "code", "repeat", "context"],
+      "TextInput": ["text", "context"],
+      "Composition": ["kind", "text", "selectionStart", "selectionEnd", "context"],
+      "Focus": ["kind", "relatedTarget", "context"],
+      "WindowLifecycle": ["kind", "surfaceGeneration"]
     },
     "legacyFfiAbiIndexes": {
       "js_nui_create_node": 0,
@@ -122,7 +144,12 @@
       "js_nui_register_input_v1": 25,
       "js_nui_clear_property_v1": 26,
       "js_nui_set_semantics_v1": 27,
-      "js_nui_reset_session_v1": 28
+      "js_nui_reset_session_v1": 28,
+      "js_nui_get_text_input_state_v1": 29,
+      "js_nui_replace_text_input_v1": 30,
+      "js_nui_get_composition_bounds_v1": 31,
+      "js_nui_clear_semantics_v1": 32,
+      "js_nui_register_button_v1": 33
     },
     "errorCodes": {
       "INVALID_ARGUMENT": 16777217,

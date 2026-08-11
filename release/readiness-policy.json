@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "channel": "technical-preview",
+  "version": "0.1.0",
+  "execution": {
+    "state": "disabled",
+    "phase": "none",
+    "environment": "technical-preview-release",
+    "allowedOperations": ["validate", "bootstrap-publication", "request-publication"],
+    "reason": "Hosted MVP, registry, performance, and signed staging evidence are not complete"
+  },
+  "source": {
+    "requiredRef": "refs/tags/v0.1.0",
+    "requireClean": true
+  },
+  "requiredGates": [
+    "mvp",
+    "contracts",
+    "security",
+    "performance",
+    "consumer",
+    "signing",
+    "rehearsal",
+    "registry"
+  ],
+  "evidence": {
+    "mvp": {
+      "status": "pending",
+      "reason": "Awaiting N-01..N-11 on the release revision"
+    },
+    "contracts": {
+      "status": "pending",
+      "reason": "Awaiting all required checks on the release revision"
+    },
+    "security": {
+      "status": "pending",
+      "reason": "Awaiting the hosted supply-chain workflow"
+    },
+    "performance": {
+      "status": "pending",
+      "reason": "Awaiting reviewed active baselines on both platforms"
+    },
+    "consumer": {
+      "status": "pending",
+      "reason": "Awaiting clean tarball consumers on both platforms"
+    },
+    "signing": {
+      "status": "pending",
+      "reason": "Awaiting signed and notarized/Authenticode staging artifacts"
+    },
+    "rehearsal": {
+      "status": "pending",
+      "reason": "Awaiting a clean-tag two-platform rehearsal"
+    },
+    "registry": {
+      "status": "pending",
+      "reason": "Awaiting an authorized registry and external clean-user record"
+    }
+  },
+  "successCriteria": [
+    { "id": 1, "gates": ["contracts"] },
+    { "id": 2, "gates": ["contracts"] },
+    { "id": 3, "gates": ["contracts"] },
+    { "id": 4, "gates": ["contracts"] },
+    { "id": 5, "gates": ["contracts", "mvp"] },
+    { "id": 6, "gates": ["contracts", "mvp"] },
+    { "id": 7, "gates": ["mvp"] },
+    { "id": 8, "gates": ["contracts", "mvp"] },
+    { "id": 9, "gates": ["contracts", "mvp"] },
+    { "id": 10, "gates": ["mvp", "consumer"] },
+    { "id": 11, "gates": ["consumer", "registry"] },
+    { "id": 12, "gates": ["contracts", "registry"] }
+  ],
+  "publication": {
+    "npmRegistry": "https://registry.npmjs.org/",
+    "packageManifest": "release/packages.json",
+    "provenance": true,
+    "signedArtifactsOnly": true,
+    "requireBothPlatforms": true,
+    "allowOverwrite": false,
+    "allowPartial": false,
+    "allowUnsignedFallback": false,
+    "phases": {
+      "bootstrap": {
+        "oneTimeVersion": "0.1.0",
+        "requiredGates": [
+          "mvp",
+          "contracts",
+          "security",
+          "performance",
+          "consumer",
+          "signing",
+          "rehearsal"
+        ],
+        "tagStrategy": "revision-staging",
+        "promoteChannel": false
+      },
+      "final": {
+        "requiredGates": [
+          "mvp",
+          "contracts",
+          "security",
+          "performance",
+          "consumer",
+          "signing",
+          "rehearsal",
+          "registry"
+        ],
+        "tagStrategy": "channel",
+        "promoteChannel": true
+      }
+    }
+  }
+}

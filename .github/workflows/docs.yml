@@ -19,7 +19,9 @@ jobs:
     name: Evidence and ADRs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check documentation links and source contracts
+        run: node tools/docs-contract.test.mjs
       - name: Require ADR-004
         run: |
           test -f docs/decisions/ADR-004-framework-adapters-native-host-mvp.md

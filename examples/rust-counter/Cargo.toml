@@ -1,11 +1,11 @@
 [package]
 name = "rust-counter"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 description = "Slice 0/1 acceptance: pure Rust Counter (winit → node tree → Skia)"
-publish = false
 
 [[bin]]
 name = "rust-counter"

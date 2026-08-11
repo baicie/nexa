@@ -1,13 +1,21 @@
 {
   "name": "@nexa/ui",
   "version": "0.1.0",
-  "private": true,
   "description": "Minimal TSX runtime + primitives for Nexa UI (Slice 3)",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./jsx-runtime": "./src/jsx-runtime.ts",
-    "./jsx-dev-runtime": "./src/jsx-runtime.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    }
   },
   "dependencies": {
     "@nexa/nui-host": "workspace:*",
@@ -15,11 +23,13 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json",
-    "test": "node --test --experimental-strip-types src/**/*.test.ts"
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/ui",
+    "test": "node --test --experimental-strip-types src/*.test.ts src/**/*.test.ts"
   },
   "files": [
-    "src",
     "dist"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

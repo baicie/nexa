@@ -25,9 +25,11 @@ jobs:
       perry: ${{ steps.filter.outputs.perry }}
       docs: ${{ steps.filter.outputs.docs }}
       native: ${{ steps.filter.outputs.native }}
+      package: ${{ steps.filter.outputs.package }}
+      security: ${{ steps.filter.outputs.security }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         id: filter
         with:
           filters: |
@@ -40,7 +42,7 @@ jobs:
               - 'packages/nui-host/src/**/*.rs'
               - 'packages/system-host/Cargo.toml'
               - 'packages/system-host/Cargo.lock'
-              - 'packages/system-host/src/**/*.rs'
+              - 'packages/system-host/**/*.rs'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
@@ -55,6 +57,9 @@ jobs:
               - 'examples/clipboard-demo/**'
               - 'examples/counter/**'
               - 'examples/image-demo/**'
+              - 'examples/input-e2e/**'
+              - 'examples/semantic-e2e/**'
+              - 'examples/reference-notes/**'
               - 'examples/layout-playground/**'
               - 'examples/perry-counter/**'
               - 'examples/react-counter/**'
@@ -71,14 +76,20 @@ jobs:
               - '.prettierignore'
               - 'scripts/**'
               - 'tools/**'
+              - 'release/**'
               - '.github/workflows/*.yml'
             ffi:
               - 'protocol/**'
               - 'crates/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
               - 'packages/nui-host/**'
               - 'packages/system-host/**'
               - 'packages/ui/**'
               - 'examples/counter/**'
+              - 'examples/input-e2e/**'
+              - 'examples/reference-notes/**'
+              - 'examples/semantic-e2e/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -94,7 +105,10 @@ jobs:
             perry:
               - 'protocol/**'
               - 'crates/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
               - 'packages/nui-host/**'
+              - 'packages/system-host/**'
               - 'packages/adapter-solid/**'
               - 'packages/adapter-vue/**'
               - 'packages/adapter-react/**'
@@ -102,6 +116,7 @@ jobs:
               - 'examples/solid-counter/**'
               - 'examples/vue-counter/**'
               - 'examples/react-counter/**'
+              - 'examples/reference-notes/**'
               - 'examples/svelte-counter/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
@@ -116,9 +131,25 @@ jobs:
               - '.github/workflows/perry-frameworks.yml'
               - '.github/workflows/ci.yml'
             native:
+              - 'protocol/**'
+              - 'crates/nui-app-runtime/**'
+              - 'crates/nui-core/**'
+              - 'crates/nui-layout-taffy/**'
               - 'crates/nui-platform-winit/**'
+              - 'crates/nui-perry-bridge/**'
               - 'crates/nui-render-skia/**'
+              - 'crates/nui-system-core/**'
+              - 'crates/nui-text/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/protocol/**'
+              - 'packages/system-host/**'
+              - 'packages/ui/**'
               - 'examples/rust-counter/**'
+              - 'examples/input-e2e/**'
+              - 'examples/reference-notes/**'
+              - 'examples/semantic-e2e/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
@@ -126,11 +157,59 @@ jobs:
               - 'scripts/**'
               - '.github/workflows/native-smoke.yml'
               - '.github/workflows/ci.yml'
+            package:
+              - 'protocol/**'
+              - 'crates/**'
+              - 'packages/cli/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/protocol/**'
+              - 'packages/system-host/**'
+              - 'packages/ui/**'
+              - 'examples/reference-notes/**'
+              - 'tools/reference-notes-build.mjs'
+              - 'tools/reference-notes-build.test.mjs'
+              - 'tools/reference-notes-package.mjs'
+              - 'tools/reference-notes-package.test.mjs'
+              - 'tools/unsigned-signing-input.mjs'
+              - 'tools/unsigned-signing-input.test.mjs'
+              - 'tools/reference-notes-fs-runtime-smoke.mjs'
+              - 'tools/reference-notes-fs-runtime-smoke.test.mjs'
+              - 'tools/reference-notes-dialog-runtime-smoke.mjs'
+              - 'tools/reference-notes-dialog-runtime-smoke.test.mjs'
+              - 'tools/reference-notes-dialog-picker-smoke.mjs'
+              - 'tools/reference-notes-dialog-picker-smoke.test.mjs'
+              - 'tools/reference-notes-native-runtime-proof.mjs'
+              - 'tools/reference-notes-native-runtime-proof.test.mjs'
+              - 'tools/dialog-picker-driver-macos.applescript'
+              - 'tools/dialog-picker-driver-windows.ps1'
+              - 'tools/dialog-picker-probe-supervisor-windows.ps1'
+              - 'tools/cli-create-build-smoke.mjs'
+              - 'tools/cli-create-package-smoke.mjs'
+              - 'tools/cli-dev-build.test.mjs'
+              - 'tools/cli-package.test.mjs'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - '.npmrc'
+              - '.github/workflows/reference-notes-package.yml'
+              - '.github/workflows/ci.yml'
             docs:
               - 'docs/**'
               - '**/*.md'
+              - 'tools/docs-contract.test.mjs'
               - '.github/workflows/docs.yml'
               - '.github/workflows/README.md'
+            security:
+              - '**'
+              - '.*'
+              - '.github/**'
+              - '**/.*'
 
   rust:
     name: Rust
@@ -162,17 +241,40 @@ jobs:
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/docs.yml
 
-  # Native smoke is required for matching paths when the repository variable enables it.
+  # Native smoke is required for every matching platform/runtime change.
   native-smoke:
     name: Native smoke
     needs: changes
-    if: needs.changes.outputs.native == 'true' && vars.NATIVE_SMOKE_ENABLED == 'true'
+    if: needs.changes.outputs.native == 'true'
     uses: ./.github/workflows/native-smoke.yml
+
+  reference-notes-package:
+    name: Reference Notes package
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    uses: ./.github/workflows/reference-notes-package.yml
+
+  security:
+    name: Security
+    needs: changes
+    if: needs.changes.outputs.security == 'true'
+    uses: ./.github/workflows/security.yml
 
   result:
     name: result
     if: always()
-    needs: [changes, rust, typescript, ffi, perry-frameworks, docs, native-smoke]
+    needs:
+      [
+        changes,
+        rust,
+        typescript,
+        ffi,
+        perry-frameworks,
+        docs,
+        native-smoke,
+        reference-notes-package,
+        security,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
@@ -184,13 +286,16 @@ jobs:
           PERRY: ${{ needs.perry-frameworks.result }}
           DOCS: ${{ needs.docs.result }}
           NATIVE: ${{ needs.native-smoke.result }}
+          PACKAGE: ${{ needs.reference-notes-package.result }}
+          SECURITY_STATUS: ${{ needs.security.result }}
           RUST_NEEDED: ${{ needs.changes.outputs.rust }}
           TS_NEEDED: ${{ needs.changes.outputs.typescript }}
           FFI_NEEDED: ${{ needs.changes.outputs.ffi }}
           PERRY_NEEDED: ${{ needs.changes.outputs.perry }}
           DOCS_NEEDED: ${{ needs.changes.outputs.docs }}
           NATIVE_NEEDED: ${{ needs.changes.outputs.native }}
-          NATIVE_ENABLED: ${{ vars.NATIVE_SMOKE_ENABLED }}
+          PACKAGE_NEEDED: ${{ needs.changes.outputs.package }}
+          SECURITY_NEEDED: ${{ needs.changes.outputs.security }}
         run: |
           set -euo pipefail
           fail=0
@@ -218,8 +323,16 @@ jobs:
             echo "Docs gate failed: $DOCS"
             fail=1
           fi
-          if [[ "$NATIVE_NEEDED" == "true" && "$NATIVE_ENABLED" == "true" && "$NATIVE" != "success" ]]; then
+          if [[ "$NATIVE_NEEDED" == "true" && "$NATIVE" != "success" ]]; then
             echo "Native smoke failed: $NATIVE"
+            fail=1
+          fi
+          if [[ "$PACKAGE_NEEDED" == "true" && "$PACKAGE" != "success" ]]; then
+            echo "Reference Notes package failed: $PACKAGE"
+            fail=1
+          fi
+          if [[ "$SECURITY_NEEDED" == "true" && "$SECURITY_STATUS" != "success" ]]; then
+            echo "Security gate failed: $SECURITY_STATUS"
             fail=1
           fi
           if [[ "$fail" -ne 0 ]]; then

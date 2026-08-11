@@ -3,7 +3,9 @@ import {
   NodeType as GeneratedNodeType,
   PropertyId as GeneratedPropertyId,
 } from "@nexa/protocol";
-import { attachNode, disposeNode } from "./lifecycle";
+import { attachNode, disposeNode, resetNodeLifecycle } from "./lifecycle";
+import { resetWindowTitle } from "./title";
+import { guardFrameworkCallback } from "./errors";
 
 /**
  * Perry native-library FFI wrappers.
@@ -19,6 +21,13 @@ declare function js_nui_clear_property_v1(
   nodeGeneration: number,
   property: number,
 ): string;
+declare function js_nui_set_semantics_v1(
+  nodeSlot: number,
+  nodeGeneration: number,
+  semanticsJson: string,
+): string;
+declare function js_nui_clear_semantics_v1(nodeSlot: number, nodeGeneration: number): string;
+declare function js_nui_register_button_v1(nodeSlot: number, nodeGeneration: number): string;
 declare function js_nui_add_event_listener_v1(
   nodeSlot: number,
   nodeGeneration: number,
@@ -55,7 +64,19 @@ declare function js_nui_add_submit_listener(
 ): void;
 declare function js_nui_set_image(node: bigint | number, path: string): void;
 declare function js_nui_commit(): void;
+declare function js_nui_commit_v1(): string;
+declare function js_nui_reset_session_v1(): string;
+declare function js_nui_get_text_input_state_v1(nodeSlot: number, nodeGeneration: number): string;
+declare function js_nui_replace_text_input_v1(
+  nodeSlot: number,
+  nodeGeneration: number,
+  rangeStart: number,
+  rangeEnd: number,
+  text: string,
+): string;
+declare function js_nui_get_composition_bounds_v1(nodeSlot: number, nodeGeneration: number): string;
 declare function js_nui_run(title: string): void;
+declare function js_nui_run_v1(title: string): string;
 
 /** Perry u64 params expect JS safe integers (Number), not BigInt. */
 function asU64(id: bigint | number): number {
@@ -91,6 +112,22 @@ export function clearPropertyV1Raw(
   property: number,
 ): string {
   return js_nui_clear_property_v1(nodeSlot, nodeGeneration, property);
+}
+
+export function setSemanticsV1Raw(
+  nodeSlot: number,
+  nodeGeneration: number,
+  semanticsJson: string,
+): string {
+  return js_nui_set_semantics_v1(nodeSlot, nodeGeneration, semanticsJson);
+}
+
+export function clearSemanticsV1Raw(nodeSlot: number, nodeGeneration: number): string {
+  return js_nui_clear_semantics_v1(nodeSlot, nodeGeneration);
+}
+
+export function registerButtonV1Raw(nodeSlot: number, nodeGeneration: number): string {
+  return js_nui_register_button_v1(nodeSlot, nodeGeneration);
 }
 
 export function addEventListenerV1Raw(
@@ -138,7 +175,7 @@ export function setNumber(node: bigint, property: PropertyId, value: number): vo
 }
 
 export function addClickListener(node: bigint, callback: () => void): void {
-  js_nui_add_click_listener(asU64(node), callback);
+  js_nui_add_click_listener(asU64(node), guardFrameworkCallback(callback));
 }
 
 /** Register a View+Text composite as a focusable single-line Input. */
@@ -147,11 +184,11 @@ export function registerInput(container: bigint, textNode: bigint, placeholder =
 }
 
 export function addChangeListener(node: bigint, callback: (value: string) => void): void {
-  js_nui_add_change_listener(asU64(node), callback);
+  js_nui_add_change_listener(asU64(node), guardFrameworkCallback(callback));
 }
 
 export function addSubmitListener(node: bigint, callback: (value: string) => void): void {
-  js_nui_add_submit_listener(asU64(node), callback);
+  js_nui_add_submit_listener(asU64(node), guardFrameworkCallback(callback));
 }
 
 /** Load a local PNG/JPEG (etc.) onto an Image node. */
@@ -163,7 +200,42 @@ export function commit(): void {
   js_nui_commit();
 }
 
+export function commitV1Raw(): string {
+  return js_nui_commit_v1();
+}
+
+export function resetSessionV1Raw(): string {
+  return js_nui_reset_session_v1();
+}
+
+export function getTextInputStateV1Raw(nodeSlot: number, nodeGeneration: number): string {
+  return js_nui_get_text_input_state_v1(nodeSlot, nodeGeneration);
+}
+
+export function replaceTextInputV1Raw(
+  nodeSlot: number,
+  nodeGeneration: number,
+  rangeStart: number,
+  rangeEnd: number,
+  text: string,
+): string {
+  return js_nui_replace_text_input_v1(nodeSlot, nodeGeneration, rangeStart, rangeEnd, text);
+}
+
+export function getCompositionBoundsV1Raw(nodeSlot: number, nodeGeneration: number): string {
+  return js_nui_get_composition_bounds_v1(nodeSlot, nodeGeneration);
+}
+
+export function runV1Raw(title: string): string {
+  return js_nui_run_v1(title);
+}
+
 /** Block on the native window event loop until the window closes. */
 export function run(title: string): void {
-  js_nui_run(title);
+  try {
+    js_nui_run(title);
+  } finally {
+    resetNodeLifecycle();
+    resetWindowTitle();
+  }
 }

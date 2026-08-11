@@ -79,13 +79,13 @@ struct WireAbiVersionOut {
     minor: u32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
 enum WireSeverity {
     ProtocolViolation,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WireError {
     domain: String,
@@ -104,6 +104,53 @@ struct WireError {
     cause: Option<Box<WireError>>,
 }
 
+impl From<&WireError> for common::NexaError {
+    fn from(error: &WireError) -> Self {
+        let context = error.context.as_ref().map(|context| {
+            context
+                .iter()
+                .map(|(key, value)| {
+                    let value = match value {
+                        serde_json::Value::String(value) => {
+                            common::ErrorContextValue::String(value.clone())
+                        }
+                        serde_json::Value::Bool(value) => common::ErrorContextValue::Bool(*value),
+                        serde_json::Value::Number(value) => value
+                            .as_u64()
+                            .and_then(|value| {
+                                u32::try_from(value)
+                                    .ok()
+                                    .map(common::ErrorContextValue::U32)
+                            })
+                            .unwrap_or_else(|| {
+                                common::ErrorContextValue::F64(value.as_f64().unwrap_or_default())
+                            }),
+                        value => common::ErrorContextValue::String(value.to_string()),
+                    };
+                    (key.clone(), value)
+                })
+                .collect()
+        });
+        Self {
+            domain: error.domain.clone(),
+            code: error.code,
+            name: error.name.clone(),
+            severity: common::ErrorSeverity::ProtocolViolation,
+            operation: error.operation.clone(),
+            retryable: error.retryable,
+            message: error.message.clone(),
+            runtime_version: error.runtime_version.clone(),
+            context,
+            platform_code: error.platform_code.clone(),
+            cause: error
+                .cause
+                .as_deref()
+                .map(common::NexaError::from)
+                .map(Box::new),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct WireSuccess<T> {
     ok: bool,
@@ -118,7 +165,7 @@ struct WireFailure {
 
 const TRANSPORT_SUPPORTED: WireFeatureBits = WireFeatureBits { low: 0b11, high: 0 };
 const UI_SUPPORTED: WireFeatureBits = WireFeatureBits {
-    low: 0b1100,
+    low: 0b1_1100,
     high: 0,
 };
 const SYSTEM_SUPPORTED: WireFeatureBits = WireFeatureBits {
@@ -225,7 +272,7 @@ fn negotiate(hello: WireHello) -> Result<WireAccepted, Box<WireError>> {
 /// Parsing failures are returned as protocol errors so no malformed Perry
 /// input can panic or cross the native boundary as an exception.
 #[must_use]
-pub fn handshake_json(input: &str) -> String {
+pub fn handshake_json_with_error(input: &str) -> (String, Option<common::NexaError>) {
     let result = serde_json::from_str::<WireHello>(input)
         .map_err(|error| {
             Box::new(protocol_error(
@@ -237,21 +284,35 @@ pub fn handshake_json(input: &str) -> String {
         .and_then(negotiate);
 
     match result {
-        Ok(value) => serde_json::to_string(&WireSuccess { ok: true, value })
-            .unwrap_or_else(|_| "{\"ok\":false,\"error\":{}}".to_owned()),
-        Err(error) => serde_json::to_string(&WireFailure {
-            ok: false,
-            error: *error,
-        })
-        .unwrap_or_else(|_| "{\"ok\":false,\"error\":{}}".to_owned()),
+        Ok(value) => (
+            serde_json::to_string(&WireSuccess { ok: true, value })
+                .unwrap_or_else(|_| "{\"ok\":false,\"error\":{}}".to_owned()),
+            None,
+        ),
+        Err(error) => {
+            let structured = common::NexaError::from(error.as_ref());
+            let json = serde_json::to_string(&WireFailure {
+                ok: false,
+                error: *error,
+            })
+            .unwrap_or_else(|_| "{\"ok\":false,\"error\":{}}".to_owned());
+            (json, Some(structured))
+        }
     }
+}
+
+/// Negotiate the current Host contract and return only its legacy JSON form.
+#[must_use]
+pub fn handshake_json(input: &str) -> String {
+    handshake_json_with_error(input).0
 }
 
 #[cfg(test)]
 mod tests {
+    use nui_protocol::common::ErrorSeverity;
     use serde_json::{json, Value};
 
-    use super::handshake_json;
+    use super::{handshake_json, handshake_json_with_error};
 
     fn hello(protocol_major: u32, required_system: u32, optional_transport: u32) -> String {
         json!({
@@ -285,7 +346,7 @@ mod tests {
         );
         assert_eq!(result["value"]["abi"], json!({"major": 0, "minor": 5}));
         assert_eq!(result["value"]["transport"], json!({"low": 1, "high": 0}));
-        assert_eq!(result["value"]["ui"], json!({"low": 12, "high": 0}));
+        assert_eq!(result["value"]["ui"], json!({"low": 28, "high": 0}));
         assert_eq!(result["value"]["system"], json!({"low": 0, "high": 0}));
     }
 
@@ -296,6 +357,19 @@ mod tests {
         assert_eq!(result["error"]["code"], 65_538);
         assert_eq!(result["error"]["name"], "UNSUPPORTED_FEATURE");
         assert_eq!(result["error"]["context"]["featureNamespace"], "system");
+    }
+
+    #[test]
+    fn returns_the_same_protocol_failure_as_a_structured_error() {
+        let (json, error) = handshake_json_with_error(&hello(2, 0, 0));
+        let envelope: Value = serde_json::from_str(&json).expect("handshake envelope");
+        let error = error.expect("structured protocol error");
+
+        assert_eq!(error.severity, ErrorSeverity::ProtocolViolation);
+        assert_eq!(error.operation, "handshake");
+        assert_eq!(error.code, envelope["error"]["code"]);
+        assert_eq!(error.name, envelope["error"]["name"]);
+        assert_eq!(error.message, envelope["error"]["message"]);
     }
 
     #[test]

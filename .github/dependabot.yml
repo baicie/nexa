@@ -9,6 +9,24 @@ updates:
       - dependencies
       - rust
 
+  - package-ecosystem: cargo
+    directory: /packages/nui-host
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+
+  - package-ecosystem: cargo
+    directory: /packages/system-host
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+
   - package-ecosystem: npm
     directory: /
     schedule:

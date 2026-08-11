@@ -18,6 +18,10 @@
   },
   "perry": {
     "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host",
       "@vue/runtime-core",
       "@vue/reactivity",
       "@vue/shared"
@@ -25,9 +29,14 @@
     "allow": {
       "nativeLibrary": [
         "@nexa/nui-host",
+        "@nexa/system-host",
         "@nexa/adapter-vue"
       ],
       "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host",
         "@vue/runtime-core",
         "@vue/reactivity",
         "@vue/shared"

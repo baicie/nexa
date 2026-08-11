@@ -1,7 +1,9 @@
 import {
   commit,
+  clearChildren,
   createHostRoot,
   getWindowTitle,
+  resetSession,
   resetWindowTitle,
   run,
   type NuiNode,
@@ -14,9 +16,31 @@ import { renderer } from "./renderer";
  * The app tree should include a `<window title="...">` root element.
  */
 export function render(code: () => unknown, mount?: NuiNode): void {
-  resetWindowTitle();
+  if (mount === undefined) resetSession();
+  else resetWindowTitle();
   const root = mount ?? createHostRoot();
   renderer.render(code as () => NuiNode, root);
   commit();
   run(getWindowTitle());
+}
+
+/** Mount without entering the native event loop and return an idempotent disposer. */
+export function mount(
+  code: () => unknown,
+  container = createHostRoot(),
+): { readonly container: NuiNode; dispose(): void } {
+  resetWindowTitle();
+  const dispose = renderer.render(code as () => NuiNode, container);
+  commit();
+  let disposed = false;
+  return {
+    container,
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      dispose();
+      clearChildren(container);
+      commit();
+    },
+  };
 }

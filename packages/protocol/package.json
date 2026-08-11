@@ -1,16 +1,22 @@
 {
   "name": "@nexa/protocol",
   "version": "0.1.0",
-  "private": true,
   "description": "Generated TypeScript contracts for Nexa UI hosts",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/protocol"
   },
   "files": [
-    "src"
-  ]
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

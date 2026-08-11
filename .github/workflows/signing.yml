@@ -1,0 +1,275 @@
+name: Signing policy
+
+# G6-06 reviewed-executor boundary. Platform jobs are deliberately hard-disabled
+# until credential owners, protected Environments, and activation are reviewed.
+on:
+  workflow_call:
+    inputs:
+      operation:
+        description: "Validate policy or prove that a signing request is blocked"
+        required: false
+        default: validate
+        type: string
+      unsigned_run_id:
+        description: "Successful reference-notes-package.yml run containing unsigned-signing-input"
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Validate policy or prove that a signing request is blocked"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - request-staging-sign
+          - request-release-sign
+      unsigned_run_id:
+        description: "Successful reference-notes-package.yml run containing unsigned-signing-input"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    name: Validate signing boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Validate static policy
+        run: node tools/signing-policy.mjs validate
+      - name: Validate reviewed executor binding
+        run: node tools/signing-executor.mjs validate
+      - name: Run signing boundary contracts
+        run: node --test tools/signing-credentials.test.mjs tools/signing-policy.test.mjs tools/signing-executor.test.mjs
+      - name: Enforce immutable Action references
+        run: node tools/action-sha-policy.mjs
+      - name: Reject unknown operation
+        if: >-
+          inputs.operation != 'validate' &&
+          inputs.operation != 'request-staging-sign' &&
+          inputs.operation != 'request-release-sign'
+        env:
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          printf 'Unknown signing operation: %s\n' "$OPERATION" >&2
+          exit 64
+      - name: Refuse staging signing until the executor and owners are ready
+        if: inputs.operation == 'request-staging-sign'
+        run: node tools/signing-policy.mjs readiness --phase staging
+      - name: Refuse release signing until staging evidence exists
+        if: inputs.operation == 'request-release-sign'
+        run: node tools/signing-policy.mjs readiness --phase release
+
+  macos-executor:
+    name: Guarded macOS signing executor
+    needs: policy
+    # Do not replace this hard gate with a secret, repository variable, or input.
+    if: ${{ false }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    environment:
+      name: technical-preview-signing-macos
+    permissions:
+      actions: read
+      contents: read
+    env:
+      NEXA_MACOS_CERTIFICATE_P12: ${{ secrets.NEXA_MACOS_CERTIFICATE_P12 }}
+      NEXA_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_MACOS_CERTIFICATE_PASSWORD }}
+      NEXA_APPLE_NOTARY_KEY_P8: ${{ secrets.NEXA_APPLE_NOTARY_KEY_P8 }}
+      NEXA_MACOS_SIGNING_IDENTITY: ${{ vars.NEXA_MACOS_SIGNING_IDENTITY }}
+      NEXA_APPLE_TEAM_ID: ${{ vars.NEXA_APPLE_TEAM_ID }}
+      NEXA_APPLE_NOTARY_KEY_ID: ${{ vars.NEXA_APPLE_NOTARY_KEY_ID }}
+      NEXA_APPLE_NOTARY_ISSUER_ID: ${{ vars.NEXA_APPLE_NOTARY_ISSUER_ID }}
+      UNSIGNED_RUN_ID: ${{ inputs.unsigned_run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Validate producer run identity and revision
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$UNSIGNED_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$UNSIGNED_RUN_ID" > "$RUNNER_TEMP/unsigned-run.json"
+          node tools/release-readiness-bundle.mjs validate-run \
+            --run "$RUNNER_TEMP/unsigned-run.json" \
+            --revision "$GITHUB_SHA" \
+            --workflow ".github/workflows/reference-notes-package.yml" \
+            --events workflow_dispatch,push \
+            --label "unsigned signing input producer run"
+      - name: Download revision-bound unsigned signing input
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-signing-input
+          path: ${{ runner.temp }}/nexa-signing-input
+          run-id: ${{ inputs.unsigned_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Verify G6-05 unsigned bundle before credential activation
+        run: node tools/unsigned-signing-input.mjs verify --bundle "$RUNNER_TEMP/nexa-signing-input" --revision "$GITHUB_SHA"
+      - name: Execute macOS signing and export immutable custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release/version.json').npmTrain")"
+          node tools/signing-executor.mjs execute \
+            --custody-root "$RUNNER_TEMP/nexa-signing-input" \
+            --artifact-name "nexa-notes-${version}-macos-arm64-unsigned.tar.gz" \
+            --platform darwin \
+            --descriptor "$RUNNER_TEMP/nexa-signing-input/g6-05/descriptor.json" \
+            --evidence "$RUNNER_TEMP/nexa-signing-input/g6-05/evidence" \
+            --revision "$GITHUB_SHA"
+          node tools/signing-transport.mjs export \
+            --custody-root "$RUNNER_TEMP/nexa-signing-input" \
+            --platform darwin \
+            --output "$RUNNER_TEMP/nexa-signed-darwin"
+      - name: Upload macOS signed custody
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-custody-darwin-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-signed-darwin
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Remove run-scoped macOS signing material
+        if: always()
+        shell: bash
+        run: |
+          find "$RUNNER_TEMP" -mindepth 1 -maxdepth 1 -type d -name 'nexa-signing-darwin-*' -exec rm -rf -- {} +
+          rm -rf "$RUNNER_TEMP/nexa-signing-input" "$RUNNER_TEMP/nexa-signed-darwin" "$RUNNER_TEMP/unsigned-run.json"
+
+  windows-executor:
+    name: Guarded Windows signing executor
+    needs: policy
+    # Do not replace this hard gate with a secret, repository variable, or input.
+    if: ${{ false }}
+    runs-on: windows-2022
+    timeout-minutes: 45
+    environment:
+      name: technical-preview-signing-windows
+    permissions:
+      actions: read
+      contents: read
+    env:
+      NEXA_WINDOWS_CERTIFICATE_PFX: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PFX }}
+      NEXA_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PASSWORD }}
+      NEXA_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.NEXA_WINDOWS_CERTIFICATE_THUMBPRINT }}
+      NEXA_WINDOWS_RFC3161_TIMESTAMP_URL: ${{ vars.NEXA_WINDOWS_RFC3161_TIMESTAMP_URL }}
+      UNSIGNED_RUN_ID: ${{ inputs.unsigned_run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Validate producer run identity and revision
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:UNSIGNED_RUN_ID -notmatch '^[1-9][0-9]*$') { throw 'unsigned_run_id must be a positive integer' }
+          gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:UNSIGNED_RUN_ID" | Out-File -Encoding utf8 (Join-Path $env:RUNNER_TEMP 'unsigned-run.json')
+          node tools/release-readiness-bundle.mjs validate-run --run (Join-Path $env:RUNNER_TEMP 'unsigned-run.json') --revision $env:GITHUB_SHA --workflow '.github/workflows/reference-notes-package.yml' --events workflow_dispatch,push --label 'unsigned signing input producer run'
+      - name: Download revision-bound unsigned signing input
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-signing-input
+          path: ${{ runner.temp }}/nexa-signing-input
+          run-id: ${{ inputs.unsigned_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Verify G6-05 unsigned bundle before credential activation
+        shell: pwsh
+        run: node tools/unsigned-signing-input.mjs verify --bundle (Join-Path $env:RUNNER_TEMP 'nexa-signing-input') --revision $env:GITHUB_SHA
+      - name: Execute Windows signing and export immutable custody
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP 'nexa-signing-input'
+          $version = (Get-Content -Raw release/version.json | ConvertFrom-Json).npmTrain
+          node tools/signing-executor.mjs execute --custody-root $bundle --artifact-name "nexa-notes-$version-windows-x64-unsigned.zip" --platform win32 --descriptor (Join-Path $bundle 'g6-05/descriptor.json') --evidence (Join-Path $bundle 'g6-05/evidence') --revision $env:GITHUB_SHA
+          node tools/signing-transport.mjs export --custody-root $bundle --platform win32 --output (Join-Path $env:RUNNER_TEMP 'nexa-signed-windows')
+      - name: Upload Windows signed custody
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-custody-windows-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-signed-windows
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Remove run-scoped Windows signing material
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath $env:RUNNER_TEMP -Directory -Filter 'nexa-signing-win32-*' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'nexa-signing-input'),(Join-Path $env:RUNNER_TEMP 'nexa-signed-windows'),(Join-Path $env:RUNNER_TEMP 'unsigned-run.json') -Recurse -Force -ErrorAction SilentlyContinue
+
+  assemble:
+    name: Verify and assemble signed transport
+    needs: [macos-executor, windows-executor]
+    if: ${{ always() && needs.macos-executor.result == 'success' && needs.windows-executor.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Download platform custody exports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: signed-custody-*-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-signed-platforms
+          merge-multiple: false
+      - name: Merge, bind, and verify both signed custody outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/signing-transport.mjs merge \
+            --darwin "$RUNNER_TEMP/nexa-signed-platforms/signed-custody-darwin-${GITHUB_SHA}" \
+            --windows "$RUNNER_TEMP/nexa-signed-platforms/signed-custody-windows-${GITHUB_SHA}" \
+            --output "$RUNNER_TEMP/nexa-signed-release"
+          node tools/publish-release.mjs build-signed-manifest \
+            --signed-artifacts "$RUNNER_TEMP/nexa-signed-release" \
+            --revision "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID"
+          node tools/publish-release.mjs verify-signed \
+            --signed-artifacts "$RUNNER_TEMP/nexa-signed-release" \
+            --revision "$GITHUB_SHA" \
+            --signed-run-id "$GITHUB_RUN_ID"
+      - name: Upload signed release artifacts only for guarded release request
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'request-release-sign'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-release-artifacts
+          path: ${{ runner.temp }}/nexa-signed-release
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Remove merged signed transport
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/nexa-signed-platforms" "$RUNNER_TEMP/nexa-signed-release"

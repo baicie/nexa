@@ -6,12 +6,12 @@
     "counts": {
       "features": 3,
       "types": 0,
-      "commands": 5,
-      "permissions": 2,
-      "taskKinds": 2,
+      "commands": 10,
+      "permissions": 6,
+      "taskKinds": 6,
       "resourceKinds": 6,
-      "ffiFunctions": 7,
-      "errors": 10
+      "ffiFunctions": 12,
+      "errors": 11
     },
     "featureBits": {
       "tasks": 2,
@@ -24,15 +24,28 @@
         "ClipboardWriteText": 2,
         "CancelTask": 3,
         "CloseResource": 4,
-        "ResetSession": 5
+        "ResetSession": 5,
+        "ReadTextFile": 6,
+        "WriteTextFile": 7,
+        "AwaitTask": 8,
+        "OpenFileDialog": 9,
+        "SaveFileDialog": 10
       },
       "permissions": {
         "ClipboardRead": 1,
-        "ClipboardWrite": 2
+        "ClipboardWrite": 2,
+        "FsRead": 3,
+        "FsWrite": 4,
+        "DialogOpen": 5,
+        "DialogSave": 6
       },
       "taskKinds": {
         "ClipboardReadText": 1,
-        "ClipboardWriteText": 2
+        "ClipboardWriteText": 2,
+        "ReadTextFile": 3,
+        "WriteTextFile": 4,
+        "OpenFileDialog": 5,
+        "SaveFileDialog": 6
       },
       "resourceKinds": {
         "Window": 1,
@@ -45,7 +58,11 @@
     },
     "taskResultTypes": {
       "ClipboardReadText": "string",
-      "ClipboardWriteText": "void"
+      "ClipboardWriteText": "void",
+      "ReadTextFile": "string",
+      "WriteTextFile": "void",
+      "OpenFileDialog": "string",
+      "SaveFileDialog": "string"
     },
     "legacyFfiAbiIndexes": {
       "js_nexa_clipboard_read_text": 0,
@@ -56,7 +73,12 @@
       "js_nexa_clipboard_write_text_v1": 3,
       "js_nexa_cancel_task_v1": 4,
       "js_nexa_close_resource_v1": 5,
-      "js_nexa_reset_session_v1": 6
+      "js_nexa_reset_session_v1": 6,
+      "js_nexa_read_text_file_v1": 7,
+      "js_nexa_write_text_file_v1": 8,
+      "js_nexa_await_task_v1": 9,
+      "js_nexa_open_file_dialog_v1": 10,
+      "js_nexa_save_file_dialog_v1": 11
     },
     "errorCodes": {
       "INVALID_ARGUMENT": 33554433,
@@ -68,7 +90,8 @@
       "PERMISSION_DENIED": 33554439,
       "CANCELLED": 33554440,
       "PLATFORM_FAILURE": 33554441,
-      "INTERNAL_FAILURE": 33554442
+      "INTERNAL_FAILURE": 33554442,
+      "INVALID_DATA": 33554443
     }
   }
 }

@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "release": {
+    "channel": "technical-preview",
+    "publishableArtifactClass": "signed",
+    "requiresBothPlatforms": true,
+    "stagingEvidence": {
+      "status": "pending",
+      "record": null,
+      "requiredChecks": [
+        "fresh-download",
+        "checksum-and-provenance",
+        "native-launch",
+        "platform-signature",
+        "notarization-or-authenticode"
+      ]
+    }
+  },
+  "execution": {
+    "state": "disabled",
+    "implementation": "reviewed-executor-installed",
+    "credentialActivation": "disabled",
+    "workflow": ".github/workflows/signing.yml",
+    "allowedOperations": ["validate"],
+    "reason": "Credential owners, protected environments, and credential activation have not been assigned",
+    "reviewedExecutor": {
+      "entrypoint": "tools/signing-executor.mjs",
+      "version": "1.2.0",
+      "sha256": "e5575faec75e3168957c16a6b08dee3d7eaf06072a8ab1eb134e54b82af953a3",
+      "closure": {
+        "files": [
+          "release/artifact-integrity.json",
+          "tools/archive-utils.mjs",
+          "tools/release-dependency-graph.mjs",
+          "tools/release-evidence.mjs",
+          "tools/signing-credentials.mjs",
+          "tools/signing-executor.mjs",
+          "tools/signing-policy.mjs"
+        ],
+        "sha256": "88e37e0561a0eba36504235a814efaa264f904497be26acdb89b8673c23a520c"
+      },
+      "platforms": {
+        "darwin": {
+          "runner": "macos-15",
+          "commands": [
+            { "name": "codesign", "path": "/usr/bin/codesign" },
+            { "name": "ditto", "path": "/usr/bin/ditto" },
+            { "name": "notarytool", "path": "/usr/bin/xcrun" },
+            { "name": "stapler", "path": "/usr/bin/xcrun" },
+            { "name": "spctl", "path": "/usr/sbin/spctl" }
+          ]
+        },
+        "win32": {
+          "runner": "windows-2022",
+          "commands": [
+            {
+              "name": "signtool",
+              "path": "C:/Program Files (x86)/Windows Kits/10/bin/x64/signtool.exe"
+            },
+            {
+              "name": "powershell",
+              "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "credentials": {
+    "darwin": {
+      "environment": "technical-preview-signing-macos",
+      "owner": {
+        "status": "unassigned",
+        "principal": "UNASSIGNED_MACOS_SIGNING_OWNER"
+      },
+      "requiredReviewers": true,
+      "secretReferences": [
+        "NEXA_MACOS_CERTIFICATE_P12",
+        "NEXA_MACOS_CERTIFICATE_PASSWORD",
+        "NEXA_APPLE_NOTARY_KEY_P8"
+      ],
+      "variableReferences": [
+        "NEXA_MACOS_SIGNING_IDENTITY",
+        "NEXA_APPLE_TEAM_ID",
+        "NEXA_APPLE_NOTARY_KEY_ID",
+        "NEXA_APPLE_NOTARY_ISSUER_ID"
+      ],
+      "materialPolicy": {
+        "ephemeralImport": true,
+        "hostedEphemeralRunner": true,
+        "printSecretValues": false,
+        "removeOnEveryExit": true,
+        "cleanupCondition": "always()",
+        "persistentExport": false
+      }
+    },
+    "win32": {
+      "environment": "technical-preview-signing-windows",
+      "owner": {
+        "status": "unassigned",
+        "principal": "UNASSIGNED_WINDOWS_SIGNING_OWNER"
+      },
+      "requiredReviewers": true,
+      "secretReferences": ["NEXA_WINDOWS_CERTIFICATE_PFX", "NEXA_WINDOWS_CERTIFICATE_PASSWORD"],
+      "variableReferences": [
+        "NEXA_WINDOWS_CERTIFICATE_THUMBPRINT",
+        "NEXA_WINDOWS_RFC3161_TIMESTAMP_URL"
+      ],
+      "materialPolicy": {
+        "ephemeralImport": true,
+        "hostedEphemeralRunner": true,
+        "printSecretValues": false,
+        "removeOnEveryExit": true,
+        "cleanupCondition": "always()",
+        "persistentExport": false
+      }
+    }
+  },
+  "artifacts": {
+    "unsigned": {
+      "root": "release-work/unsigned",
+      "suffix": "-unsigned",
+      "publishable": false,
+      "immutable": true
+    },
+    "signed": {
+      "root": "release-work/signed",
+      "suffix": "-signed",
+      "publishable": true,
+      "immutable": true,
+      "derivedFrom": "unsigned"
+    },
+    "quarantine": {
+      "root": "release-work/quarantine",
+      "suffix": "-quarantine",
+      "publishable": false,
+      "immutable": true
+    },
+    "naming": {
+      "darwin": "{app}-{version}-macos-{arch}-{class}.tar.gz",
+      "win32": "{app}-{version}-windows-{arch}-{class}.zip"
+    },
+    "rules": {
+      "copyUnsignedBeforeMutation": true,
+      "allowInPlaceMutation": false,
+      "allowCrossClassOverwrite": false,
+      "regenerateIntegrityEvidence": true
+    }
+  },
+  "platforms": {
+    "darwin": {
+      "runner": "macos-15",
+      "signature": {
+        "identityClass": "Developer ID Application",
+        "hardenedRuntime": true,
+        "secureTimestamp": "required",
+        "componentOrder": "inside-out",
+        "verification": ["codesign-strict"]
+      },
+      "notarization": {
+        "tool": "notarytool",
+        "waitForCompletion": true,
+        "acceptedStatus": "Accepted",
+        "staple": true,
+        "verification": ["stapler-validate", "gatekeeper-assessment"]
+      },
+      "evidence": [
+        "codesign-details.txt",
+        "notarytool-submission.json",
+        "notarytool-log.json",
+        "stapler-validate.txt",
+        "spctl-assessment.txt",
+        "SHA256SUMS",
+        "sbom.cdx.json",
+        "provenance.intoto.jsonl"
+      ]
+    },
+    "win32": {
+      "runner": "windows-2022",
+      "signature": {
+        "format": "Authenticode",
+        "fileDigest": "SHA256",
+        "timestampProtocol": "RFC3161",
+        "timestampDigest": "SHA256",
+        "verification": [
+          "signtool-default-policy-all",
+          "authenticode-status-valid",
+          "timestamp-present"
+        ]
+      },
+      "evidence": [
+        "signtool-verify.txt",
+        "authenticode-status.json",
+        "certificate-chain.txt",
+        "SHA256SUMS",
+        "sbom.cdx.json",
+        "provenance.intoto.jsonl"
+      ]
+    }
+  },
+  "failurePolicy": {
+    "failClosed": true,
+    "allowUnsignedFallback": false,
+    "publishOnPartialSuccess": false,
+    "quarantineOnFailure": true,
+    "retainUnsignedInput": true,
+    "removeCredentialMaterialOnEveryExit": true
+  },
+  "rollback": {
+    "strategy": "withdraw-and-rebuild",
+    "quarantineBeforePublication": true,
+    "allowOverwritePublishedVersion": false,
+    "keepLastKnownGoodCurrent": true,
+    "requireNewVersionAfterPublication": true,
+    "revokeOnlyOnCompromise": true,
+    "incidentOwner": {
+      "status": "unassigned",
+      "principal": "UNASSIGNED_RELEASE_INCIDENT_OWNER"
+    }
+  }
+}

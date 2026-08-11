@@ -7,6 +7,7 @@ export function applyElementDefaults(node: NuiNode): void {
     case "window":
       setNumber(node.id, PropertyId.BackgroundColor, rgba(0xf4, 0xf6, 0xf8));
       setNumber(node.id, PropertyId.FlexDirection, 0);
+      setNumber(node.id, PropertyId.AlignItems, 3);
       break;
     case "column":
       setNumber(node.id, PropertyId.FlexDirection, 0);

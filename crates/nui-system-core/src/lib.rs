@@ -1,15 +1,41 @@
 //! Nexa System Host core (ADR-005).
 //!
-//! Independent of Perry FFI, Skia, and UI adapters. Desktop Slice 12 ships
-//! clipboard text read/write via `arboard`.
+//! Independent of Perry FFI, Skia, and UI adapters. Desktop backends provide
+//! clipboard and filesystem text operations.
 
+mod app_manifest;
 mod clipboard;
+mod dialog;
+mod error;
+mod filesystem;
 mod permission;
 
-pub use clipboard::{clipboard_read_text, clipboard_write_text, ClipboardError};
+pub use app_manifest::{
+    load_development_manifest, load_release_manifest, AppManifest, AppManifestError,
+    ProtocolRequirement, APP_MANIFEST_SCHEMA_URI, APP_MANIFEST_SCHEMA_VERSION,
+    MAX_APP_MANIFEST_BYTES,
+};
+pub use clipboard::{
+    clipboard_read_text, clipboard_read_text_with, clipboard_write_text, clipboard_write_text_with,
+    ClipboardBackend, ClipboardError, DesktopClipboard,
+};
+pub use dialog::{DialogBackend, DialogError, DialogFilter, DialogRequest};
+pub use error::{
+    cancelled, internal_failure, invalid_argument, invalid_data, invalid_kind, invalid_state,
+    not_found, permission_denied, platform_failure, stale_handle, wrong_owner, CommandResult,
+    PermissionSource,
+};
+pub use filesystem::{
+    read_text_file, read_text_file_with, write_text_file, write_text_file_uncancelled,
+    write_text_file_with, AtomicWriteFile, FileSystemBackend, FileSystemError, FileSystemOperation,
+    NativeFileSystem,
+};
 pub use nui_protocol as protocol;
 pub use nui_protocol::system::{CommandId, PermissionId};
-pub use permission::{PermissionDenied, PermissionSet};
+pub use permission::{
+    active_permissions, permission_from_name, permission_name, required_permissions,
+    PermissionDenied, PermissionSet,
+};
 
 #[must_use]
 pub fn version() -> &'static str {

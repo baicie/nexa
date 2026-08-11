@@ -1,8 +1,9 @@
-//! Temporary stubs for Perry prebuilt-stdlib optional HTTP extension symbols.
+//! Link compatibility for Perry 0.5.1220's prebuilt full standard library.
 //!
-//! When linking a nativeLibrary against Perry's prebuilt full stdlib, the linker
-//! expects `perry-ext-http` symbols. Until we vendor that extension or rebuild
-//! stdlib from `PERRY_WORKSPACE_ROOT`, provide no-op stubs so Slice 2 can link.
+//! Perry's prebuilt archive references its optional HTTP extension even when an
+//! application does not compile the HTTP package. Nexa UI does not expose that
+//! extension in its package allowlist, so these symbols only satisfy the fixed
+//! toolchain's unconditional linker references. They are not a Nexa HTTP API.
 
 #![allow(clippy::missing_const_for_fn)]
 
@@ -91,4 +92,19 @@ pub extern "C" fn js_http_is_incoming_message(_handle: i64) -> i32 {
 #[no_mangle]
 pub extern "C" fn js_http_response_trailers(_handle: i64) -> f64 {
     0.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_http_extension_is_inactive() {
+        assert_eq!(js_ext_http_agent_is_handle(1), 0);
+        assert_eq!(js_ext_http_client_incoming_message_is_handle(1), 0);
+        assert_eq!(js_ext_http_client_request_is_handle(1), 0);
+        assert_eq!(js_ext_http_client_inflight(), 0);
+        assert_eq!(js_http_has_pending(), 0);
+        assert_eq!(js_http_is_incoming_message(1), 0);
+    }
 }

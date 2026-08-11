@@ -14,10 +14,23 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
     "allow": {
       "nativeLibrary": [
         "@nexa/nui-host",
+        "@nexa/system-host",
         "@nexa/ui"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
       ]
     }
   }

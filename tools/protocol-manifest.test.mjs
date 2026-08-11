@@ -118,6 +118,67 @@ for (const [namespace, contract] of Object.entries(contracts)) {
   });
 }
 
+test("UI PropertyId appends Disabled at id 18", () => {
+  assert.equal(toMap(contracts.ui.manifest.properties).Disabled, 18);
+});
+
+test("UI semantics expose typed payloads and append ClearSemantics/RegisterButton", () => {
+  const types = new Map(contracts.ui.manifest.types.map((type) => [type.name, type]));
+  const semantics = types.get("Semantics");
+  const semanticRole = types.get("SemanticRole");
+  const semanticAction = types.get("SemanticAction");
+  const semanticActions = types.get("SemanticActions");
+
+  assert.equal(semanticRole.kind, "enum");
+  assert.deepEqual(semanticRole.values, [
+    "None",
+    "Button",
+    "Text",
+    "Image",
+    "TextInput",
+    "Scroll",
+    "Header",
+  ]);
+  assert.equal(semanticAction.kind, "enum");
+  assert.deepEqual(semanticAction.values, ["Invoke", "Focus", "SetValue"]);
+  assert.equal(semanticActions.kind, "list");
+  assert.equal(semanticActions.elementType, "ui.SemanticAction");
+  assert.deepEqual(Object.fromEntries(semantics.fields.map((field) => [field.name, field.type])), {
+    role: "ui.SemanticRole",
+    label: "string",
+    value: "string",
+    description: "string",
+    disabled: "bool",
+    checked: "bool",
+    actions: "ui.SemanticActions",
+  });
+  assert.equal(
+    semantics.fields.every((field) => field.optional),
+    true,
+  );
+
+  const commandIds = toMap(contracts.ui.manifest.commands);
+  assert.equal(commandIds.SetSemantics, 14);
+  assert.equal(commandIds.ClearSemantics, 19);
+  assert.equal(commandIds.RegisterButton, 20);
+  const commands = new Map(
+    contracts.ui.manifest.commands.map((command) => [command.name, command]),
+  );
+  for (const name of ["SetSemantics", "ClearSemantics", "RegisterButton"]) {
+    assert.deepEqual(commands.get(name).requiresFeatures, [
+      "transport.handle_ref",
+      "transport.structured_errors",
+      "ui.mutation_transactions",
+      "ui.semantics",
+    ]);
+  }
+
+  const ffiAbiIndexes = toMap(contracts.ui.manifest.ffiFunctions, "abiIndex");
+  assert.equal(ffiAbiIndexes.js_nui_set_semantics_v1, 27);
+  assert.equal(ffiAbiIndexes.js_nui_clear_semantics_v1, 32);
+  assert.equal(ffiAbiIndexes.js_nui_register_button_v1, 33);
+});
+
 test("namespace manifests do not duplicate common-owned protocol state", () => {
   assert.equal(existsSync(new URL("../protocol/common.json", import.meta.url)), true);
   assert.equal(existsSync(new URL("../protocol/schema/common.schema.json", import.meta.url)), true);
@@ -233,14 +294,110 @@ test("system task and resource metadata form a consistent command contract", () 
   );
 });
 
-test("ABI slots are unique, contiguous, and v1 functions use guarded string results", () => {
+test("system text-file tasks have stable permissions, IDs, and one async settlement FFI", () => {
+  const manifest = contracts.system.manifest;
+  const commands = new Map(manifest.commands.map((command) => [command.name, command]));
+  const ffiFunctions = new Map(manifest.ffiFunctions.map((ffi) => [ffi.name, ffi]));
+
+  assert.deepEqual(toMap(manifest.permissions), {
+    ClipboardRead: 1,
+    ClipboardWrite: 2,
+    FsRead: 3,
+    FsWrite: 4,
+    DialogOpen: 5,
+    DialogSave: 6,
+  });
+  assert.deepEqual(toMap(manifest.taskKinds), {
+    ClipboardReadText: 1,
+    ClipboardWriteText: 2,
+    ReadTextFile: 3,
+    WriteTextFile: 4,
+    OpenFileDialog: 5,
+    SaveFileDialog: 6,
+  });
+
+  const read = commands.get("ReadTextFile");
+  assert.equal(read.id, 6);
+  assert.deepEqual(read.params, [{ name: "path", type: "string", optional: false }]);
+  assert.equal(read.returns.handleKind, "common.Task");
+  assert.deepEqual(read.requiredPermissions, ["system.FsRead"]);
+  assert.equal(read.createsTaskKind, "system.ReadTextFile");
+
+  const write = commands.get("WriteTextFile");
+  assert.equal(write.id, 7);
+  assert.deepEqual(write.params, [
+    { name: "path", type: "string", optional: false },
+    { name: "text", type: "string", optional: false },
+  ]);
+  assert.equal(write.returns.handleKind, "common.Task");
+  assert.deepEqual(write.requiredPermissions, ["system.FsWrite"]);
+  assert.equal(write.createsTaskKind, "system.WriteTextFile");
+
+  const awaitTask = commands.get("AwaitTask");
+  assert.equal(awaitTask.id, 8);
+  assert.deepEqual(awaitTask.params, [
+    {
+      name: "task",
+      type: "common.HandleRef",
+      handleKind: "common.Task",
+      optional: false,
+    },
+  ]);
+  assert.equal(awaitTask.returns.type, "string");
+  assert.deepEqual(awaitTask.requiredPermissions, []);
+  assert.equal(awaitTask.createsTaskKind, null);
+
+  assert.deepEqual(ffiFunctions.get("js_nexa_await_task_v1"), {
+    abiIndex: 9,
+    library: "system",
+    name: "js_nexa_await_task_v1",
+    command: "system.AwaitTask",
+    params: [
+      { name: "taskSlot", type: "u32", mapping: "task.slot" },
+      { name: "taskGeneration", type: "u32", mapping: "task.generation" },
+    ],
+    fixedMappings: [],
+    returns: "promise<string>",
+    resultCodec: "nexa_result_json_v1",
+    status: "v1",
+    lifecycle: {
+      status: "active",
+      introduced: { major: 1, minor: 0 },
+      deprecated: null,
+      removed: null,
+      replacement: null,
+    },
+  });
+
+  const synchronousAwait = structuredClone(manifest);
+  synchronousAwait.ffiFunctions.find((ffi) => ffi.command === "system.AwaitTask").returns =
+    "string";
+  assertSemanticRejects(
+    synchronousAwait,
+    contracts.system,
+    /js_nexa_await_task_v1 v1 return/,
+    "AwaitTask synchronous FFI",
+  );
+
+  const asynchronousStart = structuredClone(manifest);
+  asynchronousStart.ffiFunctions.find((ffi) => ffi.command === "system.ReadTextFile").returns =
+    "promise<string>";
+  assertSemanticRejects(
+    asynchronousStart,
+    contracts.system,
+    /js_nexa_read_text_file_v1 v1 return/,
+    "ReadTextFile async start FFI",
+  );
+});
+
+test("ABI slots are unique, contiguous, and v1 functions use guarded result strings", () => {
   const uiAbi = [
     ...common.manifest.ffiFunctions.filter((ffi) => ffi.library === "ui"),
     ...contracts.ui.manifest.ffiFunctions,
   ];
   assertAbiLayout(
     uiAbi,
-    Array.from({ length: 29 }, (_, index) => index),
+    Array.from({ length: 34 }, (_, index) => index),
     "UI",
   );
   assertAbiLayout(
@@ -248,7 +405,7 @@ test("ABI slots are unique, contiguous, and v1 functions use guarded string resu
       ...common.manifest.ffiFunctions.filter((ffi) => ffi.library === "system"),
       ...contracts.system.manifest.ffiFunctions,
     ],
-    Array.from({ length: 7 }, (_, index) => index),
+    Array.from({ length: 12 }, (_, index) => index),
     "System",
   );
 
@@ -257,7 +414,8 @@ test("ABI slots are unique, contiguous, and v1 functions use guarded string resu
     ...contracts.ui.manifest.ffiFunctions,
     ...contracts.system.manifest.ffiFunctions,
   ].filter((entry) => entry.status === "v1")) {
-    assert.equal(ffi.returns, "string", ffi.name + " v1 return");
+    const expectedReturn = ffi.command === "system.AwaitTask" ? "promise<string>" : "string";
+    assert.equal(ffi.returns, expectedReturn, ffi.name + " v1 return");
     assert.equal(ffi.resultCodec, "nexa_result_json_v1", ffi.name + " v1 codec");
   }
 });
@@ -419,6 +577,18 @@ test("semantic guards reject dangling qualified references and FFI mapping roots
       /unknown reference/,
       namespace + " dangling type",
     );
+
+    if (namespace === "ui") {
+      const danglingListElement = structuredClone(contract.manifest);
+      danglingListElement.types.find((type) => type.name === "SemanticActions").elementType =
+        "ui.MissingAction";
+      assertSemanticRejects(
+        danglingListElement,
+        contract,
+        /unknown reference/,
+        "ui dangling list element type",
+      );
+    }
 
     const danglingHandleKind = structuredClone(contract.manifest);
     const handleCommand = danglingHandleKind.commands.find((command) =>

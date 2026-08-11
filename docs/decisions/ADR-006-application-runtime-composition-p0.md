@@ -1,6 +1,6 @@
 # ADR-006：Application Runtime、平台组合层与 P0 契约预留
 
-- 状态：Proposed（契约已归档；实现按垂直切片推进）
+- 状态：Accepted（Desktop Notes MVP Application Runtime 合同）
 - 日期：2026-08-04
 - 依赖：ADR-004（NUI Host）、ADR-005（System Host）
 - 项目：Nexa UI / NUI
@@ -167,7 +167,7 @@ task.cancel();
 const text = await task.result; // 或 CANCELLED
 ```
 
-不得依赖 TS GC 关闭系统资源。Perry GC + 主线程回调 + Tokio worker 要求 Bridge **显式**管理跨 FFI 引用与 GC root（已有 click closure scanner；Task/Subscription 同模式扩展）。
+不得依赖 TS GC 关闭系统资源。Perry GC + 主线程回调 + 后台 worker 要求 Bridge **显式**管理跨 FFI 引用与 GC root（已有 click closure scanner；Task/Subscription 同模式扩展）。MVP 的 System API 是阻塞 OS 调用，G4-02 先采用固定大小标准线程池与 bounded queue；只有后续出现需要统一 async I/O reactor 的已验证场景时才引入 Tokio 或同类 runtime。
 
 ### 3.5 Application Scheduler 与主线程规则
 

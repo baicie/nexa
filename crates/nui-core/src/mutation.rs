@@ -4,7 +4,7 @@
 //! active Arena. `Created` references make create-then-insert sequences
 //! expressible without exposing provisional native handles.
 
-use crate::{Arena, NodeId, NodeType, Style, TreeMutationError};
+use crate::{Arena, NodeId, NodeType, PropertyId, ResourceId, Semantics, Style, TreeMutationError};
 
 /// A node reference inside a batch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,6 +31,15 @@ pub enum MutationCommand {
         node: NodeRef,
         text: String,
     },
+    SetProperty {
+        node: NodeRef,
+        property: PropertyId,
+        value: f64,
+    },
+    ClearProperty {
+        node: NodeRef,
+        property: PropertyId,
+    },
     SetStyle {
         node: NodeRef,
         style: Style,
@@ -38,6 +47,20 @@ pub enum MutationCommand {
     SetClickable {
         node: NodeRef,
         clickable: bool,
+    },
+    RegisterButton {
+        node: NodeRef,
+    },
+    SetImageResource {
+        node: NodeRef,
+        resource_id: Option<ResourceId>,
+    },
+    SetSemantics {
+        node: NodeRef,
+        semantics: Semantics,
+    },
+    ClearSemantics {
+        node: NodeRef,
     },
 }
 
@@ -66,7 +89,7 @@ impl DirtyFlags {
         self.0 & other.0 == other.0
     }
 
-    const fn union(self, other: Self) -> Self {
+    pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 }
@@ -190,6 +213,12 @@ pub struct MutationReceipt {
 pub enum MutationError {
     OwnerMismatch { expected: u64, actual: u64 },
     InvalidCreatedRef(u32),
+    InvalidNodeType(u32),
+    InvalidButtonNode { node: NodeId, actual: NodeType },
+    InvalidPropertyId(u32),
+    InvalidPropertyValue(PropertyId),
+    InvalidSemantics,
+    SequenceExhausted { sequence: u64 },
     StaleNode(NodeId),
     Tree(TreeMutationError),
     PlanInvalidated,
@@ -239,6 +268,27 @@ fn apply_command(
             let node = resolve(arena, created, *node)?;
             arena.set_text(node, text.clone());
         }
+        MutationCommand::SetProperty {
+            node,
+            property,
+            value,
+        } => {
+            if !value.is_finite() {
+                return Err(MutationError::InvalidPropertyValue(*property));
+            }
+            let node = resolve(arena, created, *node)?;
+            let Some(target) = arena.get_mut(node) else {
+                return Err(MutationError::StaleNode(node));
+            };
+            target.style.set_property(*property, *value);
+        }
+        MutationCommand::ClearProperty { node, property } => {
+            let node = resolve(arena, created, *node)?;
+            let Some(target) = arena.get_mut(node) else {
+                return Err(MutationError::StaleNode(node));
+            };
+            target.style.clear_property(*property);
+        }
         MutationCommand::SetStyle { node, style } => {
             let node = resolve(arena, created, *node)?;
             arena.set_style(node, style.clone());
@@ -246,6 +296,39 @@ fn apply_command(
         MutationCommand::SetClickable { node, clickable } => {
             let node = resolve(arena, created, *node)?;
             arena.set_clickable(node, *clickable);
+        }
+        MutationCommand::RegisterButton { node } => {
+            let node = resolve(arena, created, *node)?;
+            let Some(target) = arena.get_mut(node) else {
+                return Err(MutationError::StaleNode(node));
+            };
+            if target.node_type != NodeType::View {
+                return Err(MutationError::InvalidButtonNode {
+                    node,
+                    actual: target.node_type,
+                });
+            }
+            target.is_button = true;
+        }
+        MutationCommand::SetImageResource { node, resource_id } => {
+            let node = resolve(arena, created, *node)?;
+            if !arena.set_image_resource(node, *resource_id) {
+                return Err(MutationError::StaleNode(node));
+            }
+        }
+        MutationCommand::SetSemantics { node, semantics } => {
+            let node = resolve(arena, created, *node)?;
+            let Some(target) = arena.get_mut(node) else {
+                return Err(MutationError::StaleNode(node));
+            };
+            target.semantics = Some(semantics.clone());
+        }
+        MutationCommand::ClearSemantics { node } => {
+            let node = resolve(arena, created, *node)?;
+            let Some(target) = arena.get_mut(node) else {
+                return Err(MutationError::StaleNode(node));
+            };
+            target.semantics = None;
         }
     }
     Ok(())
@@ -262,15 +345,30 @@ const fn command_dirty_flags(command: &MutationCommand) -> DirtyFlags {
         MutationCommand::SetText { .. } => DirtyFlags::LAYOUT
             .union(DirtyFlags::PAINT)
             .union(DirtyFlags::SEMANTICS),
+        MutationCommand::SetProperty {
+            property: PropertyId::Disabled,
+            ..
+        }
+        | MutationCommand::ClearProperty {
+            property: PropertyId::Disabled,
+            ..
+        } => DirtyFlags::PAINT.union(DirtyFlags::SEMANTICS),
+        MutationCommand::SetProperty { .. } | MutationCommand::ClearProperty { .. } => {
+            DirtyFlags::LAYOUT.union(DirtyFlags::PAINT)
+        }
         MutationCommand::SetStyle { .. } => DirtyFlags::LAYOUT.union(DirtyFlags::PAINT),
-        MutationCommand::SetClickable { .. } => DirtyFlags::SEMANTICS,
+        MutationCommand::SetImageResource { .. } => DirtyFlags::PAINT,
+        MutationCommand::SetClickable { .. }
+        | MutationCommand::RegisterButton { .. }
+        | MutationCommand::SetSemantics { .. }
+        | MutationCommand::ClearSemantics { .. } => DirtyFlags::SEMANTICS,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{DirtyFlags, MutationBatch, MutationCommand, MutationError, NodeRef};
-    use crate::{Arena, NodeType, Style};
+    use crate::{Arena, NodeType, PropertyId, SemanticRole, Semantics, Style};
 
     #[test]
     fn validate_then_apply_creates_and_inserts_atomically() {
@@ -355,5 +453,148 @@ mod tests {
             batch.validate(&arena),
             Err(MutationError::InvalidCreatedRef(0))
         );
+    }
+
+    #[test]
+    fn property_commands_share_style_coercion_and_defaults() {
+        let mut arena = Arena::new();
+        let node = arena.create(NodeType::View);
+        let mut batch = MutationBatch::new(11, arena.owner());
+        batch.push(MutationCommand::SetProperty {
+            node: NodeRef::Existing(node),
+            property: PropertyId::Opacity,
+            value: 0.25,
+        });
+        batch.push(MutationCommand::ClearProperty {
+            node: NodeRef::Existing(node),
+            property: PropertyId::Opacity,
+        });
+        let receipt = batch.validate(&arena).unwrap().apply(&mut arena).unwrap();
+        assert_eq!(arena.get(node).unwrap().style.opacity, 1.0);
+        assert!(receipt.dirty.contains(DirtyFlags::PAINT));
+        assert!(receipt.dirty.contains(DirtyFlags::LAYOUT));
+    }
+
+    #[test]
+    fn disabled_property_changes_paint_and_semantics_without_relayout() {
+        let mut arena = Arena::new();
+        let node = arena.create(NodeType::View);
+        let mut batch = MutationBatch::new(12, arena.owner());
+        batch.push(MutationCommand::SetProperty {
+            node: NodeRef::Existing(node),
+            property: PropertyId::Disabled,
+            value: 1.0,
+        });
+
+        let receipt = batch.validate(&arena).unwrap().apply(&mut arena).unwrap();
+
+        assert!(receipt.dirty.contains(DirtyFlags::PAINT));
+        assert!(receipt.dirty.contains(DirtyFlags::SEMANTICS));
+        assert!(!receipt.dirty.contains(DirtyFlags::LAYOUT));
+    }
+
+    #[test]
+    fn register_button_is_atomic_and_only_marks_semantics_dirty() {
+        let mut arena = Arena::new();
+        let node = arena.create(NodeType::View);
+        let mut batch = MutationBatch::new(13, arena.owner());
+        batch.push(MutationCommand::RegisterButton {
+            node: NodeRef::Existing(node),
+        });
+
+        let validated = batch.validate(&arena).expect("valid button registration");
+        assert!(!arena.get(node).expect("node").is_button);
+
+        let receipt = validated.apply(&mut arena).expect("register button");
+
+        assert!(arena.get(node).expect("node").is_button);
+        assert_eq!(receipt.dirty, DirtyFlags::SEMANTICS);
+    }
+
+    #[test]
+    fn register_button_rejects_non_view_nodes() {
+        let mut arena = Arena::new();
+        let text = arena.create(NodeType::Text);
+        let mut batch = MutationBatch::new(14, arena.owner());
+        batch.push(MutationCommand::RegisterButton {
+            node: NodeRef::Existing(text),
+        });
+
+        assert_eq!(
+            batch.validate(&arena),
+            Err(MutationError::InvalidButtonNode {
+                node: text,
+                actual: NodeType::Text,
+            })
+        );
+        assert!(!arena.get(text).expect("text").is_button);
+    }
+
+    #[test]
+    fn set_semantics_is_visible_only_after_commit_and_only_marks_semantics_dirty() {
+        let mut arena = Arena::new();
+        let node = arena.create(NodeType::View);
+        let semantics = Semantics::button("Save");
+        let mut batch = MutationBatch::new(13, arena.owner());
+        batch.push(MutationCommand::SetSemantics {
+            node: NodeRef::Existing(node),
+            semantics: semantics.clone(),
+        });
+
+        let validated = batch.validate(&arena).expect("valid semantics batch");
+        assert_eq!(arena.get(node).expect("node").semantics, None);
+
+        let receipt = validated.apply(&mut arena).expect("commit semantics");
+
+        assert_eq!(arena.get(node).expect("node").semantics, Some(semantics));
+        assert_eq!(receipt.dirty, DirtyFlags::SEMANTICS);
+    }
+
+    #[test]
+    fn clear_semantics_is_visible_only_after_commit_and_only_marks_semantics_dirty() {
+        let mut arena = Arena::new();
+        let node = arena.create(NodeType::Text);
+        let original = Semantics::text("Status");
+        arena.get_mut(node).expect("node").semantics = Some(original.clone());
+        let mut batch = MutationBatch::new(14, arena.owner());
+        batch.push(MutationCommand::ClearSemantics {
+            node: NodeRef::Existing(node),
+        });
+
+        let validated = batch.validate(&arena).expect("valid semantics batch");
+        assert_eq!(arena.get(node).expect("node").semantics, Some(original));
+
+        let receipt = validated.apply(&mut arena).expect("clear semantics");
+
+        assert_eq!(arena.get(node).expect("node").semantics, None);
+        assert_eq!(receipt.dirty, DirtyFlags::SEMANTICS);
+    }
+
+    #[test]
+    fn stale_semantics_command_rolls_back_the_entire_validated_batch() {
+        let mut arena = Arena::new();
+        let valid = arena.create(NodeType::View);
+        let stale = arena.create(NodeType::View);
+        let mut batch = MutationBatch::new(15, arena.owner());
+        batch.push(MutationCommand::SetSemantics {
+            node: NodeRef::Existing(valid),
+            semantics: Semantics {
+                role: SemanticRole::Header,
+                label: Some("Account".to_owned()),
+                ..Semantics::default()
+            },
+        });
+        batch.push(MutationCommand::ClearSemantics {
+            node: NodeRef::Existing(stale),
+        });
+
+        let validated = batch.validate(&arena).expect("initially valid batch");
+        arena.destroy(stale);
+
+        assert_eq!(
+            validated.apply(&mut arena),
+            Err(MutationError::StaleNode(stale))
+        );
+        assert_eq!(arena.get(valid).expect("valid node").semantics, None);
     }
 }

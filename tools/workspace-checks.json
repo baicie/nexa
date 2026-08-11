@@ -47,8 +47,35 @@
       "path": "packages/clipboard",
       "checks": {
         "typecheck": { "script": "typecheck" },
-        "test": { "skip": "no-package-tests" },
-        "build": { "skip": "source-package" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/cli",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/dialog",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "packages/fs",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
         "lint": { "inherit": ".", "reason": "shared-lint" }
       }
     },
@@ -68,7 +95,7 @@
           "command": ["pnpm", "exec", "tsc", "-p", "tsconfig.json", "--noEmit"]
         },
         "test": { "skip": "no-package-tests" },
-        "build": { "skip": "native-build-gate" },
+        "build": { "script": "build" },
         "lint": { "inherit": ".", "reason": "shared-lint" }
       }
     },
@@ -77,7 +104,7 @@
       "checks": {
         "typecheck": { "script": "typecheck" },
         "test": { "skip": "no-package-tests" },
-        "build": { "skip": "source-package" },
+        "build": { "script": "build" },
         "lint": { "inherit": ".", "reason": "shared-lint" }
       }
     },
@@ -94,8 +121,8 @@
       "path": "packages/system-host",
       "checks": {
         "typecheck": { "script": "typecheck" },
-        "test": { "skip": "no-package-tests" },
-        "build": { "skip": "native-build-gate" },
+        "test": { "script": "test" },
+        "build": { "script": "build" },
         "lint": { "inherit": ".", "reason": "shared-lint" }
       }
     },
@@ -110,6 +137,33 @@
     },
     {
       "path": "examples/clipboard-demo",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/input-e2e",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/semantic-e2e",
+      "checks": {
+        "typecheck": { "script": "typecheck" },
+        "test": { "skip": "no-package-tests" },
+        "build": { "script": "build" },
+        "lint": { "inherit": ".", "reason": "shared-lint" }
+      }
+    },
+    {
+      "path": "examples/reference-notes",
       "checks": {
         "typecheck": { "script": "typecheck" },
         "test": { "skip": "no-package-tests" },

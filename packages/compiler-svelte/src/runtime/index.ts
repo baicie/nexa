@@ -10,6 +10,7 @@ import { commit, getWindowTitle, run, setWindowTitle } from "@nexa/nui-host";
 export type { NuiNode } from "./nodes";
 export {
   element,
+  svg_element,
   text,
   space,
   empty,
@@ -21,7 +22,28 @@ export {
 export { attr, set_style } from "./attrs";
 export { append, insert, listen, detach } from "./tree";
 export {
+  add_legacy_event_listener,
+  child,
+  createClassComponent,
+  event,
+  from_html,
+  from_svg,
+  get,
+  if_block as if,
+  mutable_source,
+  pop,
+  push,
+  reset,
+  set,
+  set_attribute,
+  set_text,
+  sibling,
+  template_effect,
+  update_legacy_props,
+} from "./client";
+export {
   destroy_block,
+  SvelteComponent,
   init,
   mount_component,
   create_component,

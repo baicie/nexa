@@ -24,6 +24,17 @@
         "removed": null,
         "replacement": null
       }
+    },
+    {
+      "bit": 4,
+      "name": "text_input_client",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
     }
   ],
   "types": [
@@ -43,15 +54,254 @@
       }
     },
     {
+      "name": "SemanticRole",
+      "kind": "enum",
+      "values": ["None", "Button", "Text", "Image", "TextInput", "Scroll", "Header"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "SemanticAction",
+      "kind": "enum",
+      "values": ["Invoke", "Focus", "SetValue"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "SemanticActions",
+      "kind": "list",
+      "elementType": "ui.SemanticAction",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
       "name": "Semantics",
       "kind": "record",
       "fields": [
-        { "name": "role", "type": "string", "optional": true },
+        { "name": "role", "type": "ui.SemanticRole", "optional": true },
         { "name": "label", "type": "string", "optional": true },
         { "name": "value", "type": "string", "optional": true },
         { "name": "description", "type": "string", "optional": true },
-        { "name": "disabled", "type": "bool", "optional": true }
+        { "name": "disabled", "type": "bool", "optional": true },
+        { "name": "checked", "type": "bool", "optional": true },
+        { "name": "actions", "type": "ui.SemanticActions", "optional": true }
       ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "TextRange",
+      "kind": "record",
+      "fields": [
+        { "name": "start", "type": "u32", "optional": false },
+        { "name": "end", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "TextSelection",
+      "kind": "record",
+      "fields": [
+        { "name": "anchor", "type": "u32", "optional": false },
+        { "name": "focus", "type": "u32", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "Rect",
+      "kind": "record",
+      "fields": [
+        { "name": "x", "type": "f64", "optional": false },
+        { "name": "y", "type": "f64", "optional": false },
+        { "name": "width", "type": "f64", "optional": false },
+        { "name": "height", "type": "f64", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "TextInputState",
+      "kind": "record",
+      "fields": [
+        { "name": "text", "type": "string", "optional": false },
+        { "name": "surroundingText", "type": "TextRange", "optional": false },
+        { "name": "selection", "type": "TextSelection", "optional": false },
+        { "name": "composition", "type": "TextRange", "optional": true },
+        { "name": "compositionBounds", "type": "Rect", "optional": false },
+        { "name": "revision", "type": "string", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "EventModifiers",
+      "kind": "record",
+      "fields": [
+        { "name": "shift", "type": "bool", "optional": false },
+        { "name": "control", "type": "bool", "optional": false },
+        { "name": "alt", "type": "bool", "optional": false },
+        { "name": "meta", "type": "bool", "optional": false },
+        { "name": "capsLock", "type": "bool", "optional": false },
+        { "name": "numLock", "type": "bool", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "PropagationPhase",
+      "kind": "enum",
+      "values": ["Capture", "Target", "Bubble", "DefaultAction"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "PropagationState",
+      "kind": "record",
+      "fields": [
+        { "name": "phase", "type": "PropagationPhase", "optional": false },
+        { "name": "defaultPrevented", "type": "bool", "optional": false },
+        { "name": "propagationStopped", "type": "bool", "optional": false },
+        {
+          "name": "immediatePropagationStopped",
+          "type": "bool",
+          "optional": false
+        }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "EventContext",
+      "kind": "record",
+      "fields": [
+        { "name": "windowId", "type": "u32", "optional": false },
+        {
+          "name": "target",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": true
+        },
+        { "name": "timestamp", "type": "string", "optional": false },
+        { "name": "modifiers", "type": "EventModifiers", "optional": false },
+        { "name": "propagation", "type": "PropagationState", "optional": false }
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "PointerKind",
+      "kind": "enum",
+      "values": ["Down", "Move", "Up", "Cancel", "Enter", "Leave"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "KeyboardKind",
+      "kind": "enum",
+      "values": ["Down", "Up"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "CompositionKind",
+      "kind": "enum",
+      "values": ["Start", "Update", "Commit", "Cancel"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "FocusKind",
+      "kind": "enum",
+      "values": ["Gained", "Lost"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "name": "WindowLifecycleKind",
+      "kind": "enum",
+      "values": ["Ready", "Suspended", "Resumed", "CloseRequested"],
       "lifecycle": {
         "status": "active",
         "introduced": { "major": 1, "minor": 0 },
@@ -383,6 +633,21 @@
         "removed": null,
         "replacement": null
       }
+    },
+    {
+      "id": 18,
+      "name": "Disabled",
+      "valueType": "u32",
+      "nullable": true,
+      "clear": { "mode": "default", "default": 0 },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
     }
   ],
   "events": [
@@ -421,6 +686,159 @@
       "payload": {
         "name": "SubmitEvent",
         "fields": [{ "name": "value", "type": "string", "optional": false }]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "Pointer",
+      "payload": {
+        "name": "PointerEvent",
+        "fields": [
+          { "name": "kind", "type": "PointerKind", "optional": false },
+          { "name": "pointerId", "type": "u32", "optional": false },
+          { "name": "x", "type": "f64", "optional": false },
+          { "name": "y", "type": "f64", "optional": false },
+          { "name": "buttons", "type": "u32", "optional": false },
+          { "name": "pressure", "type": "f64", "optional": false },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "Wheel",
+      "payload": {
+        "name": "WheelEvent",
+        "fields": [
+          { "name": "deltaX", "type": "f64", "optional": false },
+          { "name": "deltaY", "type": "f64", "optional": false },
+          { "name": "x", "type": "f64", "optional": false },
+          { "name": "y", "type": "f64", "optional": false },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 6,
+      "name": "Keyboard",
+      "payload": {
+        "name": "KeyboardEvent",
+        "fields": [
+          { "name": "kind", "type": "KeyboardKind", "optional": false },
+          { "name": "key", "type": "string", "optional": false },
+          { "name": "code", "type": "string", "optional": false },
+          { "name": "repeat", "type": "bool", "optional": false },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 7,
+      "name": "TextInput",
+      "payload": {
+        "name": "TextInputEvent",
+        "fields": [
+          { "name": "text", "type": "string", "optional": false },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 8,
+      "name": "Composition",
+      "payload": {
+        "name": "CompositionEvent",
+        "fields": [
+          { "name": "kind", "type": "CompositionKind", "optional": false },
+          { "name": "text", "type": "string", "optional": false },
+          { "name": "selectionStart", "type": "u32", "optional": false },
+          { "name": "selectionEnd", "type": "u32", "optional": false },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 9,
+      "name": "Focus",
+      "payload": {
+        "name": "FocusEvent",
+        "fields": [
+          { "name": "kind", "type": "FocusKind", "optional": false },
+          {
+            "name": "relatedTarget",
+            "type": "common.HandleRef",
+            "handleKind": "common.Node",
+            "optional": true
+          },
+          { "name": "context", "type": "EventContext", "optional": false }
+        ]
+      },
+      "requiresFeatures": ["ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 10,
+      "name": "WindowLifecycle",
+      "payload": {
+        "name": "WindowLifecycleEvent",
+        "fields": [
+          { "name": "kind", "type": "WindowLifecycleKind", "optional": false },
+          { "name": "surfaceGeneration", "type": "f64", "optional": true }
+        ]
       },
       "requiresFeatures": ["ui.mutation_transactions"],
       "lifecycle": {
@@ -785,6 +1203,135 @@
       "params": [],
       "returns": { "type": "void", "result": true },
       "requiresFeatures": ["transport.structured_errors", "ui.mutation_transactions"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 16,
+      "name": "GetTextInputState",
+      "params": [
+        {
+          "name": "node",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "ui.TextInputState", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "ui.text_input_client"
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 17,
+      "name": "ReplaceTextInput",
+      "params": [
+        {
+          "name": "node",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": false
+        },
+        { "name": "range", "type": "ui.TextRange", "optional": false },
+        { "name": "text", "type": "string", "optional": false }
+      ],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "ui.text_input_client"
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 18,
+      "name": "GetCompositionBounds",
+      "params": [
+        {
+          "name": "node",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "ui.Rect", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "ui.text_input_client"
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 19,
+      "name": "ClearSemantics",
+      "params": [
+        {
+          "name": "node",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "ui.mutation_transactions",
+        "ui.semantics"
+      ],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 20,
+      "name": "RegisterButton",
+      "params": [
+        {
+          "name": "node",
+          "type": "common.HandleRef",
+          "handleKind": "common.Node",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "ui.mutation_transactions",
+        "ui.semantics"
+      ],
       "lifecycle": {
         "status": "active",
         "introduced": { "major": 1, "minor": 0 },
@@ -1372,6 +1919,134 @@
       "name": "js_nui_reset_session_v1",
       "command": "ui.ResetSession",
       "params": [],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 29,
+      "library": "ui",
+      "name": "js_nui_get_text_input_state_v1",
+      "command": "ui.GetTextInputState",
+      "params": [
+        { "name": "nodeSlot", "type": "u32", "mapping": "node.slot" },
+        {
+          "name": "nodeGeneration",
+          "type": "u32",
+          "mapping": "node.generation"
+        }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 30,
+      "library": "ui",
+      "name": "js_nui_replace_text_input_v1",
+      "command": "ui.ReplaceTextInput",
+      "params": [
+        { "name": "nodeSlot", "type": "u32", "mapping": "node.slot" },
+        {
+          "name": "nodeGeneration",
+          "type": "u32",
+          "mapping": "node.generation"
+        },
+        { "name": "rangeStart", "type": "u32", "mapping": "range.start" },
+        { "name": "rangeEnd", "type": "u32", "mapping": "range.end" },
+        { "name": "text", "type": "string", "mapping": "text.value" }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 31,
+      "library": "ui",
+      "name": "js_nui_get_composition_bounds_v1",
+      "command": "ui.GetCompositionBounds",
+      "params": [
+        { "name": "nodeSlot", "type": "u32", "mapping": "node.slot" },
+        {
+          "name": "nodeGeneration",
+          "type": "u32",
+          "mapping": "node.generation"
+        }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 32,
+      "library": "ui",
+      "name": "js_nui_clear_semantics_v1",
+      "command": "ui.ClearSemantics",
+      "params": [
+        { "name": "nodeSlot", "type": "u32", "mapping": "node.slot" },
+        {
+          "name": "nodeGeneration",
+          "type": "u32",
+          "mapping": "node.generation"
+        }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 33,
+      "library": "ui",
+      "name": "js_nui_register_button_v1",
+      "command": "ui.RegisterButton",
+      "params": [
+        { "name": "nodeSlot", "type": "u32", "mapping": "node.slot" },
+        {
+          "name": "nodeGeneration",
+          "type": "u32",
+          "mapping": "node.generation"
+        }
+      ],
       "fixedMappings": [],
       "returns": "string",
       "resultCodec": "nexa_result_json_v1",

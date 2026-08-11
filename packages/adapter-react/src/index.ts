@@ -6,19 +6,19 @@
 
 import React from "react";
 import Reconciler from "react-reconciler";
-import { DefaultEventPriority } from "react-reconciler/constants.js";
+import { DiscreteEventPriority, DefaultEventPriority } from "react-reconciler/constants.js";
 import {
   applyHostProps,
   clearChildren,
   commit,
-  createHostElement,
+  createAdapterHostElement,
   createHostRoot,
   createHostText,
   getWindowTitle,
   insertBefore as hostInsertBefore,
   type NuiNode,
   removeNode,
-  resetWindowTitle,
+  resetSession,
   run,
   setText,
 } from "@nexa/nui-host";
@@ -40,31 +40,14 @@ function cancelTimeout(id: number): void {
 }
 
 function scheduleMicrotask(fn: () => void): void {
-  scheduleTimeout(fn, 0);
+  // Perry exports Promise continuations, while queueMicrotask is not part of
+  // its global native symbol set. Promise callbacks still run at the same
+  // microtask boundary expected by the reconciler.
+  void Promise.resolve().then(fn);
 }
 
 function linkAppend(parent: NuiNode, child: NuiNode): void {
   hostInsertBefore(parent, child, null);
-}
-
-/**
- * Perry + winit does not pump JS timers while the native loop runs.
- * Flush React updates synchronously inside Host event callbacks.
- */
-function wrapHostProps(props: Props): Props {
-  const next: Props = { ...props };
-  for (const [key, value] of Object.entries(props)) {
-    if (typeof value !== "function" || !/^on[A-Z]/.test(key)) {
-      continue;
-    }
-    const handler = value as (...args: unknown[]) => void;
-    next[key] = (...args: unknown[]) => {
-      reconciler.flushSync(() => {
-        handler(...args);
-      });
-    };
-  }
-  return next;
 }
 
 const reconciler = Reconciler({
@@ -73,7 +56,7 @@ const reconciler = Reconciler({
   supportsHydration: false,
   isPrimaryRenderer: true,
   noTimeout: -1,
-  supportsMicrotasks: false,
+  supportsMicrotasks: true,
 
   getRootHostContext() {
     return {};
@@ -89,8 +72,8 @@ const reconciler = Reconciler({
   },
   resetAfterCommit() {},
   createInstance(type: string, props: Props): NuiNode {
-    const node = createHostElement(type);
-    applyHostProps(node, wrapHostProps(props));
+    const node = createAdapterHostElement(type);
+    applyHostProps(node, props);
     return node;
   },
   appendInitialChild(parent: NuiNode, child: NuiNode) {
@@ -111,7 +94,7 @@ const reconciler = Reconciler({
   scheduleTimeout,
   cancelTimeout,
   getCurrentEventPriority() {
-    return DefaultEventPriority;
+    return DiscreteEventPriority;
   },
   getCurrentUpdatePriority() {
     return DefaultEventPriority;
@@ -144,7 +127,7 @@ const reconciler = Reconciler({
     removeNode(child);
   },
   commitUpdate(instance: NuiNode, _payload: unknown, _type: string, _old: Props, newProps: Props) {
-    applyHostProps(instance, wrapHostProps(newProps));
+    applyHostProps(instance, newProps);
   },
   commitTextUpdate(textInstance: NuiNode, _old: string, newText: string) {
     textInstance.text = newText;
@@ -172,12 +155,18 @@ const reconciler = Reconciler({
   },
 } as never);
 
-export function render(element: React.ReactNode): void {
-  resetWindowTitle();
-  const container = createHostRoot();
-  const root = reconciler.createContainer(
-    container,
-    0,
+export type ReactHostRoot = {
+  readonly container: NuiNode;
+  render(element: React.ReactNode): void;
+  unmount(): void;
+};
+
+export function createRoot(container?: NuiNode): ReactHostRoot {
+  if (container === undefined) resetSession();
+  const hostContainer = container ?? createHostRoot();
+  const reconcilerRoot = reconciler.createContainer(
+    hostContainer,
+    1,
     null,
     false,
     null,
@@ -187,9 +176,21 @@ export function render(element: React.ReactNode): void {
     },
     null,
   );
-  reconciler.flushSync(() => {
-    reconciler.updateContainer(element, root, null, () => {});
-  });
+  const update = (element: React.ReactNode): void => {
+    reconciler.flushSync(() => {
+      reconciler.updateContainer(element, reconcilerRoot, null, () => {});
+    });
+  };
+  return {
+    container: hostContainer,
+    render: update,
+    unmount: () => update(null),
+  };
+}
+
+export function render(element: React.ReactNode): void {
+  const root = createRoot();
+  root.render(element);
   commit();
   run(getWindowTitle());
 }

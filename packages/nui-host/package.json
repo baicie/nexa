@@ -1,17 +1,26 @@
 {
   "name": "@nexa/nui-host",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Perry native library exposing the Nexa UI Host Protocol",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "perry": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "license": "MIT OR Apache-2.0",
   "files": [
-    "src/",
-    "Cargo.toml",
+    "dist",
+    "src",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "perry",
     "perryts",
@@ -19,7 +28,12 @@
     "nui"
   ],
   "dependencies": {
-    "@nexa/protocol": "workspace:*"
+    "@nexa/protocol": "workspace:*",
+    "@nexa/system-host": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/nui-host"
   },
   "perry": {
     "nativeLibrary": {
@@ -158,9 +172,78 @@
           "returns": "string"
         },
         {
+          "name": "js_nui_commit_v1",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_run_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
           "name": "js_nui_clear_property_v1",
           "params": [
             "u32",
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_set_semantics_v1",
+          "params": [
+            "u32",
+            "u32",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_reset_session_v1",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_get_text_input_state_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_replace_text_input_v1",
+          "params": [
+            "u32",
+            "u32",
+            "u32",
+            "u32",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_get_composition_bounds_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_clear_semantics_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_register_button_v1",
+          "params": [
             "u32",
             "u32"
           ],
@@ -169,7 +252,7 @@
       ],
       "targets": {
         "macos": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/nui-host",
           "lib": "libperry_ext_nui_host.a",
           "cargo_features": [],
           "libs": [
@@ -191,7 +274,7 @@
           ]
         },
         "linux": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/nui-host",
           "lib": "libperry_ext_nui_host.a",
           "cargo_features": [],
           "libs": [
@@ -201,7 +284,7 @@
           ]
         },
         "windows": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/nui-host",
           "lib": "perry_ext_nui_host.lib",
           "cargo_features": [],
           "libDirs": [

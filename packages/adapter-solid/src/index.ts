@@ -6,9 +6,11 @@
  */
 
 export type { NuiNode } from "./renderer";
-export { render } from "./render";
+export { mount, render } from "./render";
 
 import { renderer } from "./renderer";
+
+export { solidHostConfig } from "./renderer";
 
 export const {
   effect,

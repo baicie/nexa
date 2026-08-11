@@ -1,0 +1,28 @@
+{
+  "name": "@nexa/cli",
+  "version": "0.1.0",
+  "description": "Nexa UI project generator, development runner, builder, and toolchain doctor",
+  "type": "module",
+  "bin": {
+    "nexa": "./dist/bin.mjs"
+  },
+  "files": [
+    "dist/",
+    "templates/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/cli",
+    "smoke:build": "node ../../tools/cli-create-build-smoke.mjs",
+    "smoke:package": "node ../../tools/cli-create-package-smoke.mjs",
+    "typecheck": "node --check src/bin.mjs && node --check src/build.mjs && node --check src/constants.mjs && node --check src/doctor.mjs && node --check src/index.mjs && node --check src/new.mjs && node --check src/package.mjs",
+    "test": "node --test ../../tools/cli-new-doctor.test.mjs ../../tools/cli-dev-build.test.mjs ../../tools/cli-package.test.mjs"
+  },
+  "license": "MIT OR Apache-2.0"
+}

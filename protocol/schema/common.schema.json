@@ -241,11 +241,23 @@
         "lifecycle": { "$ref": "#/$defs/lifecycle" }
       }
     },
+    "listType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "elementType", "lifecycle"],
+      "properties": {
+        "name": { "$ref": "#/$defs/typeName" },
+        "kind": { "const": "list" },
+        "elementType": { "$ref": "#/$defs/typeName" },
+        "lifecycle": { "$ref": "#/$defs/lifecycle" }
+      }
+    },
     "typeDefinition": {
       "oneOf": [
         { "$ref": "#/$defs/recordType" },
         { "$ref": "#/$defs/enumType" },
-        { "$ref": "#/$defs/mapType" }
+        { "$ref": "#/$defs/mapType" },
+        { "$ref": "#/$defs/listType" }
       ]
     },
     "commandParam": {
@@ -370,7 +382,17 @@
           "items": { "$ref": "#/$defs/ffiFixedMapping" }
         },
         "returns": {
-          "enum": ["string", "u32", "u64", "i32", "f64", "ptr", "jsvalue", "void"]
+          "enum": [
+            "string",
+            "promise<string>",
+            "u32",
+            "u64",
+            "i32",
+            "f64",
+            "ptr",
+            "jsvalue",
+            "void"
+          ]
         },
         "resultCodec": { "enum": ["nexa_result_json_v1", "legacy_raw", "legacy_sentinel"] },
         "status": { "enum": ["v1", "legacy"] },

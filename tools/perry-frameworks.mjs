@@ -12,6 +12,15 @@ export const PERRY_FRAMEWORKS = [
     directory: "solid-counter",
     output: "solid-counter",
     clean: ["dist"],
+    script: "build",
+  },
+  {
+    id: "solid-notes",
+    packageName: "@nexa/example-reference-notes",
+    directory: "reference-notes",
+    output: "reference-notes-solid",
+    clean: ["dist-solid"],
+    script: "solid:build",
   },
   {
     id: "vue",
@@ -19,6 +28,7 @@ export const PERRY_FRAMEWORKS = [
     directory: "vue-counter",
     output: "vue-counter",
     clean: [],
+    script: "build",
   },
   {
     id: "react",
@@ -26,13 +36,15 @@ export const PERRY_FRAMEWORKS = [
     directory: "react-counter",
     output: "react-counter",
     clean: [],
+    script: "build",
   },
   {
     id: "svelte",
     packageName: "@nexa/example-svelte-counter",
     directory: "svelte-counter",
     output: "svelte-counter",
-    clean: [],
+    clean: ["dist"],
+    script: "build",
   },
 ];
 
@@ -82,7 +94,7 @@ export function runPerryFrameworkBuilds({
       remove(path.join(exampleDirectory, relativePath), { force: true, recursive: true });
     }
 
-    const build = spawn(pnpm, ["--filter", framework.packageName, "build"], {
+    const build = spawn(pnpm, ["--filter", framework.packageName, framework.script], {
       cwd: workspaceRoot,
       encoding: "utf8",
       env: { ...process.env, PERRY_NO_CACHE: "1" },

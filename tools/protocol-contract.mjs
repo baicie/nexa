@@ -280,7 +280,8 @@ function assertFfiMappings(ffiFunctions, commandMap, label) {
     );
 
     if (ffi.status !== "v1") continue;
-    assert.equal(ffi.returns, "string", label + "/" + ffi.name + " v1 return");
+    const expectedReturn = ffi.command === "system.AwaitTask" ? "promise<string>" : "string";
+    assert.equal(ffi.returns, expectedReturn, label + "/" + ffi.name + " v1 return");
     assert.equal(
       ffi.resultCodec,
       "nexa_result_json_v1",
@@ -369,6 +370,8 @@ function assertTypeDefinitions(types, namespace, typeSymbols, handleKinds, label
       for (const valueType of type.valueTypes) {
         assertTypeReference(valueType, namespace, typeSymbols, label + "/" + type.name);
       }
+    } else if (type.kind === "list") {
+      assertTypeReference(type.elementType, namespace, typeSymbols, label + "/" + type.name);
     }
   }
 }

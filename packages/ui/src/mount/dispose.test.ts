@@ -6,6 +6,7 @@ import {
   attachNode,
   disposeNode,
   registerNodeCleanup,
+  resetNodeLifecycle,
 } from "../../../nui-host/src/lifecycle.ts";
 import { effect, signal } from "../signal.ts";
 
@@ -46,4 +47,28 @@ test("cleanup registration after disposal runs immediately", () => {
   assert.equal(cleaned, 1);
   disposeNode(node);
   assert.equal(cleaned, 1);
+});
+
+test("reset disposes every node and permits ids to be reused by the next session", () => {
+  const root = 9301n;
+  const child = 9302n;
+  attachNode(child, root);
+  let cleaned = 0;
+  registerNodeCleanup(child, () => {
+    cleaned += 1;
+  });
+
+  resetNodeLifecycle();
+
+  assert.equal(cleaned, 1);
+  assert.equal(activeNodeCount(), 0);
+  registerNodeCleanup(root, () => {
+    cleaned += 1;
+  });
+  assert.equal(activeNodeCount(), 1);
+  assert.equal(cleaned, 1);
+
+  resetNodeLifecycle();
+  assert.equal(cleaned, 2);
+  assert.equal(activeNodeCount(), 0);
 });

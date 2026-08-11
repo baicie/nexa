@@ -7,18 +7,31 @@
   "dependencies": {
     "@nexa/compiler-svelte": "workspace:*",
     "@nexa/nui-host": "workspace:*",
-    "svelte": "^4.2.19"
+    "svelte": "^5.55.7"
   },
   "scripts": {
     "compile:svelte": "node ./compile.mjs",
-    "build": "perry compile main.ts -o svelte-counter",
-    "start": "perry compile main.ts -o svelte-counter && ./svelte-counter"
+    "build": "pnpm compile:svelte && perry compile main.ts -o svelte-counter",
+    "start": "pnpm compile:svelte && perry compile main.ts -o svelte-counter && ./svelte-counter"
   },
   "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
     "allow": {
       "nativeLibrary": [
         "@nexa/nui-host",
+        "@nexa/system-host",
         "@nexa/compiler-svelte"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
       ]
     }
   }

@@ -10,3 +10,6 @@ packages:
   - "examples/layout-playground"
   - "examples/image-demo"
   - "examples/clipboard-demo"
+  - "examples/input-e2e"
+  - "examples/semantic-e2e"
+  - "examples/reference-notes"

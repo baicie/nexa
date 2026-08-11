@@ -8,6 +8,19 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::semantics::Semantics;
 use crate::style::Style;
+use crate::ResourceId;
+
+const RETIRED_GENERATION_FLOOR: u64 = u32::MAX as u64 + 1;
+
+fn next_owner_id() -> u64 {
+    static NEXT_OWNER: AtomicU64 = AtomicU64::new(1);
+    loop {
+        let owner = NEXT_OWNER.fetch_add(1, Ordering::Relaxed);
+        if owner != 0 {
+            return owner;
+        }
+    }
+}
 
 /// Native primitive node kinds defined by the generated Host Protocol.
 pub use crate::protocol::ui::NodeType;
@@ -100,8 +113,13 @@ pub struct Node {
     pub children: Vec<NodeId>,
     pub style: Style,
     pub text: Option<String>,
+    /// Process-local CPU image resource; never a renderer/backend object.
+    pub image_resource: Option<ResourceId>,
     /// When true, this node can be returned by hit-testing.
     pub clickable: bool,
+    /// First-party composite identity used to derive intrinsic Button semantics.
+    /// Interaction/listener state remains independent from this marker.
+    pub is_button: bool,
     pub layout: LayoutRect,
     /// Assistive-tech semantics (ADR-006). Optional until AccessKit export.
     pub semantics: Option<Semantics>,
@@ -127,6 +145,9 @@ pub struct Arena {
     owner: u64,
     slots: Vec<Slot>,
     free_head: Option<u32>,
+    /// Highest generation floor observed by any shadow/active allocator.
+    /// This prevents an aborted provisional handle from being reused.
+    next_generation_floor: Vec<u64>,
 }
 
 impl Default for Arena {
@@ -138,17 +159,135 @@ impl Default for Arena {
 impl Arena {
     #[must_use]
     pub fn new() -> Self {
-        static NEXT_OWNER: AtomicU64 = AtomicU64::new(1);
         Self {
-            owner: NEXT_OWNER.fetch_add(1, Ordering::Relaxed),
+            owner: next_owner_id(),
             slots: Vec::new(),
             free_head: None,
+            next_generation_floor: Vec::new(),
         }
     }
 
     #[must_use]
     pub const fn owner(&self) -> u64 {
         self.owner
+    }
+
+    fn slot_floor(slot: Option<&Slot>) -> u64 {
+        match slot {
+            Some(Slot::Empty {
+                next_generation, ..
+            }) => u64::from(*next_generation),
+            Some(Slot::Occupied { generation, .. }) => u64::from(*generation) + 1,
+            Some(Slot::Retired) => RETIRED_GENERATION_FLOOR,
+            None => 1,
+        }
+    }
+
+    fn rebuild_free_list(&mut self) {
+        self.free_head = None;
+        for index in (0..self.slots.len()).rev() {
+            if let Slot::Empty { next_free, .. } = &mut self.slots[index] {
+                *next_free = self.free_head;
+                self.free_head = Some(index as u32);
+            }
+        }
+    }
+
+    /// Merge allocator generations from a discarded shadow arena while
+    /// retaining the active tree and metadata.
+    pub fn absorb_generation_high_watermark(&mut self, shadow: &Self) {
+        let slot_count = self.slots.len().max(shadow.slots.len());
+        self.next_generation_floor.resize(slot_count, 1);
+        for index in 0..slot_count {
+            let active_floor = self
+                .next_generation_floor
+                .get(index)
+                .copied()
+                .unwrap_or_else(|| Self::slot_floor(self.slots.get(index)));
+            let shadow_floor = shadow
+                .next_generation_floor
+                .get(index)
+                .copied()
+                .unwrap_or_else(|| Self::slot_floor(shadow.slots.get(index)));
+            let mut floor = active_floor.max(shadow_floor);
+            if [self.slots.get(index), shadow.slots.get(index)]
+                .into_iter()
+                .flatten()
+                .any(|slot| {
+                    matches!(
+                        slot,
+                        Slot::Retired
+                            | Slot::Occupied {
+                                generation: u32::MAX,
+                                ..
+                            }
+                    )
+                })
+            {
+                floor = RETIRED_GENERATION_FLOOR;
+            }
+            self.next_generation_floor[index] = floor;
+
+            if index >= self.slots.len() {
+                self.slots.push(if floor >= RETIRED_GENERATION_FLOOR {
+                    Slot::Retired
+                } else {
+                    Slot::Empty {
+                        next_free: None,
+                        next_generation: floor as u32,
+                    }
+                });
+                continue;
+            }
+            if let Slot::Empty {
+                next_generation, ..
+            } = &mut self.slots[index]
+            {
+                if floor >= RETIRED_GENERATION_FLOOR {
+                    self.slots[index] = Slot::Retired;
+                } else {
+                    *next_generation = (*next_generation).max(floor as u32);
+                }
+            }
+        }
+        self.rebuild_free_list();
+    }
+
+    /// Empty the arena for a new session without allowing old committed or
+    /// provisional wire handles to alias newly allocated nodes.
+    ///
+    /// `pending_preview` is the shadow arena used by an uncommitted mutation
+    /// batch. It may contain generations already returned to the caller, so its
+    /// allocator high-water mark must be retained even though its nodes are
+    /// discarded.
+    pub fn reset_for_new_owner(&mut self, pending_preview: Option<&Self>) {
+        if let Some(preview) = pending_preview {
+            self.absorb_generation_high_watermark(preview);
+        } else {
+            self.next_generation_floor.resize(self.slots.len(), 1);
+            for index in 0..self.slots.len() {
+                let floor =
+                    Self::slot_floor(self.slots.get(index)).max(self.next_generation_floor[index]);
+                self.next_generation_floor[index] = if floor >= RETIRED_GENERATION_FLOOR {
+                    RETIRED_GENERATION_FLOOR
+                } else {
+                    floor
+                };
+            }
+        }
+        for index in 0..self.slots.len() {
+            let floor = self.next_generation_floor[index];
+            self.slots[index] = if floor >= RETIRED_GENERATION_FLOOR {
+                Slot::Retired
+            } else {
+                Slot::Empty {
+                    next_free: None,
+                    next_generation: floor as u32,
+                }
+            };
+        }
+        self.owner = next_owner_id();
+        self.rebuild_free_list();
     }
 
     fn accepts(&self, id: NodeId) -> bool {
@@ -178,7 +317,9 @@ impl Arena {
             children: Vec::new(),
             style: Style::default(),
             text: None,
+            image_resource: None,
             clickable: false,
+            is_button: false,
             layout: LayoutRect::default(),
             semantics: None,
         });
@@ -190,19 +331,23 @@ impl Arena {
                     next_generation,
                 } => {
                     self.free_head = *next_free;
-                    (*next_generation).max(1)
+                    let floor = self.next_generation_floor[slot_index as usize];
+                    debug_assert!(floor < RETIRED_GENERATION_FLOOR);
+                    (*next_generation).max(floor as u32).max(1)
                 }
                 Slot::Occupied { .. } | Slot::Retired => {
                     unreachable!("free list points at a non-empty slot")
                 }
             };
             self.slots[slot_index as usize] = Slot::Occupied { generation, node };
+            self.next_generation_floor[slot_index as usize] = u64::from(generation) + 1;
             return NodeId::with_owner(slot_index, generation, self.owner);
         }
 
         let slot_index = u32::try_from(self.slots.len()).expect("too many nodes");
         let generation = 1;
         self.slots.push(Slot::Occupied { generation, node });
+        self.next_generation_floor.push(2);
         NodeId::with_owner(slot_index, generation, self.owner)
     }
 
@@ -220,10 +365,12 @@ impl Arena {
         if *generation != id.generation() {
             return;
         }
-        if *generation == u32::MAX {
+        let floor = self.next_generation_floor[id.slot() as usize].max(u64::from(*generation) + 1);
+        self.next_generation_floor[id.slot() as usize] = floor;
+        if floor >= RETIRED_GENERATION_FLOOR {
             *slot = Slot::Retired;
         } else {
-            let next_generation = *generation + 1;
+            let next_generation = floor as u32;
             *slot = Slot::Empty {
                 next_free: self.free_head,
                 next_generation,
@@ -406,6 +553,14 @@ impl Arena {
         }
     }
 
+    pub fn set_image_resource(&mut self, id: NodeId, resource: Option<ResourceId>) -> bool {
+        let Some(node) = self.get_mut(id) else {
+            return false;
+        };
+        node.image_resource = resource;
+        true
+    }
+
     pub fn set_style(&mut self, id: NodeId, style: Style) {
         if let Some(node) = self.get_mut(id) {
             node.style = style;
@@ -460,6 +615,32 @@ mod tests {
         assert_eq!(reused.slot(), id.slot());
         assert_ne!(reused.generation(), id.generation());
         assert!(arena.get(reused).is_some());
+    }
+
+    #[test]
+    fn session_reset_preserves_committed_and_provisional_generation_high_watermarks() {
+        let mut arena = Arena::new();
+        let old_owner = arena.owner();
+        let committed = arena.create(NodeType::View);
+        let mut pending_preview = arena.clone();
+        let provisional = pending_preview.create(NodeType::Text);
+
+        arena.reset_for_new_owner(Some(&pending_preview));
+
+        assert_ne!(arena.owner(), old_owner);
+        assert!(arena.get(committed).is_none());
+        assert!(arena.get(provisional).is_none());
+        let committed_slot_reused = arena.create(NodeType::View);
+        let provisional_slot_reused = arena.create(NodeType::Text);
+        assert_eq!(committed_slot_reused.slot(), committed.slot());
+        assert_eq!(provisional_slot_reused.slot(), provisional.slot());
+        assert_ne!(committed_slot_reused.generation(), committed.generation());
+        assert_ne!(
+            provisional_slot_reused.generation(),
+            provisional.generation()
+        );
+        assert!(arena.get(NodeId::from_raw(committed.raw())).is_none());
+        assert!(arena.get(NodeId::from_raw(provisional.raw())).is_none());
     }
 
     #[test]
@@ -574,5 +755,23 @@ mod tests {
         assert_ne!(replacement.slot(), maximum.slot());
         assert_eq!(replacement.generation(), 1);
         assert!(arena.get(maximum).is_none());
+    }
+
+    #[test]
+    fn session_reset_retires_an_occupied_maximum_generation() {
+        let mut arena = Arena::new();
+        let first = arena.create(NodeType::View);
+        if let Slot::Occupied { generation, .. } = &mut arena.slots[first.slot() as usize] {
+            *generation = u32::MAX;
+        } else {
+            panic!("created node should occupy its slot");
+        }
+
+        arena.reset_for_new_owner(None);
+
+        assert!(matches!(arena.slots[first.slot() as usize], Slot::Retired));
+        let replacement = arena.create(NodeType::View);
+        assert_ne!(replacement.slot(), first.slot());
+        assert_eq!(replacement.generation(), 1);
     }
 }

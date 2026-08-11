@@ -23,14 +23,25 @@
   },
   "perry": {
     "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host",
+      "@nexa/adapter-solid",
       "solid-js"
     ],
     "allow": {
       "nativeLibrary": [
         "@nexa/nui-host",
+        "@nexa/system-host",
         "@nexa/adapter-solid"
       ],
       "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/adapter-solid",
         "solid-js"
       ]
     }

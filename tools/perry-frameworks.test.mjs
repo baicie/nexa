@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
@@ -38,7 +39,7 @@ function successfulDependencies(overrides = {}) {
   };
 }
 
-test("the Perry framework matrix has exactly the four planned Counter examples", () => {
+test("the Perry matrix includes the four Counter adapters and the Tier-1 Solid Notes slice", () => {
   assert.deepEqual(PERRY_FRAMEWORKS, [
     {
       id: "solid",
@@ -46,6 +47,15 @@ test("the Perry framework matrix has exactly the four planned Counter examples",
       directory: "solid-counter",
       output: "solid-counter",
       clean: ["dist"],
+      script: "build",
+    },
+    {
+      id: "solid-notes",
+      packageName: "@nexa/example-reference-notes",
+      directory: "reference-notes",
+      output: "reference-notes-solid",
+      clean: ["dist-solid"],
+      script: "solid:build",
     },
     {
       id: "vue",
@@ -53,6 +63,7 @@ test("the Perry framework matrix has exactly the four planned Counter examples",
       directory: "vue-counter",
       output: "vue-counter",
       clean: [],
+      script: "build",
     },
     {
       id: "react",
@@ -60,15 +71,32 @@ test("the Perry framework matrix has exactly the four planned Counter examples",
       directory: "react-counter",
       output: "react-counter",
       clean: [],
+      script: "build",
     },
     {
       id: "svelte",
       packageName: "@nexa/example-svelte-counter",
       directory: "svelte-counter",
       output: "svelte-counter",
-      clean: [],
+      clean: ["dist"],
+      script: "build",
     },
   ]);
+});
+
+test("the Svelte Counter build compiles and executes the real component fixture", () => {
+  const packageJson = JSON.parse(
+    readFileSync(new URL("../examples/svelte-counter/package.json", import.meta.url), "utf8"),
+  );
+  const entry = readFileSync(
+    new URL("../examples/svelte-counter/main.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(packageJson.scripts.build, /^pnpm compile:svelte && perry compile main\.ts /);
+  assert.match(packageJson.scripts.start, /^pnpm compile:svelte && perry compile main\.ts /);
+  assert.match(entry, /import Counter from ["']\.\/dist\/Counter\.host\.js["']/);
+  assert.match(entry, /new Counter\(\{ target/);
 });
 
 test("a selected framework is cleaned, built without Perry cache, and verified", () => {
@@ -107,6 +135,38 @@ test("a selected framework is cleaned, built without Perry cache, and verified",
   );
 });
 
+test("the Tier-1 Notes entry invokes its Solid application build", () => {
+  const calls = [];
+  const removals = [];
+  runPerryFrameworkBuilds({
+    frameworkIds: ["solid-notes"],
+    platform: "linux",
+    ...successfulDependencies({
+      spawn(command, args, options) {
+        calls.push({ command, args, options });
+        return result(0);
+      },
+      remove(target, options) {
+        removals.push({ target, options });
+      },
+    }),
+  });
+
+  assert.deepEqual(calls[0].args, [
+    "--filter",
+    "@nexa/example-reference-notes",
+    "solid:build",
+  ]);
+  assert.ok(
+    removals.some(({ target }) => target.endsWith(path.join("reference-notes", "dist-solid"))),
+  );
+  assert.ok(
+    removals.some(({ target }) =>
+      target.endsWith(path.join("reference-notes", "reference-notes-solid")),
+    ),
+  );
+});
+
 test("the default matrix uses a controlled Windows shell and executable suffix", () => {
   const calls = [];
   const removals = [];
@@ -122,7 +182,7 @@ test("the default matrix uses a controlled Windows shell and executable suffix",
 
   runPerryFrameworkBuilds({ platform: "win32", ...dependencies });
 
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.ok(calls.every(({ command }) => command === "pnpm.cmd"));
   assert.ok(calls.every(({ options }) => options.shell === true));
   assert.ok(removals.some(({ target }) => target.endsWith("react-counter.exe")));

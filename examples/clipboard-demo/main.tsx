@@ -1,5 +1,5 @@
 /**
- * Slice 12: System Host clipboard (ADR-005).
+ * G4-07: typed System Host clipboard (ADR-014).
  *
  * Write → read round-trip, then show result in the NUI window.
  */
@@ -18,8 +18,8 @@ function App() {
         <Button
           onClick={async () => {
             const marker = `nexa-clipboard-${Date.now()}`;
-            await writeText(marker);
-            const got = await readText();
+            await writeText(marker).result;
+            const got = await readText().result;
             status.value = got === marker ? `OK: ${got}` : `Mismatch: wrote=${marker} read=${got}`;
           }}
         >
@@ -27,7 +27,7 @@ function App() {
         </Button>
         <Button
           onClick={async () => {
-            const got = await readText();
+            const got = await readText().result;
             status.value = got ? `Clipboard: ${got}` : "Clipboard empty / unavailable";
           }}
         >

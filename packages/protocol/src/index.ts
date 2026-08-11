@@ -30,6 +30,7 @@ export const PropertyId = {
   TextColor: 15,
   ScrollOffsetY: 16,
   FlexGrow: 17,
+  Disabled: 18,
 } as const;
 export type PropertyId = (typeof PropertyId)[keyof typeof PropertyId];
 
@@ -37,6 +38,13 @@ export const EventId = {
   Click: 1,
   Change: 2,
   Submit: 3,
+  Pointer: 4,
+  Wheel: 5,
+  Keyboard: 6,
+  TextInput: 7,
+  Composition: 8,
+  Focus: 9,
+  WindowLifecycle: 10,
 } as const;
 export type EventId = (typeof EventId)[keyof typeof EventId];
 
@@ -167,12 +175,122 @@ export namespace Ui {
     readonly dirtyFlags: number;
   }
 
+  export enum SemanticRole {
+    None = "None",
+    Button = "Button",
+    Text = "Text",
+    Image = "Image",
+    TextInput = "TextInput",
+    Scroll = "Scroll",
+    Header = "Header",
+  }
+
+  export enum SemanticAction {
+    Invoke = "Invoke",
+    Focus = "Focus",
+    SetValue = "SetValue",
+  }
+
+  export type SemanticActions = readonly SemanticAction[];
+
   export interface Semantics {
-    readonly role?: string;
+    readonly role?: SemanticRole;
     readonly label?: string;
     readonly value?: string;
     readonly description?: string;
     readonly disabled?: boolean;
+    readonly checked?: boolean;
+    readonly actions?: SemanticActions;
+  }
+
+  export interface TextRange {
+    readonly start: number;
+    readonly end: number;
+  }
+
+  export interface TextSelection {
+    readonly anchor: number;
+    readonly focus: number;
+  }
+
+  export interface Rect {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  }
+
+  export interface TextInputState {
+    readonly text: string;
+    readonly surroundingText: TextRange;
+    readonly selection: TextSelection;
+    readonly composition?: TextRange;
+    readonly compositionBounds: Rect;
+    readonly revision: string;
+  }
+
+  export interface EventModifiers {
+    readonly shift: boolean;
+    readonly control: boolean;
+    readonly alt: boolean;
+    readonly meta: boolean;
+    readonly capsLock: boolean;
+    readonly numLock: boolean;
+  }
+
+  export enum PropagationPhase {
+    Capture = "Capture",
+    Target = "Target",
+    Bubble = "Bubble",
+    DefaultAction = "DefaultAction",
+  }
+
+  export interface PropagationState {
+    readonly phase: PropagationPhase;
+    readonly defaultPrevented: boolean;
+    readonly propagationStopped: boolean;
+    readonly immediatePropagationStopped: boolean;
+  }
+
+  export interface EventContext {
+    readonly windowId: number;
+    readonly target: Common.HandleRef | null;
+    readonly timestamp: string;
+    readonly modifiers: EventModifiers;
+    readonly propagation: PropagationState;
+  }
+
+  export enum PointerKind {
+    Down = "Down",
+    Move = "Move",
+    Up = "Up",
+    Cancel = "Cancel",
+    Enter = "Enter",
+    Leave = "Leave",
+  }
+
+  export enum KeyboardKind {
+    Down = "Down",
+    Up = "Up",
+  }
+
+  export enum CompositionKind {
+    Start = "Start",
+    Update = "Update",
+    Commit = "Commit",
+    Cancel = "Cancel",
+  }
+
+  export enum FocusKind {
+    Gained = "Gained",
+    Lost = "Lost",
+  }
+
+  export enum WindowLifecycleKind {
+    Ready = "Ready",
+    Suspended = "Suspended",
+    Resumed = "Resumed",
+    CloseRequested = "CloseRequested",
   }
 
   export interface ClickEvent {}
@@ -185,11 +303,62 @@ export namespace Ui {
     readonly value: string;
   }
 
+  export interface PointerEvent {
+    readonly kind: PointerKind;
+    readonly pointerId: number;
+    readonly x: number;
+    readonly y: number;
+    readonly buttons: number;
+    readonly pressure: number;
+    readonly context: EventContext;
+  }
+
+  export interface WheelEvent {
+    readonly deltaX: number;
+    readonly deltaY: number;
+    readonly x: number;
+    readonly y: number;
+    readonly context: EventContext;
+  }
+
+  export interface KeyboardEvent {
+    readonly kind: KeyboardKind;
+    readonly key: string;
+    readonly code: string;
+    readonly repeat: boolean;
+    readonly context: EventContext;
+  }
+
+  export interface TextInputEvent {
+    readonly text: string;
+    readonly context: EventContext;
+  }
+
+  export interface CompositionEvent {
+    readonly kind: CompositionKind;
+    readonly text: string;
+    readonly selectionStart: number;
+    readonly selectionEnd: number;
+    readonly context: EventContext;
+  }
+
+  export interface FocusEvent {
+    readonly kind: FocusKind;
+    readonly relatedTarget: Common.HandleRef | null;
+    readonly context: EventContext;
+  }
+
+  export interface WindowLifecycleEvent {
+    readonly kind: WindowLifecycleKind;
+    readonly surfaceGeneration?: number;
+  }
+
   export type PropertyValue = number;
 
   export enum FeatureBit {
     MutationTransactions = 2,
     Semantics = 3,
+    TextInputClient = 4,
   }
 
   export enum NodeType {
@@ -218,18 +387,33 @@ export namespace Ui {
     TextColor = 15,
     ScrollOffsetY = 16,
     FlexGrow = 17,
+    Disabled = 18,
   }
 
   export enum EventId {
     Click = 1,
     Change = 2,
     Submit = 3,
+    Pointer = 4,
+    Wheel = 5,
+    Keyboard = 6,
+    TextInput = 7,
+    Composition = 8,
+    Focus = 9,
+    WindowLifecycle = 10,
   }
 
   export interface EventPayloadMap {
     readonly [EventId.Click]: ClickEvent;
     readonly [EventId.Change]: ChangeEvent;
     readonly [EventId.Submit]: SubmitEvent;
+    readonly [EventId.Pointer]: PointerEvent;
+    readonly [EventId.Wheel]: WheelEvent;
+    readonly [EventId.Keyboard]: KeyboardEvent;
+    readonly [EventId.TextInput]: TextInputEvent;
+    readonly [EventId.Composition]: CompositionEvent;
+    readonly [EventId.Focus]: FocusEvent;
+    readonly [EventId.WindowLifecycle]: WindowLifecycleEvent;
   }
   export type EventPayload = EventPayloadMap[keyof EventPayloadMap];
   export type EventCallback = (payload: EventPayload) => void;
@@ -250,6 +434,11 @@ export namespace Ui {
     ClearProperty = 13,
     SetSemantics = 14,
     ResetSession = 15,
+    GetTextInputState = 16,
+    ReplaceTextInput = 17,
+    GetCompositionBounds = 18,
+    ClearSemantics = 19,
+    RegisterButton = 20,
   }
 
   export enum ErrorCode {
@@ -296,6 +485,15 @@ export namespace Ui {
     readonly [CommandId.ClearProperty]: readonly [node: Common.HandleRef, property: PropertyId];
     readonly [CommandId.SetSemantics]: readonly [node: Common.HandleRef, semantics: Semantics];
     readonly [CommandId.ResetSession]: readonly [];
+    readonly [CommandId.GetTextInputState]: readonly [node: Common.HandleRef];
+    readonly [CommandId.ReplaceTextInput]: readonly [
+      node: Common.HandleRef,
+      range: TextRange,
+      text: string,
+    ];
+    readonly [CommandId.GetCompositionBounds]: readonly [node: Common.HandleRef];
+    readonly [CommandId.ClearSemantics]: readonly [node: Common.HandleRef];
+    readonly [CommandId.RegisterButton]: readonly [node: Common.HandleRef];
   }
 
   export interface CommandResults {
@@ -314,6 +512,11 @@ export namespace Ui {
     readonly [CommandId.ClearProperty]: void;
     readonly [CommandId.SetSemantics]: void;
     readonly [CommandId.ResetSession]: void;
+    readonly [CommandId.GetTextInputState]: TextInputState;
+    readonly [CommandId.ReplaceTextInput]: void;
+    readonly [CommandId.GetCompositionBounds]: Rect;
+    readonly [CommandId.ClearSemantics]: void;
+    readonly [CommandId.RegisterButton]: void;
   }
 }
 
@@ -330,21 +533,38 @@ export namespace System {
     CancelTask = 3,
     CloseResource = 4,
     ResetSession = 5,
+    ReadTextFile = 6,
+    WriteTextFile = 7,
+    AwaitTask = 8,
+    OpenFileDialog = 9,
+    SaveFileDialog = 10,
   }
 
   export enum PermissionId {
     ClipboardRead = 1,
     ClipboardWrite = 2,
+    FsRead = 3,
+    FsWrite = 4,
+    DialogOpen = 5,
+    DialogSave = 6,
   }
 
   export enum TaskKind {
     ClipboardReadText = 1,
     ClipboardWriteText = 2,
+    ReadTextFile = 3,
+    WriteTextFile = 4,
+    OpenFileDialog = 5,
+    SaveFileDialog = 6,
   }
 
   export interface TaskResultMap {
     readonly [TaskKind.ClipboardReadText]: string;
     readonly [TaskKind.ClipboardWriteText]: void;
+    readonly [TaskKind.ReadTextFile]: string;
+    readonly [TaskKind.WriteTextFile]: void;
+    readonly [TaskKind.OpenFileDialog]: string;
+    readonly [TaskKind.SaveFileDialog]: string;
   }
 
   export enum ResourceKind {
@@ -367,6 +587,7 @@ export namespace System {
     Cancelled = 33554440,
     PlatformFailure = 33554441,
     InternalFailure = 33554442,
+    InvalidData = 33554443,
   }
 
   export interface CommandParams {
@@ -375,6 +596,19 @@ export namespace System {
     readonly [CommandId.CancelTask]: readonly [task: Common.HandleRef];
     readonly [CommandId.CloseResource]: readonly [resource: Common.HandleRef];
     readonly [CommandId.ResetSession]: readonly [];
+    readonly [CommandId.ReadTextFile]: readonly [path: string];
+    readonly [CommandId.WriteTextFile]: readonly [path: string, text: string];
+    readonly [CommandId.AwaitTask]: readonly [task: Common.HandleRef];
+    readonly [CommandId.OpenFileDialog]: readonly [
+      title: string,
+      defaultPath: string,
+      filtersJson: string,
+    ];
+    readonly [CommandId.SaveFileDialog]: readonly [
+      title: string,
+      defaultPath: string,
+      filtersJson: string,
+    ];
   }
 
   export interface CommandResults {
@@ -383,5 +617,10 @@ export namespace System {
     readonly [CommandId.CancelTask]: void;
     readonly [CommandId.CloseResource]: void;
     readonly [CommandId.ResetSession]: void;
+    readonly [CommandId.ReadTextFile]: Common.HandleRef;
+    readonly [CommandId.WriteTextFile]: Common.HandleRef;
+    readonly [CommandId.AwaitTask]: string;
+    readonly [CommandId.OpenFileDialog]: Common.HandleRef;
+    readonly [CommandId.SaveFileDialog]: Common.HandleRef;
   }
 }

@@ -3,6 +3,25 @@
  */
 
 import type { Signal } from "./signal";
+import type { Style, TextStyle, Theme } from "./theme";
+import type { Ui } from "@nexa/protocol";
+
+export const SemanticRole = {
+  None: "None" as Ui.SemanticRole.None,
+  Button: "Button" as Ui.SemanticRole.Button,
+  Text: "Text" as Ui.SemanticRole.Text,
+  Image: "Image" as Ui.SemanticRole.Image,
+  TextInput: "TextInput" as Ui.SemanticRole.TextInput,
+  Scroll: "Scroll" as Ui.SemanticRole.Scroll,
+  Header: "Header" as Ui.SemanticRole.Header,
+} as const;
+export const SemanticAction = {
+  Invoke: "Invoke" as Ui.SemanticAction.Invoke,
+  Focus: "Focus" as Ui.SemanticAction.Focus,
+  SetValue: "SetValue" as Ui.SemanticAction.SetValue,
+} as const;
+export type Semantics = Ui.Semantics;
+export type SemanticsProp = Ui.Semantics | Signal<Ui.Semantics>;
 
 export type HostKind =
   | "window"
@@ -13,6 +32,7 @@ export type HostKind =
   | "text"
   | "button"
   | "input"
+  | "textarea"
   | "scroll"
   | "card"
   | "spacer"
@@ -25,8 +45,11 @@ export type PrimitiveElement = {
   props: Record<string, unknown>;
 };
 
-function primitive(kind: HostKind, props: Record<string, unknown> = {}): PrimitiveElement {
-  return { $$nexa: true, kind, props };
+function primitive(
+  kind: HostKind,
+  props: Record<string, unknown> | null | undefined = {},
+): PrimitiveElement {
+  return { $$nexa: true, kind, props: props ?? {} };
 }
 
 export function isPrimitive(value: unknown): value is PrimitiveElement {
@@ -38,8 +61,13 @@ export function isPrimitive(value: unknown): value is PrimitiveElement {
   );
 }
 
+export type WindowLifecycleEvent = Ui.WindowLifecycleEvent;
+
 export type WindowProps = {
   title?: string;
+  onLifecycle?: (event: WindowLifecycleEvent) => void;
+  theme?: Theme;
+  style?: Style;
   children?: unknown;
 };
 
@@ -50,6 +78,7 @@ export function Window(props: WindowProps): PrimitiveElement {
 export type BoxProps = {
   width?: number;
   height?: number;
+  flexGrow?: number;
   padding?: number;
   gap?: number;
   /** 0=start 1=center 2=end 3=stretch */
@@ -58,6 +87,8 @@ export type BoxProps = {
   justifyContent?: number;
   backgroundColor?: number;
   borderRadius?: number;
+  style?: Style;
+  semantics?: SemanticsProp;
   children?: unknown;
 };
 
@@ -106,6 +137,8 @@ export function Spacer(props: SpacerProps = {}): PrimitiveElement {
 export type TextProps = {
   fontSize?: number;
   color?: number;
+  style?: TextStyle;
+  semantics?: SemanticsProp;
   children?: unknown;
 };
 
@@ -114,6 +147,10 @@ export function Text(props: TextProps = {}): PrimitiveElement {
 }
 
 export type ButtonProps = {
+  disabled?: boolean | Signal<boolean>;
+  style?: Style;
+  labelStyle?: TextStyle;
+  semantics?: SemanticsProp;
   onClick?: () => void;
   children?: unknown;
 };
@@ -125,13 +162,37 @@ export function Button(props: ButtonProps = {}): PrimitiveElement {
 export type InputProps = {
   value?: Signal<string> | string;
   placeholder?: string;
-  width?: number;
+  width?: number | "stretch";
+  flexGrow?: number;
+  disabled?: boolean | Signal<boolean>;
+  style?: Style;
+  textStyle?: TextStyle;
+  semantics?: SemanticsProp;
   onChange?: (value: string) => void;
   onSubmit?: (value: string) => void;
+  onComposition?: (event: Ui.CompositionEvent) => void;
 };
 
 export function Input(props: InputProps = {}): PrimitiveElement {
   return primitive("input", props as Record<string, unknown>);
+}
+
+export type TextAreaProps = {
+  value?: Signal<string> | string;
+  placeholder?: string;
+  width?: number | "stretch";
+  height?: number;
+  flexGrow?: number;
+  disabled?: boolean | Signal<boolean>;
+  style?: Style;
+  textStyle?: TextStyle;
+  semantics?: SemanticsProp;
+  onChange?: (value: string) => void;
+  onComposition?: (event: Ui.CompositionEvent) => void;
+};
+
+export function TextArea(props: TextAreaProps = {}): PrimitiveElement {
+  return primitive("textarea", props as Record<string, unknown>);
 }
 
 export type ImageProps = {
@@ -139,6 +200,7 @@ export type ImageProps = {
   src: string;
   width?: number;
   height?: number;
+  semantics?: SemanticsProp;
 };
 
 export function Image(props: ImageProps): PrimitiveElement {

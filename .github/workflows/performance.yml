@@ -1,0 +1,151 @@
+name: Performance budgets
+
+# G6-07 is intentionally isolated from the pull-request CI fan-out. The
+# deterministic contract runs on every manual/nightly invocation; native
+# timings are collected only on the hosted desktop runners that can provide a
+# real first-present and RSS observation.
+on:
+  workflow_call:
+    inputs:
+      require_active:
+        description: "Fail when a platform still has a pending baseline"
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      require_active:
+        description: "Fail when a platform still has a pending baseline"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Budget contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --test tools/performance-budget.test.mjs tools/performance-collector.test.mjs
+      - run: node tools/performance-budget.mjs validate
+
+  hosted-boundary:
+    name: Hosted capture boundary (${{ matrix.platform }})
+    needs: contracts
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      PERRY_NO_CACHE: "1"
+      SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
+      SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Initialize MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Stage Windows Skia binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "skia-bindings-windows-x64.tar.gz"
+          curl.exe --location --fail --silent --show-error --retry 3 --output $archive $env:SKIA_WINDOWS_ARCHIVE_URL
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
+            throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
+          }
+          $destination = Join-Path $env:GITHUB_WORKSPACE "packages/nui-host/target/perry-native/windows"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          tar.exe --extract --gzip --file $archive --directory $destination
+          $libraries = @(
+            (Join-Path $destination "skia-binaries/skia.lib"),
+            (Join-Path $destination "skia-binaries/skia-bindings.lib")
+          )
+          foreach ($library in $libraries) {
+            if (-not (Test-Path -LiteralPath $library -PathType Leaf)) {
+              throw "Skia archive is missing required link input: $library"
+            }
+          }
+          $fileUrl = "file://" + $archive.Replace('\', '/')
+          "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Report baseline status
+        shell: bash
+        run: |
+          node tools/performance-budget.mjs status --platform "${{ matrix.platform }}"
+          if [[ "${{ inputs.require_active || 'false' }}" == "true" ]]; then
+            node tools/performance-budget.mjs status --platform "${{ matrix.platform }}" --require-active
+          fi
+
+      - name: Materialize release package inputs
+        run: pnpm release:build
+
+      - name: Build the hosted distribution candidate
+        run: pnpm --filter @nexa/example-reference-notes package
+
+      - name: Capture native performance report
+        id: capture
+        shell: bash
+        run: |
+          if [[ "${{ matrix.platform }}" == "win32-x64" ]]; then
+            artifact="dist/reference-notes-windows-x64"
+            binary="$artifact/NexaNotes.exe"
+          else
+            artifact="dist/reference-notes-macos-arm64"
+            binary="$artifact/Nexa Notes.app/Contents/MacOS/NexaNotes"
+          fi
+          test -d "$artifact"
+          test -f "$binary"
+          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}.json"
+          node tools/performance-collector.mjs \
+            --binary "$binary" \
+            --artifact "$artifact" \
+            --platform "${{ matrix.platform }}" \
+            --runner-image "${{ matrix.os }}" \
+            --commit "$GITHUB_SHA" \
+            --output "$report"
+
+      - name: Check native performance report
+        shell: bash
+        run: |
+          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}.json"
+          test -f "$report"
+          node tools/performance-budget.mjs check \
+            --report "$report" \
+            --allow-pending \
+            --json
+
+      - name: Upload raw performance report
+        if: ${{ always() && steps.capture.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-report-${{ matrix.platform }}
+          path: ${{ runner.temp }}/nexa-performance-${{ matrix.platform }}.json
+          if-no-files-found: error

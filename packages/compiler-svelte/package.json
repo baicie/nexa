@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@nexa/nui-host": "workspace:*",
-    "svelte": "^4.2.19"
+    "svelte": "^5.55.7"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -8,20 +8,90 @@
 //! the window event loop owns the same arena (Slice 2→3 fix).
 
 mod callback;
+mod errors;
+mod frame_metrics;
 mod handle;
 mod handshake;
 mod host;
 mod window;
 
 pub use callback::{
-    CallbackHandle, CallbackRegistration, CallbackRegistry, ListenerKey, RemoveResult,
+    CallbackHandle, CallbackOwner, CallbackRegistration, CallbackRegistry, CallbackState,
+    ListenerKey, RemoveResult,
+};
+pub use errors::{
+    error_result_json, fatal_runtime_nexa_error, frame_nexa_error, mutation_nexa_error,
+    operation_state_nexa_error, platform_failure_nexa_error, platform_run_nexa_error,
+    text_input_nexa_error,
 };
 pub use handle::{
     decode_handle_token, encode_handle_token, handle_parts_to_node_id, handle_to_node_id,
     node_id_to_handle,
 };
-pub use handshake::handshake_json;
-pub use host::{pack_rgba, HostListenerError, HostPropertyError, HostUiEvent, NuiHost};
+pub use handshake::{handshake_json, handshake_json_with_error};
+pub use host::{
+    pack_rgba, HostFontConfigError, HostListenerError, HostPropertyError, HostTextInputError,
+    HostUiEvent, NuiHost,
+};
+pub use nui_core::MutationError;
+
+/// Encode a queued mutation result using the stable v1 error envelope.
+pub fn mutation_result_json(result: Result<(), MutationError>, operation: &str) -> String {
+    match result {
+        Ok(()) => serde_json::json!({ "ok": true, "value": null }).to_string(),
+        Err(error) => error_result_json(&mutation_nexa_error(error, operation)),
+    }
+}
+
+/// Encode a TextInputClient state query using the stable v1 result envelope.
+pub fn text_input_state_result_json(
+    result: Result<nui_protocol::ui::TextInputState, HostTextInputError>,
+) -> String {
+    match result {
+        Ok(state) => serde_json::json!({ "ok": true, "value": state }).to_string(),
+        Err(error) => error_result_json(&text_input_nexa_error(error, "getTextInputState")),
+    }
+}
+
+/// Encode a TextInputClient replacement using the stable v1 result envelope.
+pub fn text_input_replace_result_json(result: Result<(), HostTextInputError>) -> String {
+    match result {
+        Ok(()) => unit_result_json(),
+        Err(error) => error_result_json(&text_input_nexa_error(error, "replaceTextInput")),
+    }
+}
+
+/// Encode a composition-bounds query using the stable v1 result envelope.
+pub fn composition_bounds_result_json(
+    result: Result<nui_protocol::ui::Rect, HostTextInputError>,
+) -> String {
+    match result {
+        Ok(bounds) => serde_json::json!({ "ok": true, "value": bounds }).to_string(),
+        Err(error) => error_result_json(&text_input_nexa_error(error, "getCompositionBounds")),
+    }
+}
+
+/// Encode a successful commit receipt for the v1 result transport.
+pub fn mutation_receipt_result_json(
+    result: Result<Option<nui_core::MutationReceipt>, MutationError>,
+) -> String {
+    match result {
+        Ok(Some(receipt)) => serde_json::json!({
+            "ok": true,
+            "value": {
+                "sequence": receipt.sequence,
+                "dirtyFlags": receipt.dirty.bits()
+            }
+        })
+        .to_string(),
+        Ok(None) => serde_json::json!({
+            "ok": true,
+            "value": { "sequence": 0, "dirtyFlags": 0 }
+        })
+        .to_string(),
+        Err(error) => mutation_result_json(Err(error), "commit"),
+    }
+}
 
 /// Encode a node creation result as the v1 JSON result envelope.
 pub fn node_handle_result_json(id: nui_core::NodeId) -> String {
@@ -207,9 +277,82 @@ pub fn listener_handle_result_json(result: Result<CallbackHandle, HostListenerEr
     }
 }
 
+/// Encode a successful command with the protocol unit value.
+pub fn unit_result_json() -> String {
+    serde_json::json!({ "ok": true, "value": null }).to_string()
+}
+
 /// Encode a successful listener removal result.
 pub fn listener_unit_result_json() -> String {
-    serde_json::json!({ "ok": true, "value": null }).to_string()
+    unit_result_json()
+}
+
+/// Encode owner validation for callback removal while keeping closed and
+/// invalidated tombstones idempotent for the owning session.
+pub fn listener_remove_result_json(result: RemoveResult) -> String {
+    listener_remove_result_json_with_handle(result, None, None)
+}
+
+/// Encode callback removal with the rejected handle's generation metadata.
+pub fn listener_remove_result_json_with_handle(
+    result: RemoveResult,
+    handle: Option<CallbackHandle>,
+    current_generation: Option<u32>,
+) -> String {
+    match result {
+        RemoveResult::WrongOwner { expected, actual } => serde_json::json!({
+            "ok": false,
+            "error": {
+                "domain": "ui",
+                "code": nui_protocol::ui::ErrorCode::WrongOwner as u32,
+                "name": "WRONG_OWNER",
+                "severity": "RecoverableOperation",
+                "operation": "removeEventListener",
+                "retryable": false,
+                "message": "callback belongs to another owner scope",
+                "runtimeVersion": env!("CARGO_PKG_VERSION"),
+                "context": {
+                    "expectedOwner": expected.to_string(),
+                    "actualOwner": actual.to_string()
+                }
+            }
+        })
+        .to_string(),
+        RemoveResult::Closed(_) | RemoveResult::AlreadyClosed | RemoveResult::Invalidated => {
+            listener_unit_result_json()
+        }
+        RemoveResult::Stale => {
+            let mut context = serde_json::Map::new();
+            if let Some(handle) = handle {
+                context.insert("slot".to_owned(), serde_json::json!(handle.slot()));
+                context.insert(
+                    "generation".to_owned(),
+                    serde_json::json!(handle.generation()),
+                );
+            }
+            if let Some(current_generation) = current_generation {
+                context.insert(
+                    "currentGeneration".to_owned(),
+                    serde_json::json!(current_generation),
+                );
+            }
+            serde_json::json!({
+                "ok": false,
+                "error": {
+                    "domain": "ui",
+                    "code": nui_protocol::ui::ErrorCode::StaleHandle as u32,
+                    "name": "STALE_HANDLE",
+                    "severity": "RecoverableOperation",
+                    "operation": "removeEventListener",
+                    "retryable": false,
+                    "message": "listener handle is stale or was never registered",
+                    "runtimeVersion": env!("CARGO_PKG_VERSION"),
+                    "context": context
+                }
+            })
+            .to_string()
+        }
+    }
 }
 
 /// Encode an invalid listener argument using the manifest context contract.
@@ -238,7 +381,7 @@ pub fn invalid_listener_argument_result_json(
 
 #[cfg(test)]
 mod tests {
-    use nui_core::{NodeId, NodeType, PropertyId};
+    use nui_core::{EventId, NodeId, NodeType, PropertyId};
 
     use super::*;
     use crate::host::{backspace_at_caret, insert_text_at_caret};
@@ -287,6 +430,25 @@ mod tests {
     }
 
     #[test]
+    fn host_paint_executes_display_list_snapshot() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        host.set_number(root, PropertyId::Width, 16.0);
+        host.set_number(root, PropertyId::Height, 16.0);
+        host.set_number(
+            root,
+            PropertyId::BackgroundColor,
+            f64::from(pack_rgba(0xff, 0x00, 0x00, 0xff)),
+        );
+        host.layout(16.0, 16.0);
+        let mut pixels = vec![0_u32; 16 * 16];
+
+        host.paint(&mut pixels, 16, 16, 1.0).expect("host paint");
+
+        assert_eq!(pixels[8 * 16 + 8], 0xffff0000);
+    }
+
+    #[test]
     fn host_accepts_generated_protocol_ids() {
         let host = NuiHost::new();
         let node = host.create_node(nui_core::protocol::ui::NodeType::View);
@@ -332,6 +494,24 @@ mod tests {
         assert!(inner.arena.get(input).is_none());
         assert!(inner.arena.get(text).is_none());
         assert!(inner.arena.get(image).is_none());
+    }
+
+    #[test]
+    fn queued_empty_image_source_clears_image_state() {
+        let host = NuiHost::new();
+        let image = host.create_node(NodeType::Image);
+
+        host.queue_set_image(image, "/tmp/nexa-ui-image.png")
+            .expect("queue image");
+        host.commit_pending().expect("commit image");
+        assert_eq!(
+            host.image_path(image).as_deref(),
+            Some("/tmp/nexa-ui-image.png")
+        );
+
+        host.queue_set_image(image, "").expect("queue image clear");
+        host.commit_pending().expect("commit image clear");
+        assert_eq!(host.image_path(image), None);
     }
 
     #[test]
@@ -448,6 +628,62 @@ mod tests {
     }
 
     #[test]
+    fn text_input_state_result_uses_the_generated_camel_case_contract() {
+        let state = nui_core::protocol::ui::TextInputState {
+            text: "A😀B".to_owned(),
+            surrounding_text: nui_core::protocol::ui::TextRange { start: 0, end: 4 },
+            selection: nui_core::protocol::ui::TextSelection {
+                anchor: 1,
+                focus: 3,
+            },
+            composition: Some(nui_core::protocol::ui::TextRange { start: 1, end: 3 }),
+            composition_bounds: nui_core::protocol::ui::Rect {
+                x: 12.5,
+                y: 20.0,
+                width: 1.0,
+                height: 18.0,
+            },
+            revision: "9007199254740993".to_owned(),
+        };
+
+        let value: serde_json::Value =
+            serde_json::from_str(&text_input_state_result_json(Ok(state))).unwrap();
+
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["value"]["surroundingText"]["end"], 4);
+        assert_eq!(value["value"]["compositionBounds"]["x"], 12.5);
+        assert_eq!(value["value"]["revision"], "9007199254740993");
+    }
+
+    #[test]
+    fn invalid_text_input_range_uses_structured_invalid_argument_context() {
+        let value: serde_json::Value = serde_json::from_str(&text_input_replace_result_json(Err(
+            HostTextInputError::InvalidUtf16Range {
+                start: 2,
+                end: 2,
+                utf16_length: 4,
+            },
+        )))
+        .unwrap();
+
+        assert_eq!(value["ok"], false);
+        assert_eq!(value["error"]["name"], "INVALID_ARGUMENT");
+        assert_eq!(value["error"]["operation"], "replaceTextInput");
+        assert_eq!(value["error"]["context"]["parameter"], "range");
+        assert_eq!(value["error"]["context"]["actual"], "2..2");
+    }
+
+    #[test]
+    fn unknown_listener_generation_is_a_stale_handle_error() {
+        let value: serde_json::Value =
+            serde_json::from_str(&listener_remove_result_json(RemoveResult::Stale)).unwrap();
+
+        assert_eq!(value["ok"], false);
+        assert_eq!(value["error"]["name"], "STALE_HANDLE");
+        assert_eq!(value["error"]["operation"], "removeEventListener");
+    }
+
+    #[test]
     fn stale_property_uses_manifest_context_keys() {
         let value: serde_json::Value =
             serde_json::from_str(&property_result_json(Err(HostPropertyError::StaleNode {
@@ -554,5 +790,262 @@ mod tests {
         let style = &inner.arena.get(image).unwrap().style;
         assert_eq!(style.width, Some(64.0));
         assert_eq!(style.height, Some(64.0));
+    }
+
+    #[test]
+    fn queued_tree_is_invisible_until_commit() {
+        let host = NuiHost::new();
+        let root = host.queue_create_node(NodeType::View).expect("root");
+        let label = host.queue_create_text("queued").expect("label");
+        host.queue_insert_before(label, root, None).expect("insert");
+
+        assert!(!host.has_node(root));
+        assert!(!host.has_node(label));
+        assert!(host.root().is_none());
+
+        let receipt = host
+            .commit_pending()
+            .expect("commit result")
+            .expect("receipt");
+        assert_eq!(receipt.command_count, 4);
+        assert!(host.has_node(root));
+        assert_eq!(host.root(), Some(root));
+        let inner = host.inner.lock().expect("host inner");
+        assert_eq!(inner.arena.get(root).unwrap().children, vec![label]);
+    }
+
+    #[test]
+    fn queued_property_is_invisible_until_commit_and_reports_dirty_flags() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        host.queue_set_number(node, PropertyId::Padding, 24.0)
+            .expect("queue property");
+        assert_eq!(
+            host.inner
+                .lock()
+                .expect("host inner")
+                .arena
+                .get(node)
+                .unwrap()
+                .style
+                .padding,
+            0.0
+        );
+        let receipt = host.commit_pending().expect("commit").expect("receipt");
+        assert!(receipt.dirty.contains(nui_core::DirtyFlags::LAYOUT));
+        assert!(receipt.dirty.contains(nui_core::DirtyFlags::PAINT));
+        assert_eq!(
+            host.inner
+                .lock()
+                .expect("host inner")
+                .arena
+                .get(node)
+                .unwrap()
+                .style
+                .padding,
+            24.0
+        );
+    }
+
+    #[test]
+    fn failed_queued_command_poisons_and_rolls_back_the_whole_batch() {
+        let host = NuiHost::new();
+        let provisional = host.queue_create_node(NodeType::View).expect("queued node");
+        let error = host
+            .queue_set_number(provisional, PropertyId::Width, f64::NAN)
+            .expect_err("non-finite property must fail");
+        assert_eq!(
+            error,
+            nui_core::MutationError::InvalidPropertyValue(PropertyId::Width)
+        );
+
+        assert_eq!(host.commit_pending(), Err(error));
+        assert!(!host.has_node(provisional));
+        assert!(host.has_pending_batch());
+
+        host.abort_pending();
+        let next = host.queue_create_node(NodeType::View).expect("new batch");
+        let receipt = host.commit_pending().expect("commit").expect("receipt");
+        assert_eq!(receipt.sequence, 2);
+        assert!(host.has_node(next));
+    }
+
+    #[test]
+    fn queued_commit_rejects_plan_when_active_arena_changes() {
+        let host = NuiHost::new();
+        let provisional = host.queue_create_node(NodeType::View).expect("queued node");
+        host.queue_set_number(provisional, PropertyId::Padding, 24.0)
+            .expect("queued property");
+        let active = host.create_node(NodeType::View);
+        assert_eq!(provisional.raw(), active.raw());
+
+        let error = host
+            .commit_pending()
+            .expect_err("active mutation invalidates queued plan");
+        assert_eq!(error, nui_core::MutationError::PlanInvalidated);
+        assert!(host.has_node(active));
+        assert!(host.has_pending_batch());
+        assert_eq!(
+            host.inner
+                .lock()
+                .expect("host inner")
+                .arena
+                .get(active)
+                .expect("active node")
+                .style
+                .padding,
+            0.0
+        );
+        assert!(host.take_last_removed_nodes().is_empty());
+        assert!(host.take_last_removed_listener_handles().is_empty());
+    }
+
+    #[test]
+    fn queued_commit_rejects_active_metadata_changes_without_losing_them() {
+        let host = NuiHost::new();
+        let node = host.create_node(NodeType::View);
+        host.queue_set_number(node, PropertyId::Padding, 24.0)
+            .expect("queued property");
+        host.add_click_listener(node, 77);
+
+        assert_eq!(
+            host.commit_pending(),
+            Err(nui_core::MutationError::PlanInvalidated)
+        );
+        assert_eq!(host.click_token(node), Some(77));
+        assert_eq!(
+            host.inner
+                .lock()
+                .expect("host inner")
+                .arena
+                .get(node)
+                .expect("node")
+                .style
+                .padding,
+            0.0
+        );
+    }
+
+    #[test]
+    fn metadata_only_image_commit_is_paint_dirty() {
+        let host = NuiHost::new();
+        let image = host.create_node(NodeType::Image);
+        host.set_number(image, PropertyId::Width, 32.0);
+        host.set_number(image, PropertyId::Height, 32.0);
+        host.queue_set_image(image, "/tmp/nexa-ui-missing-image-dirty.png")
+            .expect("queue image");
+
+        let receipt = host.commit_pending().expect("commit").expect("receipt");
+        assert!(receipt.dirty.contains(nui_core::DirtyFlags::PAINT));
+    }
+
+    #[test]
+    fn sequence_overflow_rejects_before_applying() {
+        let host = NuiHost::new();
+        host.inner.lock().expect("host inner").next_sequence = u64::from(u32::MAX);
+        let provisional = host.queue_create_node(NodeType::View).expect("queued node");
+
+        assert_eq!(
+            host.commit_pending(),
+            Err(nui_core::MutationError::SequenceExhausted {
+                sequence: u64::from(u32::MAX) + 1
+            })
+        );
+        assert!(!host.has_node(provisional));
+    }
+
+    #[test]
+    fn queued_remove_defers_listener_and_input_cleanup() {
+        let host = NuiHost::new();
+        let root = host.create_node(NodeType::View);
+        let child = host.create_node(NodeType::View);
+        let text = host.create_text("draft");
+        host.insert(text, child);
+        host.insert(child, root);
+        let callback = CallbackHandle::new(30, 1);
+        host.add_event_listener(child, EventId::Change, callback)
+            .expect("listener");
+        host.register_input(child, text, "Draft");
+
+        host.queue_remove(child).expect("queue remove");
+        assert!(host.has_node(child));
+        host.commit_pending().expect("commit");
+        assert!(!host.has_node(child));
+        assert_eq!(host.take_last_removed_listener_handles(), vec![callback]);
+        let inner = host.inner.lock().expect("host inner");
+        assert!(inner.inputs.is_empty());
+        assert!(inner.arena.get(root).unwrap().children.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod structured_error_tests {
+    use nui_app_runtime::ErrorDisposition;
+    use nui_core::protocol::common::ErrorSeverity;
+    use nui_platform_winit::{PlatformError, PlatformFailure, PlatformFailureStage};
+
+    use super::*;
+
+    #[test]
+    fn maps_host_and_platform_failures_to_stable_nexa_errors() {
+        let mutation = mutation_nexa_error(MutationError::InvalidPropertyId(999), "commit");
+        assert_eq!(mutation.severity, ErrorSeverity::RecoverableOperation);
+        assert_eq!(mutation.operation, "commit");
+        assert_eq!(mutation.name, "INVALID_ARGUMENT");
+        let semantics = mutation_nexa_error(MutationError::InvalidSemantics, "setSemantics");
+        assert_eq!(semantics.name, "INVALID_ARGUMENT");
+        assert_eq!(semantics.operation, "setSemantics");
+
+        let frame = platform_failure_nexa_error(&PlatformFailure::new(
+            PlatformFailureStage::PresentFrame,
+            "present failed",
+        ));
+        assert_eq!(frame.severity, ErrorSeverity::FrameFailure);
+        assert_eq!(frame.operation, "presentFrame");
+        assert!(frame.retryable);
+
+        let fatal =
+            platform_run_nexa_error(&PlatformError::EventLoop("event loop failed".to_owned()));
+        assert_eq!(fatal.severity, ErrorSeverity::FatalRuntime);
+        assert_eq!(fatal.operation, "eventLoop");
+        assert_eq!(
+            ErrorDisposition::from(fatal.severity),
+            ErrorDisposition::StopRuntime
+        );
+    }
+
+    #[test]
+    fn serializes_a_structured_error_without_losing_its_contract_fields() {
+        let error = frame_nexa_error("paint", "display list failed");
+        let json: serde_json::Value =
+            serde_json::from_str(&error_result_json(&error)).expect("structured error JSON");
+
+        assert_eq!(json["ok"], false);
+        assert_eq!(json["error"]["severity"], "FrameFailure");
+        assert_eq!(json["error"]["operation"], "paint");
+        assert_eq!(json["error"]["runtimeVersion"], env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn structured_mappers_use_only_manifest_context_keys() {
+        let invalid = mutation_nexa_error(MutationError::InvalidPropertyId(999), "commit");
+        let invalid_json: serde_json::Value =
+            serde_json::from_str(&error_result_json(&invalid)).unwrap();
+        let invalid_context = invalid_json["error"]["context"].as_object().unwrap();
+        assert_eq!(invalid_context.len(), 3);
+        assert!(invalid_context.contains_key("parameter"));
+        assert!(invalid_context.contains_key("expected"));
+        assert!(invalid_context.contains_key("actual"));
+
+        let platform = platform_failure_nexa_error(&PlatformFailure::new(
+            PlatformFailureStage::PresentFrame,
+            "present failed",
+        ));
+        let platform_json: serde_json::Value =
+            serde_json::from_str(&error_result_json(&platform)).unwrap();
+        let platform_context = platform_json["error"]["context"].as_object().unwrap();
+        assert_eq!(platform_context.len(), 2);
+        assert_eq!(platform_context["platform"], "winit");
+        assert_eq!(platform_context["operation"], "presentFrame");
     }
 }

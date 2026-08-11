@@ -1,6 +1,6 @@
 # ADR-005：跨平台系统 API、权限模型与插件架构
 
-- 状态：Proposed（Slice 12 剪贴板垂直切片已落地）
+- 状态：Accepted（Desktop Notes MVP System Host 边界）
 - 日期：2026-08-04
 - 依赖：ADR-004 框架适配器与 NUI Host
 - 项目：Nexa UI / NUI

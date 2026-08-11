@@ -1,6 +1,7 @@
 [package]
 name = "nui-protocol"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -9,6 +10,17 @@ include = ["generated/protocol.rs"]
 
 [lib]
 path = "generated/protocol.rs"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "execution": {
+    "publishes": false,
+    "signs": false,
+    "notarizes": false,
+    "dispatchesRemoteWorkflows": false
+  },
+  "modes": {
+    "candidate": {
+      "requireCleanSource": false,
+      "requireVersionTag": false,
+      "promotion": "candidate-only"
+    },
+    "publishable": {
+      "requireCleanSource": true,
+      "requireVersionTag": true,
+      "promotion": "owner-review-required"
+    },
+    "tag": {
+      "requireCleanSource": true,
+      "requireVersionTag": true,
+      "promotion": "owner-review-required"
+    }
+  },
+  "requiredGates": [
+    "source",
+    "contracts",
+    "security",
+    "performance",
+    "consumer",
+    "freshVerification",
+    "launch",
+    "rollback"
+  ],
+  "verification": {
+    "producerJob": "consumer",
+    "consumerJob": "fresh-verify",
+    "freshDownloadRequired": true,
+    "independentJobRequired": true
+  },
+  "transport": {
+    "manifest": "rehearsal-manifest.json",
+    "descriptor": "descriptor.json",
+    "consumerResult": "consumer-result.json",
+    "launchDescriptor": "launch.json",
+    "artifactsDirectory": "artifacts",
+    "evidenceDirectory": "evidence",
+    "maxFileCount": 16384,
+    "maxTotalBytes": 4294967296
+  },
+  "launch": {
+    "integrityVerificationRequired": true,
+    "allowedPlatforms": ["darwin-arm64", "darwin-x64", "win32-x64"],
+    "observationMs": 5000,
+    "terminationGraceMs": 5000,
+    "maxOutputBytes": 65536,
+    "candidateProbeMinObservationMs": 25
+  },
+  "rollback": {
+    "state": "quarantined",
+    "actions": [
+      "stop-promotion",
+      "retain-candidate-and-evidence",
+      "keep-last-known-good-current",
+      "open-corrective-change",
+      "use-new-version-for-next-candidate"
+    ],
+    "forbiddenActions": [
+      "publish",
+      "sign",
+      "notarize",
+      "overwrite-version",
+      "unpublish-version",
+      "dispatch-remote-workflow"
+    ]
+  }
+}

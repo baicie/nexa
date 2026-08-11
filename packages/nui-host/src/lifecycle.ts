@@ -65,7 +65,7 @@ export function registerNodeCleanup(id: bigint, cleanup: NodeCleanup): NodeClean
  * Cleanup is run before the state entry is removed, so re-entrant disposal is
  * harmless and late signal writes cannot re-register work for a dead node.
  */
-export function disposeNode(id: bigint): void {
+function disposeNodeCollectingErrors(id: bigint, errors: unknown[]): void {
   if (disposedIds.has(id)) return;
   const state = nodes.get(id);
   if (!state || state.disposed) {
@@ -77,13 +77,17 @@ export function disposeNode(id: bigint): void {
   while (state.children.size > 0) {
     const child = state.children.values().next().value as bigint | undefined;
     if (child === undefined) break;
-    disposeNode(child);
+    disposeNodeCollectingErrors(child, errors);
   }
   while (state.cleanups.size > 0) {
     const cleanup = state.cleanups.values().next().value as NodeCleanup | undefined;
     if (cleanup === undefined) break;
-    cleanup();
     state.cleanups.delete(cleanup);
+    try {
+      cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
   }
 
   if (state.parent !== null) {
@@ -93,6 +97,23 @@ export function disposeNode(id: bigint): void {
   state.cleanups.clear();
   nodes.delete(id);
   disposedIds.add(id);
+}
+
+export function disposeNode(id: bigint): void {
+  const errors: unknown[] = [];
+  disposeNodeCollectingErrors(id, errors);
+  if (errors.length > 0) throw errors[0];
+}
+
+/** End the current JS ownership scope and prepare an empty scope for remount. */
+export function resetNodeLifecycle(): void {
+  const errors: unknown[] = [];
+  for (const id of Array.from(nodes.keys())) {
+    disposeNodeCollectingErrors(id, errors);
+  }
+  nodes.clear();
+  disposedIds.clear();
+  if (errors.length > 0) throw errors[0];
 }
 
 /** Visible only for focused lifecycle tests and diagnostics. */

@@ -8,6 +8,17 @@
 export { signal, effect, onCleanup, isSignal } from "./signal";
 export type { Signal } from "./signal";
 
+export { createTheme, defaultTheme, rgba } from "./theme";
+export type {
+  ColorToken,
+  ViewStyle,
+  TextStyle,
+  Style,
+  ThemeTokens,
+  ThemeOverrides,
+  Theme,
+} from "./theme";
+
 export {
   Window,
   Column,
@@ -21,10 +32,14 @@ export {
   Button,
   For,
   Input,
+  TextArea,
   Image,
   isPrimitive,
+  SemanticAction,
+  SemanticRole,
 } from "./primitives";
 export type {
+  WindowLifecycleEvent,
   WindowProps,
   BoxProps,
   ScrollProps,
@@ -33,10 +48,13 @@ export type {
   TextProps,
   ButtonProps,
   InputProps,
+  TextAreaProps,
   ImageProps,
   ForProps,
   PrimitiveElement,
   HostKind,
+  Semantics,
+  SemanticsProp,
 } from "./primitives";
 
 export { mount } from "./mount";

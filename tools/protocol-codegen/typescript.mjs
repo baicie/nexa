@@ -88,11 +88,22 @@ function renderMap(type, namespace) {
   );
 }
 
+function renderList(type, namespace) {
+  return (
+    "  export type " +
+    type.name +
+    " = readonly " +
+    typescriptType(type.elementType, namespace) +
+    "[];"
+  );
+}
+
 function renderTypes(types, namespace) {
   return types
     .map((type) => {
       if (type.kind === "record") return renderRecord(type, namespace);
       if (type.kind === "enum") return renderStringEnum(type);
+      if (type.kind === "list") return renderList(type, namespace);
       return renderMap(type, namespace);
     })
     .join("\n\n");

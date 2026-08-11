@@ -6,8 +6,8 @@ import type { RendererOptions } from "@vue/runtime-core";
 import {
   applyHostProp,
   clearChildren,
+  createAdapterHostElement,
   createHostComment,
-  createHostElement,
   createHostText,
   getNextSibling,
   getParent,
@@ -22,7 +22,7 @@ export type { NuiNode };
 
 export const nodeOps: RendererOptions<NuiNode, NuiNode> = {
   createElement(type: string): NuiNode {
-    return createHostElement(type);
+    return createAdapterHostElement(type);
   },
 
   createText(text: string): NuiNode {

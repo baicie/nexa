@@ -1,0 +1,344 @@
+name: Release rehearsal
+
+# This workflow proves the staging path only. It never publishes, signs,
+# notarizes, promotes a version, or dispatches another workflow through an API.
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Candidate runs accept a branch; tag runs require v<release version>"
+        required: false
+        default: candidate
+        type: string
+      last_known_good:
+        description: "Version retained when the candidate is quarantined"
+        required: false
+        default: none-first-preview
+        type: string
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Source policy to enforce"
+        required: true
+        default: candidate
+        type: choice
+        options:
+          - candidate
+          - tag
+      last_known_good:
+        description: "Version retained when the candidate is quarantined"
+        required: true
+        default: none-first-preview
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  PERRY_NO_CACHE: "1"
+  SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
+  SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
+
+jobs:
+  source:
+    name: Validate source identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Validate non-publishing policy
+        run: node tools/release-rehearsal.mjs validate-policy
+      - name: Bind ref, tag, and checked-out revision
+        run: >-
+          node tools/release-rehearsal.mjs source
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+
+  contracts:
+    name: Required contracts
+    needs: source
+    uses: ./.github/workflows/typescript.yml
+
+  security:
+    name: Supply-chain gates
+    needs: source
+    uses: ./.github/workflows/security.yml
+
+  performance:
+    name: Active performance budgets
+    needs: source
+    uses: ./.github/workflows/performance.yml
+    with:
+      require_active: true
+
+  consumer:
+    name: Build unsigned candidate (${{ matrix.platform }})
+    needs: [source, contracts, security, performance]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+      REHEARSAL_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Initialize MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Stage pinned Windows Skia binaries
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "skia-bindings-windows-x64.tar.gz"
+          curl.exe --location --fail --silent --show-error --retry 3 --output $archive $env:SKIA_WINDOWS_ARCHIVE_URL
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
+            throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
+          }
+          $destination = Join-Path $env:GITHUB_WORKSPACE "packages/nui-host/target/perry-native/windows"
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          tar.exe --extract --gzip --file $archive --directory $destination
+          if ($LASTEXITCODE -ne 0) { throw "Could not extract the pinned Skia archive" }
+          foreach ($library in @("skia.lib", "skia-bindings.lib")) {
+            $path = Join-Path $destination "skia-binaries/$library"
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Skia archive is missing required link input: $path"
+            }
+          }
+          $fileUrl = "file://" + $archive.Replace('\', '/')
+          "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install locked toolchain
+        run: pnpm install --frozen-lockfile
+      - name: Build, pack, and consume public tarballs
+        run: node tools/release-consumer.mjs --output "${{ runner.temp }}/nexa-release-output"
+      - name: Assemble integrity-bound candidate
+        run: >-
+          node tools/release-rehearsal.mjs prepare
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+          --platform "$REHEARSAL_PLATFORM"
+          --release-output "${{ runner.temp }}/nexa-release-output"
+          --bundle "${{ runner.temp }}/nexa-release-bundle"
+          --report "${{ runner.temp }}/candidate-${{ matrix.platform }}.json"
+      - name: Upload unsigned candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-release-candidate-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-release-bundle
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  fresh-verify:
+    name: Fresh integrity verification (${{ matrix.platform }})
+    needs: consumer
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+      REHEARSAL_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Fresh download
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nexa-release-candidate-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-release-download
+      - name: Verify transport inventory, checksums, SBOM, and provenance
+        run: >-
+          node tools/release-rehearsal.mjs verify
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+          --platform "$REHEARSAL_PLATFORM"
+          --bundle "${{ runner.temp }}/nexa-release-download"
+          --report "${{ runner.temp }}/fresh-verification-${{ matrix.platform }}.json"
+      - name: Upload verification record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-release-verification-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/fresh-verification-${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  launch:
+    name: Launch verified download (${{ matrix.platform }})
+    needs: fresh-verify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+      REHEARSAL_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Download candidate again for launch boundary
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nexa-release-candidate-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-release-launch-download
+      - name: Reverify, extract, observe, and terminate application
+        run: >-
+          node tools/release-rehearsal.mjs launch
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+          --platform "$REHEARSAL_PLATFORM"
+          --bundle "${{ runner.temp }}/nexa-release-launch-download"
+          --extract "${{ runner.temp }}/nexa-release-launch-extract"
+          --report "${{ runner.temp }}/launch-${{ matrix.platform }}.json"
+      - name: Upload launch record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-release-launch-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/launch-${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+  rollback:
+    name: Quarantine rollback exercise (${{ matrix.platform }})
+    needs: [fresh-verify, launch]
+    if: always() && needs.fresh-verify.result == 'success'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+      REHEARSAL_PLATFORM: ${{ matrix.platform }}
+      LAST_KNOWN_GOOD: ${{ inputs.last_known_good || vars.NEXA_LAST_KNOWN_GOOD || 'none-first-preview' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Download candidate into isolated rollback job
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nexa-release-candidate-${{ matrix.platform }}-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-release-rollback-download
+      - name: Tamper copy, require detection, and retain quarantine evidence
+        run: >-
+          node tools/release-rehearsal.mjs rollback
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+          --platform "$REHEARSAL_PLATFORM"
+          --bundle "${{ runner.temp }}/nexa-release-rollback-download"
+          --output "${{ runner.temp }}/nexa-release-rollback"
+          --last-known-good "$LAST_KNOWN_GOOD"
+          --report "${{ runner.temp }}/rollback-${{ matrix.platform }}.json"
+      - name: Upload rollback decision and quarantined copy
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-release-rollback-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/rollback-${{ matrix.platform }}.json
+            ${{ runner.temp }}/nexa-release-rollback/rollback-decision.json
+          if-no-files-found: error
+          retention-days: 30
+
+  decision:
+    name: Promotion decision
+    needs: [source, contracts, security, performance, consumer, fresh-verify, launch, rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      REHEARSAL_MODE: ${{ github.event_name == 'push' && 'tag' || inputs.mode }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Record every required gate
+        run: >-
+          node tools/release-rehearsal.mjs decision
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"
+          --output "${{ runner.temp }}/rehearsal-decision.json"
+          --gate-source "${{ needs.source.result }}"
+          --gate-contracts "${{ needs.contracts.result }}"
+          --gate-security "${{ needs.security.result }}"
+          --gate-performance "${{ needs.performance.result }}"
+          --gate-consumer "${{ needs.consumer.result }}"
+          --gate-fresh-verification "${{ needs.fresh-verify.result }}"
+          --gate-launch "${{ needs.launch.result }}"
+          --gate-rollback "${{ needs.rollback.result }}"
+      - name: Upload decision before enforcement
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-release-decision-${{ github.sha }}
+          path: ${{ runner.temp }}/rehearsal-decision.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce no-promotion-on-failure
+        run: >-
+          node tools/release-rehearsal.mjs enforce
+          --decision "${{ runner.temp }}/rehearsal-decision.json"

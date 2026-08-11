@@ -13,9 +13,22 @@
     "typecheck": "echo 'Perry Counter typecheck deferred to perry compile'"
   },
   "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
     "allow": {
       "nativeLibrary": [
-        "@nexa/nui-host"
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
       ]
     }
   }

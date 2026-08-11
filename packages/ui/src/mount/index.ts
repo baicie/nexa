@@ -2,7 +2,7 @@
  * Mount a Minimal TSX tree onto the NUI Host and run the native window.
  */
 
-import { commit, getWindowTitle, resetWindowTitle, run } from "@nexa/nui-host";
+import { commit, getWindowTitle, resetSession, run } from "@nexa/nui-host";
 
 import type { NexaElement } from "../jsx-runtime";
 import type { PrimitiveElement } from "../primitives";
@@ -17,7 +17,7 @@ type Component = (props: Record<string, unknown>) => unknown;
  * so updates call `setText` without rebuilding the native tree.
  */
 export function mount(root: Component | NexaElement | PrimitiveElement): void {
-  resetWindowTitle();
+  resetSession();
   const tree = typeof root === "function" ? root({}) : root;
   const hostRoot = mountNode(tree);
   if (hostRoot === null) {

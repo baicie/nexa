@@ -5,10 +5,10 @@
 //! cargo run -p rust-counter -- --smoke # offscreen layout/paint/click simulation
 //! ```
 
-use nui_core::{hit_test, Arena, ColorRgba, FlexDirection, NodeId, NodeType, Style};
+use nui_core::{hit_test, Arena, ColorRgba, DisplayList, FlexDirection, NodeId, NodeType, Style};
 use nui_layout_taffy::layout_tree;
 use nui_platform_winit::{run_app, WindowApp};
-use nui_render_skia::paint_tree;
+use nui_render_skia::paint_display_list;
 
 fn main() {
     let smoke = std::env::args().any(|arg| arg == "--smoke");
@@ -128,7 +128,8 @@ impl WindowApp for CounterApp {
         let logical_w = width as f64 / scale;
         let logical_h = height as f64 / scale;
         self.relayout(logical_w as f32, logical_h as f32);
-        if let Err(err) = paint_tree(&self.arena, self.root, pixels, width, height, scale, None) {
+        let display_list = DisplayList::from_arena(&self.arena, self.root);
+        if let Err(err) = paint_display_list(&display_list, pixels, width, height, scale, None) {
             eprintln!("paint failed: {err}");
         }
     }

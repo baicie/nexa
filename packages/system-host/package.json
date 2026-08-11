@@ -1,21 +1,33 @@
 {
   "name": "@nexa/system-host",
   "version": "0.1.0",
-  "private": true,
+  "type": "module",
   "description": "Perry native library exposing the Nexa System Host Protocol (ADR-005)",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "license": "MIT OR Apache-2.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "perry": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
-    "src/",
-    "Cargo.toml",
+    "dist",
+    "src",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@nexa/protocol": "workspace:*"
+  },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/system-host",
+    "test": "node --test ../../tools/system-result-contract.test.mjs"
   },
   "perry": {
     "nativeLibrary": {
@@ -32,11 +44,72 @@
             "string"
           ],
           "returns": "i32"
+        },
+        {
+          "name": "js_nexa_clipboard_read_text_v1",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_clipboard_write_text_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_cancel_task_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_read_text_file_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_write_text_file_v1",
+          "params": [
+            "string",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_await_task_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "promise<string>"
+        },
+        {
+          "name": "js_nexa_open_file_dialog_v1",
+          "params": [
+            "string",
+            "string",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nexa_save_file_dialog_v1",
+          "params": [
+            "string",
+            "string",
+            "string"
+          ],
+          "returns": "string"
         }
       ],
       "targets": {
         "macos": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/system-host",
           "lib": "libperry_ext_nexa_system_host.a",
           "cargo_features": [],
           "libs": [
@@ -48,12 +121,12 @@
           ]
         },
         "linux": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/system-host",
           "lib": "libperry_ext_nexa_system_host.a",
           "cargo_features": []
         },
         "windows": {
-          "crate": ".",
+          "crate": "dist/native/repo/packages/system-host",
           "lib": "perry_ext_nexa_system_host.lib",
           "cargo_features": []
         }

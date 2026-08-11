@@ -5,7 +5,7 @@
 import { createRenderer } from "solid-js/universal";
 import {
   applyHostProp,
-  createHostElement,
+  createAdapterHostElement,
   createHostText,
   getFirstChild,
   getNextSibling,
@@ -18,9 +18,9 @@ import {
 
 export type { NuiNode };
 
-export const renderer = createRenderer<NuiNode>({
+export const solidHostConfig = {
   createElement(tag: string): NuiNode {
-    return createHostElement(tag);
+    return createAdapterHostElement(tag);
   },
 
   createTextNode(value: string): NuiNode {
@@ -33,6 +33,10 @@ export const renderer = createRenderer<NuiNode>({
   },
 
   setProperty(node: NuiNode, name: string, value: unknown): void {
+    if (name === "ref") {
+      if (typeof value === "function") (value as (node: NuiNode) => void)(node);
+      return;
+    }
     applyHostProp(node, name, value);
   },
 
@@ -59,4 +63,6 @@ export const renderer = createRenderer<NuiNode>({
   getNextSibling(node: NuiNode): NuiNode | undefined {
     return getNextSibling(node) ?? undefined;
   },
-});
+};
+
+export const renderer = createRenderer<NuiNode>(solidHostConfig);

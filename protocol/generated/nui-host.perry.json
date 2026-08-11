@@ -147,6 +147,31 @@
       "name": "js_nui_reset_session_v1",
       "params": [],
       "returns": "string"
+    },
+    {
+      "name": "js_nui_get_text_input_state_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_replace_text_input_v1",
+      "params": ["u32", "u32", "u32", "u32", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_get_composition_bounds_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_clear_semantics_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nui_register_button_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
     }
   ]
 }

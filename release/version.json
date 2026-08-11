@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "npmTrain": "0.1.0",
+  "rustTrain": "0.1.0",
+  "protocol": "1.0.0",
+  "hostAbi": "0.5",
+  "perry": "0.5.1220",
+  "node": ">=22",
+  "pnpm": "10.34.3",
+  "typescript": "5.9.2"
+}

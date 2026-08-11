@@ -1,4 +1,4 @@
-import { commit, createHostRoot, getWindowTitle, resetWindowTitle, run } from "@nexa/nui-host";
+import { commit, createHostRoot, getWindowTitle, resetSession, run } from "@nexa/nui-host";
 import { createRenderer, type App } from "@vue/runtime-core";
 
 import { nodeOps } from "./node-ops";
@@ -15,7 +15,7 @@ export function createApp(...args: Parameters<typeof baseCreateApp>): HostApp {
   const app = baseCreateApp(...args) as HostApp;
   const originalMount = app.mount.bind(app);
   app.mount = ((_rootContainer?: unknown) => {
-    resetWindowTitle();
+    resetSession();
     const root = createHostRoot();
     originalMount(root);
     commit();

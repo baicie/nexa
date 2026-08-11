@@ -5,6 +5,8 @@ pub mod common {
     use std::collections::BTreeMap;
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct ProtocolVersion {
         pub major: u32,
         pub minor: u32,
@@ -12,24 +14,32 @@ pub mod common {
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct AbiVersion {
         pub major: u32,
         pub minor: u32,
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct FeatureBits {
         pub low: u32,
         pub high: u32,
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct FeatureSet {
         pub required: FeatureBits,
         pub optional: FeatureBits,
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct ProtocolHello {
         pub protocol: ProtocolVersion,
         pub abi: AbiVersion,
@@ -41,6 +51,8 @@ pub mod common {
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct ProtocolAccepted {
         pub protocol: ProtocolVersion,
         pub abi: AbiVersion,
@@ -52,12 +64,15 @@ pub mod common {
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct HandleRef {
         pub slot: u32,
         pub generation: u32,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub enum ErrorSeverity {
         ProtocolViolation,
         RecoverableOperation,
@@ -66,6 +81,7 @@ pub mod common {
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub enum ErrorContextValue {
         String(String),
         U32(u32),
@@ -76,6 +92,8 @@ pub mod common {
     pub type ErrorContext = BTreeMap<String, ErrorContextValue>;
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct NexaError {
         pub domain: String,
         pub code: u32,
@@ -141,36 +159,263 @@ pub mod common {
 
 pub mod ui {
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct CommitReceipt {
         pub sequence: u32,
         pub dirty_flags: u32,
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum SemanticRole {
+        None,
+        Button,
+        Text,
+        Image,
+        TextInput,
+        Scroll,
+        Header,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum SemanticAction {
+        Invoke,
+        Focus,
+        SetValue,
+    }
+
+    pub type SemanticActions = Vec<SemanticAction>;
+
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct Semantics {
-        pub role: Option<String>,
+        pub role: Option<SemanticRole>,
         pub label: Option<String>,
         pub value: Option<String>,
         pub description: Option<String>,
         pub disabled: Option<bool>,
+        pub checked: Option<bool>,
+        pub actions: Option<SemanticActions>,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct TextRange {
+        pub start: u32,
+        pub end: u32,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct TextSelection {
+        pub anchor: u32,
+        pub focus: u32,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct Rect {
+        pub x: f64,
+        pub y: f64,
+        pub width: f64,
+        pub height: f64,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct TextInputState {
+        pub text: String,
+        pub surrounding_text: TextRange,
+        pub selection: TextSelection,
+        pub composition: Option<TextRange>,
+        pub composition_bounds: Rect,
+        pub revision: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct EventModifiers {
+        pub shift: bool,
+        pub control: bool,
+        pub alt: bool,
+        pub meta: bool,
+        pub caps_lock: bool,
+        pub num_lock: bool,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum PropagationPhase {
+        Capture,
+        Target,
+        Bubble,
+        DefaultAction,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct PropagationState {
+        pub phase: PropagationPhase,
+        pub default_prevented: bool,
+        pub propagation_stopped: bool,
+        pub immediate_propagation_stopped: bool,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct EventContext {
+        pub window_id: u32,
+        pub target: Option<super::common::HandleRef>,
+        pub timestamp: String,
+        pub modifiers: EventModifiers,
+        pub propagation: PropagationState,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum PointerKind {
+        Down,
+        Move,
+        Up,
+        Cancel,
+        Enter,
+        Leave,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum KeyboardKind {
+        Down,
+        Up,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum CompositionKind {
+        Start,
+        Update,
+        Commit,
+        Cancel,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum FocusKind {
+        Gained,
+        Lost,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub enum WindowLifecycleKind {
+        Ready,
+        Suspended,
+        Resumed,
+        CloseRequested,
     }
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct ClickEvent {}
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct ChangeEvent {
         pub value: String,
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     pub struct SubmitEvent {
         pub value: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct PointerEvent {
+        pub kind: PointerKind,
+        pub pointer_id: u32,
+        pub x: f64,
+        pub y: f64,
+        pub buttons: u32,
+        pub pressure: f64,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct WheelEvent {
+        pub delta_x: f64,
+        pub delta_y: f64,
+        pub x: f64,
+        pub y: f64,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct KeyboardEvent {
+        pub kind: KeyboardKind,
+        pub key: String,
+        pub code: String,
+        pub repeat: bool,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct TextInputEvent {
+        pub text: String,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct CompositionEvent {
+        pub kind: CompositionKind,
+        pub text: String,
+        pub selection_start: u32,
+        pub selection_end: u32,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct FocusEvent {
+        pub kind: FocusKind,
+        pub related_target: Option<super::common::HandleRef>,
+        pub context: EventContext,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct WindowLifecycleEvent {
+        pub kind: WindowLifecycleKind,
+        pub surface_generation: Option<f64>,
     }
 
     pub mod feature_bits {
         pub const MUTATION_TRANSACTIONS: u8 = 2;
         pub const SEMANTICS: u8 = 3;
+        pub const TEXT_INPUT_CLIENT: u8 = 4;
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,6 +448,7 @@ pub mod ui {
         TextColor = 15,
         ScrollOffsetY = 16,
         FlexGrow = 17,
+        Disabled = 18,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -211,6 +457,13 @@ pub mod ui {
         Click = 1,
         Change = 2,
         Submit = 3,
+        Pointer = 4,
+        Wheel = 5,
+        Keyboard = 6,
+        TextInput = 7,
+        Composition = 8,
+        Focus = 9,
+        WindowLifecycle = 10,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -231,6 +484,11 @@ pub mod ui {
         ClearProperty = 13,
         SetSemantics = 14,
         ResetSession = 15,
+        GetTextInputState = 16,
+        ReplaceTextInput = 17,
+        GetCompositionBounds = 18,
+        ClearSemantics = 19,
+        RegisterButton = 20,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -264,6 +522,11 @@ pub mod system {
         CancelTask = 3,
         CloseResource = 4,
         ResetSession = 5,
+        ReadTextFile = 6,
+        WriteTextFile = 7,
+        AwaitTask = 8,
+        OpenFileDialog = 9,
+        SaveFileDialog = 10,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -271,6 +534,10 @@ pub mod system {
     pub enum PermissionId {
         ClipboardRead = 1,
         ClipboardWrite = 2,
+        FsRead = 3,
+        FsWrite = 4,
+        DialogOpen = 5,
+        DialogSave = 6,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -278,6 +545,10 @@ pub mod system {
     pub enum TaskKind {
         ClipboardReadText = 1,
         ClipboardWriteText = 2,
+        ReadTextFile = 3,
+        WriteTextFile = 4,
+        OpenFileDialog = 5,
+        SaveFileDialog = 6,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -304,5 +575,6 @@ pub mod system {
         Cancelled = 33554440,
         PlatformFailure = 33554441,
         InternalFailure = 33554442,
+        InvalidData = 33554443,
     }
 }

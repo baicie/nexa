@@ -20,15 +20,24 @@
   },
   "perry": {
     "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host",
       "react",
       "react-reconciler",
       "scheduler"
     ],
     "allow": {
       "nativeLibrary": [
-        "@nexa/nui-host"
+        "@nexa/nui-host",
+        "@nexa/system-host"
       ],
       "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host",
         "react",
         "react-reconciler",
         "scheduler"

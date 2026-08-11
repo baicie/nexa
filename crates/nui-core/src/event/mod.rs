@@ -1,9 +1,17 @@
 //! Input hit-testing against laid-out nodes.
 
+mod dispatch;
+
 use crate::tree::{Arena, NodeId, NodeType};
 
+pub use dispatch::{event_path, DispatchResult, EventDispatcher, PointerCapture};
+
 /// Event identifiers defined by the generated Host Protocol.
-pub use crate::protocol::ui::EventId;
+pub use crate::protocol::ui::{
+    CompositionEvent, CompositionKind, EventContext, EventId, EventModifiers, FocusEvent,
+    FocusKind, KeyboardEvent, KeyboardKind, PointerEvent, PointerKind, PropagationPhase,
+    PropagationState, TextInputEvent, WheelEvent,
+};
 
 /// Return the front-most clickable node under `(x, y)` in logical pixels.
 #[must_use]

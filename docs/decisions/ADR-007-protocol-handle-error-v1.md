@@ -137,14 +137,14 @@ FFI ABI 约束：
 
 ### 4.2 Native registry 与所有权
 
-Native registry 为每个活动句柄保存：
+Handle identity namespace 以 native Host/runtime domain 为边界：NUI Host 与 System Host 是独立 nativeLibrary，不互相接受 HandleRef。每个 domain 内必须使用一个统一 allocator/registry，禁止按 kind 各自从 `(slot=0, generation=1)` 分配。NUI Host registry 覆盖 Node/Callback；System Runtime registry 覆盖 Task/Subscription/NativeResource。Native registry 为每个活动句柄保存：
 
     kind: Node | Callback | Task | Subscription | NativeResource
     owner: AppId + WindowId/session id
     generation: u32
     state: Created | Active | Closing | Closed | Invalidated
 
-客户端的 HandleRef 只用于定位 slot/generation；经 TS codec 展开的 tuple 不携带也不信任 kind、owner 或 state。每个命令按期望 kind、当前 owner 和允许状态验证后才可修改资源。
+客户端的 HandleRef 只用于定位当前 Host domain 的 slot/generation；经 TS codec 展开的 tuple 不携带也不信任 kind、owner 或 state，也不能跨 Host domain 使用。每个命令按期望 kind、当前 owner 和允许状态验证后才可修改资源。
 
 generation 从 1 开始，slot 进入可复用状态时递增；generation 溢出时永久退休该 slot，禁止回绕到旧值。Rust 内部 NodeId 可以继续采用 (generation << 32) | slot，codec 必须先拆成两个 u32 再过边界。
 
@@ -153,12 +153,13 @@ generation 从 1 开始，slot 进入可复用状态时递增；generation 溢�
     Created -> Active -> Closing -> Closed
                            \-> Invalidated
 
-- Registry 为已关闭或已失效的 (owner, kind, slot, generation) 保留 session-scoped tombstone，即使 slot 已被新 generation 复用也不删除；session 销毁时统一清空。
+- Registry 为已关闭或已失效的 (owner, kind, slot, generation) 保留 runtime-scoped tombstone，即使 window reset 或 slot 被新 generation 复用也不删除；只有对应 Host/process runtime 真正销毁时才统一清空。window reset 只是 owner scope 结束，不是 registry/runtime 销毁。
 - close/cancel 幂等：命中当前记录或 tombstone 的 Closing、Closed、Invalidated 句柄均返回成功 no-op；
 - 非关闭操作命中上述 tombstone 返回 INVALID_STATE；
 - slot 存在但 generation 既不匹配活动记录也不匹配 tombstone 时返回 STALE_HANDLE，不得静默忽略、panic 或操作新资源；
 - kind 不匹配返回 INVALID_KIND；owner 不匹配返回 WRONG_OWNER；
 - 窗口/session 关闭会使其所有 Callback、Task、Subscription 和 NativeResource 进入 Invalidated，迟到事件必须被丢弃并计入诊断指标；
+- Registry 必须设置累计 identity 与 owner fence 的硬上限并暴露 used/remaining；创建时预留未来 tombstone 容量。容量耗尽返回结构化错误且原子失败，禁止丢弃旧 tombstone 或让 generation 回绕；
 - 任何失败命令必须原子失败：不得部分修改 tree、callback registry 或资源状态。
 
 ## 5. Error contract
@@ -257,6 +258,8 @@ G1 按以下顺序落地：
 
 迁移期间允许内部 NodeId::raw() 和 Rust u64 存储继续存在；禁止新增任何依赖 JS safe-integer packed handle 的 API。若未来 Perry 提供经过双平台验证的无损 native u64 或 POD return，可作为新 feature spike 评估，但不能悄然改变 v1 wire shape。
 
+G4-03 implementation evidence (2026-08-07): System Core constructors and the independent System Host codec now enforce this result envelope for native command boundaries. Rust/TS contract tests are driven against the checked-in System error registry; the Clipboard sentinel migration was completed in G4-07 while the old symbols remain only as compatibility exports.
+
 ## 9. Alternatives considered
 
 | 方案 | 结论 | 原因 |
@@ -279,7 +282,7 @@ G1 按以下顺序落地：
 代价与约束：
 
 - 句柄创建需分配并解析短字符串结果，句柄入参比 packed value 多一个 u32 参数；P0 优先正确性，后续可通过批量 command 和 profile 数据优化；
-- session-scoped closed tombstone 的空间开销与已关闭句柄数线性相关；实现必须在 session 销毁时清空并设置可观测的资源预算；
+- runtime-scoped closed tombstone 的空间开销与已关闭句柄数线性相关；实现必须在 runtime 销毁时清空，并设置可观测且可执行的 identity/owner 硬预算；
 - 所有边界调用都需要构造/解析 Result，旧的 void API 迁移工作量增加；
 - ID registry 和生成器成为发布流程的一部分，任何协议改动都必须伴随 schema、fixture 和 drift 证据。
 

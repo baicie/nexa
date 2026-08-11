@@ -113,6 +113,8 @@ function renderRecord(type, namespace) {
     .join("\n");
   return [
     "    #[derive(Debug, Clone, PartialEq)]",
+    '    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]',
+    '    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]',
     "    pub struct " + type.name + " {",
     fields,
     "    }",
@@ -123,6 +125,7 @@ function renderStringEnum(type) {
   const variants = type.values.map((value) => "        " + value + ",").join("\n");
   return [
     "    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]",
+    '    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]',
     "    pub enum " + type.name + " {",
     variants,
     "    }",
@@ -139,6 +142,7 @@ function renderMap(type, namespace) {
     .join("\n");
   return [
     "    #[derive(Debug, Clone, PartialEq)]",
+    '    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]',
     "    pub enum " + valueName + " {",
     variants,
     "    }",
@@ -147,11 +151,16 @@ function renderMap(type, namespace) {
   ].join("\n");
 }
 
+function renderList(type, namespace) {
+  return "    pub type " + type.name + " = Vec<" + rustType(type.elementType, namespace) + ">;";
+}
+
 function renderTypes(types, namespace) {
   return types
     .map((type) => {
       if (type.kind === "record") return renderRecord(type, namespace);
       if (type.kind === "enum") return renderStringEnum(type);
+      if (type.kind === "list") return renderList(type, namespace);
       return renderMap(type, namespace);
     })
     .join("\n\n");

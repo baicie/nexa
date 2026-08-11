@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "initial": "Latin - 中文 - مرحبا - 👩‍💻",
+    "committed": "你好",
+    "cancelled": "取消"
+  },
+  "semantics": {
+    "open": { "role": "Button", "name": "打开" },
+    "body": { "role": "TextInput", "name": "正文" },
+    "save": { "role": "Button", "name": "保存" }
+  },
+  "savePath": "/tmp/nexa-mvp-journey.txt"
+}

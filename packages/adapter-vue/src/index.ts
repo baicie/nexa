@@ -7,6 +7,7 @@
 
 export type { NuiNode } from "./node-ops";
 export { createApp, render } from "./create-app";
+export { nodeOps } from "./node-ops";
 
 export {
   h,

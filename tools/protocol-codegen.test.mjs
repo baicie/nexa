@@ -42,6 +42,12 @@ test("protocol generator renders deterministic Rust, TypeScript, and Perry artif
   assert.match(rust, /pub const PROTOCOL_VERSION: ProtocolVersion/);
   assert.match(rust, /pub enum NodeType/);
   assert.match(rust, /pub enum PropertyId/);
+  assert.match(rust, /pub enum SemanticRole/);
+  assert.match(rust, /pub enum SemanticAction/);
+  assert.match(rust, /pub type SemanticActions = Vec<SemanticAction>/);
+  assert.match(rust, /pub role: Option<SemanticRole>/);
+  assert.match(rust, /pub actions: Option<SemanticActions>/);
+  assert.match(rust, /ClearSemantics = 19/);
   assert.match(rust, /Cancelled = 16777223/);
   assert.doesNotMatch(rust, /CANCELLED =/);
 
@@ -51,6 +57,12 @@ test("protocol generator renders deterministic Rust, TypeScript, and Perry artif
   assert.match(typescript, /export type NexaResult<T>/);
   assert.match(typescript, /export namespace Ui/);
   assert.match(typescript, /export const NodeType = \{/);
+  assert.match(typescript, /export enum SemanticRole/);
+  assert.match(typescript, /export enum SemanticAction/);
+  assert.match(typescript, /export type SemanticActions = readonly SemanticAction\[\]/);
+  assert.match(typescript, /readonly role\?: SemanticRole/);
+  assert.match(typescript, /readonly actions\?: SemanticActions/);
+  assert.match(typescript, /ClearSemantics = 19/);
   assert.match(typescript, /Cancelled = 16777223/);
   assert.doesNotMatch(typescript, /CANCELLED =/);
   assert.match(typescript, /before: Common\.HandleRef \| null/);
@@ -62,12 +74,23 @@ test("protocol generator renders deterministic Rust, TypeScript, and Perry artif
   assert.equal(systemPerry.generatedBy, "tools/protocol-codegen.mjs");
   assert.equal(uiPerry.abiVersion, "0.5");
   assert.equal(systemPerry.abiVersion, "0.5");
-  assert.equal(uiPerry.functions.length, 29);
-  assert.equal(systemPerry.functions.length, 7);
+  assert.equal(uiPerry.functions.length, 34);
+  assert.equal(systemPerry.functions.length, 12);
   assert.equal(uiPerry.functions[13].name, "js_nui_handshake_v1");
   assert.equal(uiPerry.functions[13].returns, "string");
+  assert.equal(uiPerry.functions[33].name, "js_nui_register_button_v1");
   assert.equal(systemPerry.functions[2].name, "js_nexa_clipboard_read_text_v1");
   assert.equal(systemPerry.functions[2].returns, "string");
+  assert.deepEqual(systemPerry.functions[9], {
+    name: "js_nexa_await_task_v1",
+    params: ["u32", "u32"],
+    returns: "promise<string>",
+  });
+  assert.deepEqual(systemPerry.functions[11], {
+    name: "js_nexa_save_file_dialog_v1",
+    params: ["string", "string", "string"],
+    returns: "string",
+  });
 });
 
 test("checked-in Perry package manifests match implemented generated functions", () => {
@@ -89,8 +112,26 @@ test("checked-in Perry package manifests match implemented generated functions",
       "js_nui_add_event_listener_v1",
       "js_nui_remove_event_listener_v1",
       "js_nui_clear_property_v1",
+      "js_nui_set_semantics_v1",
+      "js_nui_commit_v1",
+      "js_nui_run_v1",
+      "js_nui_reset_session_v1",
+      "js_nui_get_text_input_state_v1",
+      "js_nui_replace_text_input_v1",
+      "js_nui_get_composition_bounds_v1",
+      "js_nui_clear_semantics_v1",
+      "js_nui_register_button_v1",
     ]),
-    "packages/system-host/package.json": new Set(),
+    "packages/system-host/package.json": new Set([
+      "js_nexa_clipboard_read_text_v1",
+      "js_nexa_clipboard_write_text_v1",
+      "js_nexa_cancel_task_v1",
+      "js_nexa_read_text_file_v1",
+      "js_nexa_write_text_file_v1",
+      "js_nexa_await_task_v1",
+      "js_nexa_open_file_dialog_v1",
+      "js_nexa_save_file_dialog_v1",
+    ]),
   };
   for (const [relativePath, generated] of packages) {
     const configured = readPackageManifest(relativePath).perry.nativeLibrary.functions;

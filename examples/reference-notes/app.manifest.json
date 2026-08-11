@@ -1,0 +1,16 @@
+{
+  "$schema": "https://nexa-ui.dev/schema/app-manifest-v1.json",
+  "schemaVersion": 1,
+  "id": "dev.nexa.notes",
+  "name": "Nexa Notes",
+  "version": "0.1.0",
+  "requiredProtocol": { "major": 1, "minor": 0 },
+  "permissions": [
+    "system.ClipboardRead",
+    "system.ClipboardWrite",
+    "system.FsRead",
+    "system.FsWrite",
+    "system.DialogOpen",
+    "system.DialogSave"
+  ]
+}
