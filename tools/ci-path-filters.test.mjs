@@ -818,6 +818,7 @@ test("the TypeScript gate runs the complete workspace quality sequence", () => {
     commands.filter((command) => command.startsWith("pnpm ")),
     [
       "pnpm install --frozen-lockfile",
+      "pnpm release:build",
       "pnpm workspace:validate",
       "pnpm protocol:check",
       "pnpm format:check",

@@ -170,7 +170,9 @@ test("package builds an unsigned macOS bundle with exact manifest, metadata, and
   );
 
   const executable = path.join(bundle, "Contents", "MacOS", "temp-app");
-  assert.notEqual(nodeFilesystem.lstatSync(executable).mode & 0o111, 0);
+  if (process.platform !== "win32") {
+    assert.notEqual(nodeFilesystem.lstatSync(executable).mode & 0o111, 0);
+  }
   assert.equal(
     nodeFilesystem
       .readFileSync(executable)

@@ -8,7 +8,11 @@ const supportedTargets = new Set(["darwin/arm64", "darwin/x64", "win32/x64"]);
 const targetExpectation = [...supportedTargets].join(" | ");
 
 function defaultRunner(command, args, options) {
-  return spawnSync(command, args, { ...options, encoding: "utf8" });
+  return spawnSync(command, args, {
+    ...options,
+    encoding: "utf8",
+    shell: command.toLowerCase().endsWith(".cmd"),
+  });
 }
 
 function parsePackageJson(filePath) {

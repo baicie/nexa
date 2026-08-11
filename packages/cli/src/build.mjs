@@ -402,7 +402,7 @@ export function runProjectBuild({
   const binaryPath = path.join(project.projectDirectory, binaryRelative);
   assertOwnedBinaryPath(filesystem, binaryPath, true);
 
-  const args = [perryBin, "compile", project.entryRelative, "-o", outputRelative];
+  const args = [perryBin, "compile", portablePath(project.entryRelative), "-o", outputRelative];
   if (runtime.platform === "win32") args.push("--windows-subsystem", "windows");
   const result = runner(process.execPath, args, {
     cwd: project.projectDirectory,
@@ -441,7 +441,7 @@ export function runProjectDev({
   });
   const result = runner(
     process.execPath,
-    [perryBin, "dev", project.entryRelative, "-o", outputRelative],
+    [perryBin, "dev", portablePath(project.entryRelative), "-o", outputRelative],
     {
       cwd: project.projectDirectory,
       env: sanitizedEnvironment(environment, project.manifestPath),

@@ -97,7 +97,7 @@ function renderTemplate(filesystem, templateName, values) {
   for (const [key, value] of Object.entries(values)) {
     source = source.replaceAll(`{{${key}}}`, value);
   }
-  return source;
+  return source.replaceAll("\r\n", "\n");
 }
 
 export function createProject({ requestedPath, cwd, filesystem = nodeFilesystem }) {

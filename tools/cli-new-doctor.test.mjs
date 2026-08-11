@@ -283,6 +283,7 @@ test("generated template typechecks and explains Nexa package availability", (t)
     {
       cwd: projectDirectory,
       encoding: "utf8",
+      shell: process.platform === "win32",
     },
   );
   assert.equal(typecheck.status, 0, typecheck.stderr || typecheck.stdout);

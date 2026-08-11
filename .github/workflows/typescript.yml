@@ -27,6 +27,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build clean workspace package artifacts
+        run: pnpm release:build
+
       - name: Validate workspace matrix
         run: pnpm workspace:validate
 
