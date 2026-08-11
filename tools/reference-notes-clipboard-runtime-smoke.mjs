@@ -84,6 +84,7 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
     cwd: exampleDirectory,
     env: { ...process.env, NEXA_APP_MANIFEST_PATH: manifestPath },
     stdio: "inherit",
+    shell: platform === "win32",
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {

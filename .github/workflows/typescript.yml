@@ -15,7 +15,10 @@ jobs:
       - name: Install Linux native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libfontconfig1-dev libfreetype6-dev
+          sudo apt-get install --yes --no-install-recommends \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libwayland-dev
 
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
 

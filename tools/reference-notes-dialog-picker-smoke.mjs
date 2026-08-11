@@ -41,8 +41,7 @@ export const DIALOG_PICKER_SMOKE_FAILURE =
 export const DIALOG_PICKER_SMOKE_STATE_PREFIX =
   "nexa-ui reference notes real dialog picker journey: ";
 export const DIALOG_PICKER_STAGE_PREFIX = "nexa-ui reference notes picker stage: ";
-export const DIALOG_PICKER_PROCESS_PREFIX =
-  "nexa-ui reference notes picker probe process id: ";
+export const DIALOG_PICKER_PROCESS_PREFIX = "nexa-ui reference notes picker probe process id: ";
 
 const stages = Object.freeze([
   Object.freeze({ step: "save", title: DIALOG_PICKER_SAVE_TITLE }),
@@ -203,6 +202,7 @@ export function compileReferenceNotesDialogPickerSmoke({
     cwd: exampleDirectory,
     env: fixtureFreeEnvironment(environment, { injectManifest: true }),
     stdio: "inherit",
+    shell: platform === "win32",
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
@@ -609,7 +609,9 @@ export function runReferenceNotesDialogPickerSmoke({
       if (finishRequested) return;
       if (line.startsWith(DIALOG_PICKER_PROCESS_PREFIX)) {
         if (hostPlatform !== "win32" || probeProcessId !== undefined) {
-          finish(new Error("Notes real Dialog picker smoke received an unexpected probe process id"));
+          finish(
+            new Error("Notes real Dialog picker smoke received an unexpected probe process id"),
+          );
           return;
         }
         const parsedProcessId = Number(line.slice(DIALOG_PICKER_PROCESS_PREFIX.length));

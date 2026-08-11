@@ -27,7 +27,9 @@ jobs:
           sudo apt-get install --yes --no-install-recommends \
             libfontconfig1-dev \
             libfreetype6-dev \
-            libwayland-dev
+            libwayland-dev \
+            fonts-noto-cjk \
+            fonts-noto-color-emoji
 
       - name: Activate pinned Rust toolchain
         run: rustc --version --verbose

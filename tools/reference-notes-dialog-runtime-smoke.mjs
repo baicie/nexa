@@ -125,6 +125,7 @@ export function compileReferenceNotesDialogRuntimeSmoke({
       NEXA_DIALOG_TEST_FIXTURE_PATH: dialogFixturePath,
     },
     stdio: "inherit",
+    shell: platform === "win32",
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {

@@ -49,6 +49,7 @@ export function runReferenceNotesBuild({
     cwd: exampleDirectory,
     env: { ...productionEnvironment, NEXA_APP_MANIFEST_PATH: manifestPath },
     stdio: "inherit",
+    shell: platform === "win32",
   };
   assertSucceeded(spawn(pnpm, compileArgs, options), "compilation");
 
