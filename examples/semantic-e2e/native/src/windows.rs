@@ -16,21 +16,26 @@ pub(crate) struct Client {
 impl Client {
     pub(crate) fn new(shared: SharedState) -> Self {
         let (sender, receiver) = mpsc::channel();
-        thread::spawn(move || {
-            let result = match catch_unwind(AssertUnwindSafe(|| run_client(&shared))) {
-                Ok(result) => result,
-                Err(panic) => {
-                    let detail = panic
-                        .downcast_ref::<&str>()
-                        .copied()
-                        .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
-                        .unwrap_or("unknown panic payload");
-                    Err(format!("UI Automation client panicked: {detail}"))
-                }
-            };
-            let _ = sender.send(result);
-            wake_fixture();
-        });
+        thread::Builder::new()
+            .name("nexa-uia-client".to_owned())
+            .spawn(move || {
+                eprintln!("UI Automation client worker started");
+                let result = match catch_unwind(AssertUnwindSafe(|| run_client(&shared))) {
+                    Ok(result) => result,
+                    Err(panic) => {
+                        let detail = panic
+                            .downcast_ref::<&str>()
+                            .copied()
+                            .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                            .unwrap_or("unknown panic payload");
+                        Err(format!("UI Automation client panicked: {detail}"))
+                    }
+                };
+                eprintln!("UI Automation client worker completed: {result:?}");
+                let _ = sender.send(result);
+                wake_fixture();
+            })
+            .expect("spawn UI Automation client worker");
         Self {
             result: receiver,
             deadline: Instant::now() + Duration::from_secs(35),
@@ -62,16 +67,20 @@ fn run_client(shared: &SharedState) -> Result<(), String> {
     };
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
+    eprintln!("UI Automation client initializing COM");
     unsafe {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED)
             .ok()
             .map_err(|error| format!("CoInitializeEx failed: {error}"))?;
     }
+    eprintln!("UI Automation client COM initialized");
     let result = (|| -> Result<(), String> {
+        eprintln!("UI Automation client creating automation object");
         let automation: IUIAutomation = unsafe {
             CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)
                 .map_err(|error| format!("CoCreateInstance(CUIAutomation) failed: {error}"))?
         };
+        eprintln!("UI Automation client automation object created");
         let deadline = Instant::now() + Duration::from_secs(30);
         let hwnd = loop {
             let found = unsafe {
