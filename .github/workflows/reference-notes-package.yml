@@ -28,6 +28,7 @@ jobs:
     env:
       PERRY_NO_CACHE: "1"
       PERRY_NO_AUTO_OPTIMIZE: "1"
+      RUSTUP_TOOLCHAIN: "1.95.0"
       PERRY_WORKSPACE_ROOT: ${{ github.workspace }}/.perry-source
       PERRY_RUNTIME_DIR: ${{ github.workspace }}/.perry-source/target/release
       PERRY_LIB_DIR: ${{ github.workspace }}/.perry-source/target/release
@@ -43,6 +44,11 @@ jobs:
           ref: 06137858dc8c6f80975238377138f2f948d6ef88
           path: .perry-source
           persist-credentials: false
+
+      - name: Install Perry-compatible Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
+        with:
+          toolchain: 1.95.0
 
       - name: Initialize MSVC
         if: runner.os == 'Windows'
@@ -93,6 +99,7 @@ jobs:
           PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
         run: |
           set -euo pipefail
+          rustc --version
           actual_revision="$(git -C "$PERRY_WORKSPACE_ROOT" rev-parse HEAD)"
           test "$actual_revision" = "$PERRY_SOURCE_REVISION"
           cargo build \

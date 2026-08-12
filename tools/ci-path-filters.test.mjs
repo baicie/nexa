@@ -319,6 +319,7 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.equal(perryCheckout.with.path, ".perry-source");
   assert.equal(perryCheckout.with["persist-credentials"], false);
   assert.equal(packageJob.env.PERRY_NO_AUTO_OPTIMIZE, "1");
+  assert.equal(packageJob.env.RUSTUP_TOOLCHAIN, "1.95.0");
   assert.equal(packageJob.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
   assert.equal(
     packageJob.env.PERRY_RUNTIME_DIR,
@@ -338,6 +339,19 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
     (step) => step.name === "Build pinned Perry full unwind runtime closure",
   );
   const fullRuntimeStep = packageJob.steps[fullRuntimeIndex];
+  const toolchainIndex = packageJob.steps.findIndex(
+    (step) => step.name === "Install Perry-compatible Rust toolchain",
+  );
+  assert.ok(toolchainIndex >= 0, "the package matrix must install the Perry-compatible toolchain");
+  assert.ok(
+    perryCheckoutIndex < toolchainIndex && toolchainIndex < fullRuntimeIndex,
+    "the Perry-compatible toolchain must be installed after checkout and before full closure",
+  );
+  assert.equal(
+    packageJob.steps[toolchainIndex].uses,
+    "dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772",
+  );
+  assert.equal(packageJob.steps[toolchainIndex].with.toolchain, "1.95.0");
   const cliSmokeIndex = packageJob.steps.findIndex((step) =>
     step.run?.includes("node tools/cli-create-package-smoke.mjs --artifact-output"),
   );
@@ -348,6 +362,7 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.equal(fullRuntimeStep.shell, "bash");
   assert.equal(fullRuntimeStep.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
   assert.equal(fullRuntimeStep.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.match(fullRuntimeStep.run, /rustc --version/u);
   assert.match(fullRuntimeStep.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
   assert.match(fullRuntimeStep.run, /cargo build/u);
   assert.match(fullRuntimeStep.run, /--locked/u);
