@@ -92,7 +92,8 @@ jobs:
       - name: Build clean workspace package artifacts
         run: pnpm release:build
 
-      - name: Build pinned Perry full unwind runtime closure
+      - name: Build pinned Perry full unwind runtime closure (macOS)
+        if: runner.os == 'macOS'
         shell: bash
         env:
           CARGO_PROFILE_RELEASE_PANIC: unwind
@@ -109,13 +110,38 @@ jobs:
             --target-dir "$PERRY_WORKSPACE_ROOT/target" \
             -p perry-runtime-static \
             -p perry-stdlib-static
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            test -s "$PERRY_RUNTIME_DIR/perry_runtime.lib"
-            test -s "$PERRY_LIB_DIR/perry_stdlib.lib"
-          else
-            test -s "$PERRY_RUNTIME_DIR/libperry_runtime.a"
-            test -s "$PERRY_LIB_DIR/libperry_stdlib.a"
-          fi
+          test -s "$PERRY_RUNTIME_DIR/libperry_runtime.a"
+          test -s "$PERRY_LIB_DIR/libperry_stdlib.a"
+
+      - name: Build pinned Perry full unwind runtime closure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CARGO_PROFILE_RELEASE_PANIC: unwind
+          PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
+        run: |
+          rustc --version
+          $actualRevision = (git -C $env:PERRY_WORKSPACE_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Could not resolve the Perry source revision" }
+          if ($actualRevision -ne $env:PERRY_SOURCE_REVISION) {
+            throw "Perry source revision mismatch: expected $env:PERRY_SOURCE_REVISION, got $actualRevision"
+          }
+          cargo build `
+            --locked `
+            --release `
+            --manifest-path (Join-Path $env:PERRY_WORKSPACE_ROOT "Cargo.toml") `
+            --target-dir (Join-Path $env:PERRY_WORKSPACE_ROOT "target") `
+            -p perry-runtime-static `
+            -p perry-stdlib-static
+          if ($LASTEXITCODE -ne 0) { throw "Could not build the pinned Perry full runtime closure" }
+          foreach ($library in @(
+            (Join-Path $env:PERRY_RUNTIME_DIR "perry_runtime.lib"),
+            (Join-Path $env:PERRY_LIB_DIR "perry_stdlib.lib")
+          )) {
+            if (-not (Test-Path -LiteralPath $library -PathType Leaf) -or (Get-Item -LiteralPath $library).Length -eq 0) {
+              throw "Perry runtime closure is missing a non-empty library: $library"
+            }
+          }
 
       - name: Toolchain versions
         run: |

@@ -335,16 +335,22 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
     "Perry source must exist before package setup and build",
   );
 
-  const fullRuntimeIndex = packageJob.steps.findIndex(
-    (step) => step.name === "Build pinned Perry full unwind runtime closure",
+  const macFullRuntimeIndex = packageJob.steps.findIndex(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure (macOS)",
   );
-  const fullRuntimeStep = packageJob.steps[fullRuntimeIndex];
+  const windowsFullRuntimeIndex = packageJob.steps.findIndex(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure (Windows)",
+  );
+  const macFullRuntimeStep = packageJob.steps[macFullRuntimeIndex];
+  const windowsFullRuntimeStep = packageJob.steps[windowsFullRuntimeIndex];
   const toolchainIndex = packageJob.steps.findIndex(
     (step) => step.name === "Install Perry-compatible Rust toolchain",
   );
   assert.ok(toolchainIndex >= 0, "the package matrix must install the Perry-compatible toolchain");
   assert.ok(
-    perryCheckoutIndex < toolchainIndex && toolchainIndex < fullRuntimeIndex,
+    perryCheckoutIndex < toolchainIndex &&
+      toolchainIndex < macFullRuntimeIndex &&
+      toolchainIndex < windowsFullRuntimeIndex,
     "the Perry-compatible toolchain must be installed after checkout and before full closure",
   );
   assert.equal(
@@ -356,26 +362,40 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
     step.run?.includes("node tools/cli-create-package-smoke.mjs --artifact-output"),
   );
   assert.ok(
-    perryCheckoutIndex < fullRuntimeIndex && fullRuntimeIndex < cliSmokeIndex,
+    perryCheckoutIndex < macFullRuntimeIndex &&
+      macFullRuntimeIndex < cliSmokeIndex &&
+      perryCheckoutIndex < windowsFullRuntimeIndex &&
+      windowsFullRuntimeIndex < cliSmokeIndex,
     "the pinned full Perry runtime closure must exist before the first package compile",
   );
-  assert.equal(fullRuntimeStep.shell, "bash");
-  assert.equal(fullRuntimeStep.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
-  assert.equal(fullRuntimeStep.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
-  assert.match(fullRuntimeStep.run, /rustc --version/u);
-  assert.match(fullRuntimeStep.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
-  assert.match(fullRuntimeStep.run, /cargo build/u);
-  assert.match(fullRuntimeStep.run, /--locked/u);
-  assert.match(fullRuntimeStep.run, /--release/u);
-  assert.match(fullRuntimeStep.run, /--manifest-path "\$PERRY_WORKSPACE_ROOT\/Cargo\.toml"/u);
-  assert.match(fullRuntimeStep.run, /--target-dir "\$PERRY_WORKSPACE_ROOT\/target"/u);
-  assert.match(fullRuntimeStep.run, /-p perry-runtime-static/u);
-  assert.match(fullRuntimeStep.run, /-p perry-stdlib-static/u);
-  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/perry_runtime\.lib"/u);
-  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/perry_stdlib\.lib"/u);
-  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/libperry_runtime\.a"/u);
-  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/libperry_stdlib\.a"/u);
-  assert.doesNotMatch(fullRuntimeStep.run, /--no-default-features|panic=abort/u);
+  assert.equal(macFullRuntimeStep.if, "runner.os == 'macOS'");
+  assert.equal(macFullRuntimeStep.shell, "bash");
+  assert.equal(windowsFullRuntimeStep.if, "runner.os == 'Windows'");
+  assert.equal(windowsFullRuntimeStep.shell, "pwsh");
+  for (const fullRuntimeStep of [macFullRuntimeStep, windowsFullRuntimeStep]) {
+    assert.equal(fullRuntimeStep.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+    assert.equal(fullRuntimeStep.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+    assert.match(fullRuntimeStep.run, /rustc --version/u);
+    assert.match(fullRuntimeStep.run, /cargo build/u);
+    assert.match(fullRuntimeStep.run, /--locked/u);
+    assert.match(fullRuntimeStep.run, /--release/u);
+    assert.match(fullRuntimeStep.run, /-p perry-runtime-static/u);
+    assert.match(fullRuntimeStep.run, /-p perry-stdlib-static/u);
+    assert.doesNotMatch(fullRuntimeStep.run, /--no-default-features|panic=abort/u);
+  }
+  assert.match(macFullRuntimeStep.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
+  assert.match(macFullRuntimeStep.run, /--manifest-path "\$PERRY_WORKSPACE_ROOT\/Cargo\.toml"/u);
+  assert.match(macFullRuntimeStep.run, /--target-dir "\$PERRY_WORKSPACE_ROOT\/target"/u);
+  assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/libperry_runtime\.a"/u);
+  assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/libperry_stdlib\.a"/u);
+  assert.match(windowsFullRuntimeStep.run, /git -C \$env:PERRY_WORKSPACE_ROOT rev-parse HEAD/u);
+  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "Cargo\.toml"/u);
+  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "target"/u);
+  assert.match(
+    windowsFullRuntimeStep.run,
+    /Join-Path \$env:PERRY_RUNTIME_DIR "perry_runtime\.lib"/u,
+  );
+  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_LIB_DIR "perry_stdlib\.lib"/u);
 
   const packageCommands = packageJob.steps.flatMap((step) =>
     typeof step.run === "string" ? [step.run] : [],
