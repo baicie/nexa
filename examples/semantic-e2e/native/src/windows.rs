@@ -11,6 +11,7 @@ use windows::Win32::UI::Accessibility::{
 pub(crate) struct Client {
     result: Receiver<Result<(), String>>,
     deadline: Instant,
+    terminal: Option<ClientProgress>,
 }
 
 impl Client {
@@ -19,7 +20,6 @@ impl Client {
         thread::Builder::new()
             .name("nexa-uia-client".to_owned())
             .spawn(move || {
-                eprintln!("UI Automation client worker started");
                 let result = match catch_unwind(AssertUnwindSafe(|| run_client(&shared))) {
                     Ok(result) => result,
                     Err(panic) => {
@@ -31,26 +31,21 @@ impl Client {
                         Err(format!("UI Automation client panicked: {detail}"))
                     }
                 };
-                eprintln!("UI Automation client worker completed: {result:?}");
-                let send_result = sender.send(result);
-                eprintln!(
-                    "UI Automation client worker result delivery: {}",
-                    if send_result.is_ok() {
-                        "sent"
-                    } else {
-                        "receiver dropped"
-                    }
-                );
+                let _ = sender.send(result);
                 wake_fixture();
             })
             .expect("spawn UI Automation client worker");
         Self {
             result: receiver,
             deadline: Instant::now() + Duration::from_secs(35),
+            terminal: None,
         }
     }
 
     pub(crate) fn drive(&mut self, _state: &SmokeState) -> ClientProgress {
+        if let Some(progress) = &self.terminal {
+            return progress.clone();
+        }
         let progress = match self.result.try_recv() {
             Ok(Ok(())) => ClientProgress::Passed,
             Ok(Err(error)) => ClientProgress::Failed(error),
@@ -63,7 +58,7 @@ impl Client {
             }
         };
         if !matches!(progress, ClientProgress::Pending) {
-            eprintln!("UI Automation client progress: {progress:?}");
+            self.terminal = Some(progress.clone());
         }
         progress
     }
@@ -79,20 +74,16 @@ fn run_client(shared: &SharedState) -> Result<(), String> {
     };
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
-    eprintln!("UI Automation client initializing COM");
     unsafe {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED)
             .ok()
             .map_err(|error| format!("CoInitializeEx failed: {error}"))?;
     }
-    eprintln!("UI Automation client COM initialized");
     let result = (|| -> Result<(), String> {
-        eprintln!("UI Automation client creating automation object");
         let automation: IUIAutomation = unsafe {
             CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)
                 .map_err(|error| format!("CoCreateInstance(CUIAutomation) failed: {error}"))?
         };
-        eprintln!("UI Automation client automation object created");
         let deadline = Instant::now() + Duration::from_secs(30);
         let hwnd = loop {
             let found = unsafe {
