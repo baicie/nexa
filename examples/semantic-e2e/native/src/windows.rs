@@ -55,7 +55,7 @@ impl Client {
 fn run_client(shared: &SharedState) -> Result<(), String> {
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
-        COINIT_MULTITHREADED,
+        COINIT_APARTMENTTHREADED,
     };
     use windows::Win32::UI::Accessibility::{
         CUIAutomation, IUIAutomation, IUIAutomationInvokePattern, UIA_InvokePatternId,
@@ -63,7 +63,7 @@ fn run_client(shared: &SharedState) -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
     unsafe {
-        CoInitializeEx(None, COINIT_MULTITHREADED)
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED)
             .ok()
             .map_err(|error| format!("CoInitializeEx failed: {error}"))?;
     }
