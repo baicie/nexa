@@ -88,14 +88,6 @@ on run argv
     if UI elements enabled is false then error "macOS Accessibility permission unavailable; cannot drive the real rfd picker"
   end tell
 
-  set deadline to (current date) + (timeoutMilliseconds / 1000)
-  set dialogWindow to missing value
-  repeat while dialogWindow is missing value
-    if (current date) > deadline then error "timed out waiting for real rfd picker titled " & expectedTitle
-    set dialogWindow to my locateDialog(targetPid, expectedTitle)
-    if dialogWindow is missing value then delay 0.1
-  end repeat
-
   set navigationTarget to ""
   if actionName is "accept" then
     set navigationTarget to selectionPath
@@ -106,6 +98,7 @@ on run argv
     end try
   end if
   tell application "System Events"
+    if not (exists (first application process whose unix id is targetPid)) then error "real rfd picker owner process is unavailable: " & targetPid
     set targetProcess to first application process whose unix id is targetPid
     set frontmost of targetProcess to true
     if actionName is "cancel" then
@@ -116,24 +109,22 @@ on run argv
   end tell
 
   if actionName is "accept" then
-    my waitForGoToFolderSheet(targetPid, expectedTitle, deadline)
+    delay 1
     tell application "System Events"
       set targetProcess to first application process whose unix id is targetPid
       set frontmost of targetProcess to true
       keystroke navigationTarget
       key code 36
     end tell
-    set dialogStillOpen to my waitForGoToFolderSheetToClose(targetPid, expectedTitle, deadline)
-    if dialogStillOpen then
-      tell application "System Events"
-        set targetProcess to first application process whose unix id is targetPid
-        set frontmost of targetProcess to true
-        key code 36
-      end tell
-    end if
+    delay 1
+    tell application "System Events"
+      set targetProcess to first application process whose unix id is targetPid
+      set frontmost of targetProcess to true
+      key code 36
+    end tell
   end if
 
-  my waitForDialogToClose(targetPid, expectedTitle, deadline)
+  delay 1
 
   return "drove real rfd picker " & expectedTitle
 end run
