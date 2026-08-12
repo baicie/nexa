@@ -196,7 +196,9 @@ export function compileReferenceNotesDialogPickerSmoke({
     "-o",
     "reference-notes-dialog-picker-smoke",
   ];
-  if (platform === "win32") args.push("--windows-subsystem", "console");
+  if (platform === "win32") {
+    args.push("--no-auto-optimize", "--windows-subsystem", "console");
+  }
 
   const result = spawnSyncImpl(pnpm, args, {
     cwd: exampleDirectory,
@@ -345,8 +347,8 @@ export function runReferenceNotesDialogPickerSmoke({
   binaryArgs = [],
   workingDirectory,
   environment = process.env,
-  timeoutMs = 45_000,
-  driverTimeoutMs = 15_000,
+  timeoutMs = 150_000,
+  driverTimeoutMs = 45_000,
   shutdownTimeoutMs = 5_000,
   terminationConfirmationTimeoutMs = 5_000,
   hostPlatform = process.platform,

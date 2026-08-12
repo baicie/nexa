@@ -618,6 +618,7 @@ test("Ubuntu native link gates provision Skia libraries and Perry link flags", (
     "stdc++",
     "freetype",
     "fontconfig",
+    "wayland-client",
   ]);
 });
 

@@ -86,6 +86,7 @@ test("compiles the Dialog smoke with trusted manifest and build-time fixture", (
     "dialog-runtime-smoke.tsx",
     "-o",
     "reference-notes-dialog-runtime-smoke",
+    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);

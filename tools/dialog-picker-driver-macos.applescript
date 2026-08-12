@@ -18,8 +18,8 @@ on locateDialog(targetPid, expectedTitle)
     repeat with candidateWindow in windows of targetProcess
       if my elementMatches(candidateWindow, expectedTitle) then return candidateWindow
       try
-        repeat with candidateElement in entire contents of candidateWindow
-          if my elementMatches(candidateElement, expectedTitle) then return candidateWindow
+        repeat with candidateSheet in sheets of candidateWindow
+          if my elementMatches(candidateSheet, expectedTitle) then return candidateWindow
         end repeat
       end try
     end repeat

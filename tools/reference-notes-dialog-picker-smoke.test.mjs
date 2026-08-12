@@ -133,6 +133,7 @@ test("compiles a fixture-free picker probe with only the trusted manifest inject
     "dialog-picker-smoke.tsx",
     "-o",
     "reference-notes-dialog-picker-smoke",
+    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);

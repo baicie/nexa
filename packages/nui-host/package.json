@@ -280,7 +280,8 @@
           "libs": [
             "stdc++",
             "freetype",
-            "fontconfig"
+            "fontconfig",
+            "wayland-client"
           ]
         },
         "windows": {

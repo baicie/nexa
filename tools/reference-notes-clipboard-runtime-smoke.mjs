@@ -78,7 +78,9 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
     "-o",
     "reference-notes-clipboard-runtime-smoke",
   ];
-  if (platform === "win32") args.push("--windows-subsystem", "console");
+  if (platform === "win32") {
+    args.push("--no-auto-optimize", "--windows-subsystem", "console");
+  }
 
   const result = spawnSyncImpl(pnpm, args, {
     cwd: exampleDirectory,

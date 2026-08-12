@@ -41,7 +41,9 @@ export function runReferenceNotesBuild({
   const binaryName = platform === "win32" ? "reference-notes.exe" : "reference-notes";
   const binaryPath = path.join(exampleDirectory, binaryName);
   const compileArgs = ["exec", "perry", "compile", "main.tsx", "-o", "reference-notes"];
-  if (platform === "win32") compileArgs.push("--windows-subsystem", "console");
+  if (platform === "win32") {
+    compileArgs.push("--no-auto-optimize", "--windows-subsystem", "console");
+  }
 
   const productionEnvironment = { ...process.env };
   delete productionEnvironment[dialogTestFixtureEnvironment];
@@ -76,7 +78,9 @@ export function runReferenceNotesBuild({
     "-o",
     "reference-notes-startup-smoke",
   ];
-  if (platform === "win32") smokeCompileArgs.push("--windows-subsystem", "console");
+  if (platform === "win32") {
+    smokeCompileArgs.push("--no-auto-optimize", "--windows-subsystem", "console");
+  }
   assertSucceeded(spawn(pnpm, smokeCompileArgs, options), "startup smoke compilation");
 
   const smoke = spawn(smokePath, [], {

@@ -1,3 +1,4 @@
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -16,7 +17,17 @@ impl Client {
     pub(crate) fn new(shared: SharedState) -> Self {
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || {
-            let result = run_client(&shared);
+            let result = match catch_unwind(AssertUnwindSafe(|| run_client(&shared))) {
+                Ok(result) => result,
+                Err(panic) => {
+                    let detail = panic
+                        .downcast_ref::<&str>()
+                        .copied()
+                        .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                        .unwrap_or("unknown panic payload");
+                    Err(format!("UI Automation client panicked: {detail}"))
+                }
+            };
             let _ = sender.send(result);
             wake_fixture();
         });

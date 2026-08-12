@@ -48,6 +48,7 @@ test("Notes build embeds its trusted manifest and verifies the resulting binary"
     "main.tsx",
     "-o",
     "reference-notes",
+    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);
@@ -62,6 +63,7 @@ test("Notes build embeds its trusted manifest and verifies the resulting binary"
     "startup-smoke.tsx",
     "-o",
     "reference-notes-startup-smoke",
+    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);
