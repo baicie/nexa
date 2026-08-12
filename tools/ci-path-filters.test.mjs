@@ -318,12 +318,49 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.equal(perryCheckout.with.ref, PERRY_SOURCE_REVISION);
   assert.equal(perryCheckout.with.path, ".perry-source");
   assert.equal(perryCheckout.with["persist-credentials"], false);
+  assert.equal(packageJob.env.PERRY_NO_AUTO_OPTIMIZE, "1");
   assert.equal(packageJob.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  assert.equal(
+    packageJob.env.PERRY_RUNTIME_DIR,
+    "${{ github.workspace }}/.perry-source/target/release",
+  );
+  assert.equal(
+    packageJob.env.PERRY_LIB_DIR,
+    "${{ github.workspace }}/.perry-source/target/release",
+  );
   const installIndex = packageJob.steps.findIndex((step) => step.name === "Install");
   assert.ok(
     perryCheckoutIndex < installIndex,
     "Perry source must exist before package setup and build",
   );
+
+  const fullRuntimeIndex = packageJob.steps.findIndex(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure",
+  );
+  const fullRuntimeStep = packageJob.steps[fullRuntimeIndex];
+  const cliSmokeIndex = packageJob.steps.findIndex((step) =>
+    step.run?.includes("node tools/cli-create-package-smoke.mjs --artifact-output"),
+  );
+  assert.ok(
+    perryCheckoutIndex < fullRuntimeIndex && fullRuntimeIndex < cliSmokeIndex,
+    "the pinned full Perry runtime closure must exist before the first package compile",
+  );
+  assert.equal(fullRuntimeStep.shell, "bash");
+  assert.equal(fullRuntimeStep.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+  assert.equal(fullRuntimeStep.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.match(fullRuntimeStep.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
+  assert.match(fullRuntimeStep.run, /cargo build/u);
+  assert.match(fullRuntimeStep.run, /--locked/u);
+  assert.match(fullRuntimeStep.run, /--release/u);
+  assert.match(fullRuntimeStep.run, /--manifest-path "\$PERRY_WORKSPACE_ROOT\/Cargo\.toml"/u);
+  assert.match(fullRuntimeStep.run, /--target-dir "\$PERRY_WORKSPACE_ROOT\/target"/u);
+  assert.match(fullRuntimeStep.run, /-p perry-runtime-static/u);
+  assert.match(fullRuntimeStep.run, /-p perry-stdlib-static/u);
+  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/perry_runtime\.lib"/u);
+  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/perry_stdlib\.lib"/u);
+  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/libperry_runtime\.a"/u);
+  assert.match(fullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/libperry_stdlib\.a"/u);
+  assert.doesNotMatch(fullRuntimeStep.run, /--no-default-features|panic=abort/u);
 
   const packageCommands = packageJob.steps.flatMap((step) =>
     typeof step.run === "string" ? [step.run] : [],
