@@ -32,7 +32,15 @@ impl Client {
                     }
                 };
                 eprintln!("UI Automation client worker completed: {result:?}");
-                let _ = sender.send(result);
+                let send_result = sender.send(result);
+                eprintln!(
+                    "UI Automation client worker result delivery: {}",
+                    if send_result.is_ok() {
+                        "sent"
+                    } else {
+                        "receiver dropped"
+                    }
+                );
                 wake_fixture();
             })
             .expect("spawn UI Automation client worker");
@@ -43,7 +51,7 @@ impl Client {
     }
 
     pub(crate) fn drive(&mut self, _state: &SmokeState) -> ClientProgress {
-        match self.result.try_recv() {
+        let progress = match self.result.try_recv() {
             Ok(Ok(())) => ClientProgress::Passed,
             Ok(Err(error)) => ClientProgress::Failed(error),
             Err(TryRecvError::Empty) if Instant::now() < self.deadline => ClientProgress::Pending,
@@ -53,7 +61,11 @@ impl Client {
             Err(TryRecvError::Disconnected) => {
                 ClientProgress::Failed("UI Automation client exited without a result".to_owned())
             }
+        };
+        if !matches!(progress, ClientProgress::Pending) {
+            eprintln!("UI Automation client progress: {progress:?}");
         }
+        progress
     }
 }
 
