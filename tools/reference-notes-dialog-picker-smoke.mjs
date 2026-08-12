@@ -249,9 +249,10 @@ export function driveHostedDialog({
     throw new Error(`Notes real Dialog picker driver received an invalid stage: ${String(step)}`);
   }
 
-  const action = step === "cancel" ? "cancel" : "accept";
-  if (action === "accept" && (!selectionPath || selectionPath.includes("\0"))) {
-    throw new Error("Notes real Dialog picker accept action requires a selection path");
+  let action = step === "cancel" ? "cancel" : "accept";
+  if (platform === "darwin" && step === "open") action = "open";
+  if (action !== "cancel" && (!selectionPath || selectionPath.includes("\0"))) {
+    throw new Error(`Notes real Dialog picker ${action} action requires a selection path`);
   }
   let command;
   let args;

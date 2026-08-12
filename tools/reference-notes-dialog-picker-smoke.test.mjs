@@ -222,21 +222,56 @@ test("dispatches hosted dialog actions to fail-closed macOS and Windows drivers"
   assert.equal(calls[1].options.windowsHide, true);
 });
 
-test("the macOS driver uses bounded keyboard attempts without traversing the UI tree", () => {
+test("dispatches macOS open as an explicit file-selection stage", () => {
+  const calls = [];
+
+  driveHostedDialog({
+    platform: "darwin",
+    processId: 43,
+    step: "open",
+    title: DIALOG_PICKER_OPEN_TITLE,
+    selectionPath: "/tmp/nexa-picker-open.txt",
+    timeoutMs: 7_000,
+    spawnSyncImpl(command, args, options) {
+      calls.push({ command, args, options });
+      return { status: 0, stdout: "driver ok\n", stderr: "" };
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "osascript");
+  assert.deepEqual(calls[0].args.slice(1), [
+    "43",
+    "open",
+    DIALOG_PICKER_OPEN_TITLE,
+    "7000",
+    "/tmp/nexa-picker-open.txt",
+  ]);
+});
+
+test("the macOS driver navigates to the parent before selecting an open filename", () => {
   const source = readFileSync(
     new URL("./dialog-picker-driver-macos.applescript", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /set navigationTarget to selectionPath/u);
-  assert.match(source, /\/usr\/bin\/test -e/u);
+  assert.match(source, /if actionName is "open" then/u);
   assert.match(source, /set navigationTarget to do shell script "\/usr\/bin\/dirname /u);
+  assert.match(source, /set selectionName to do shell script "\/usr\/bin\/basename /u);
   assert.match(source, /keystroke navigationTarget/u);
+  assert.match(source, /keystroke selectionName/u);
+  assert.ok(
+    source.indexOf("keystroke navigationTarget") < source.indexOf("keystroke selectionName"),
+  );
   assert.match(source, /on focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/u);
   assert.match(source, /with timeout of timeoutSeconds seconds/u);
   assert.match(source, /keystroke "a" using \{command down\}/u);
   assert.match(source, /front window of targetProcess/u);
   assert.match(source, /front window title did not match/u);
+  assert.ok(
+    source.indexOf("end try") <
+      source.indexOf('if frontWindowTitle is not "" and frontWindowTitle is not expectedTitle'),
+  );
   assert.ok(
     (source.match(/my focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/gu) ?? []).length >= 3,
   );
