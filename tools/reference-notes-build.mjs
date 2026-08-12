@@ -42,7 +42,7 @@ export function runReferenceNotesBuild({
   const binaryPath = path.join(exampleDirectory, binaryName);
   const compileArgs = ["exec", "perry", "compile", "main.tsx", "-o", "reference-notes"];
   if (platform === "win32") {
-    compileArgs.push("--no-auto-optimize", "--windows-subsystem", "console");
+    compileArgs.push("--windows-subsystem", "console");
   }
 
   const productionEnvironment = { ...process.env };
@@ -79,7 +79,7 @@ export function runReferenceNotesBuild({
     "reference-notes-startup-smoke",
   ];
   if (platform === "win32") {
-    smokeCompileArgs.push("--no-auto-optimize", "--windows-subsystem", "console");
+    smokeCompileArgs.push("--windows-subsystem", "console");
   }
   assertSucceeded(spawn(pnpm, smokeCompileArgs, options), "startup smoke compilation");
 

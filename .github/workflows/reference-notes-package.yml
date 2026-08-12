@@ -27,10 +27,19 @@ jobs:
         os: [macos-15, windows-2022]
     env:
       PERRY_NO_CACHE: "1"
+      PERRY_WORKSPACE_ROOT: ${{ github.workspace }}/.perry-source
       SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
       SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check out pinned Perry source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: PerryTS/perry
+          ref: 06137858dc8c6f80975238377138f2f948d6ef88
+          path: .perry-source
+          persist-credentials: false
 
       - name: Initialize MSVC
         if: runner.os == 'Windows'

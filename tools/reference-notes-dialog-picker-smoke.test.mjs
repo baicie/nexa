@@ -133,7 +133,6 @@ test("compiles a fixture-free picker probe with only the trusted manifest inject
     "dialog-picker-smoke.tsx",
     "-o",
     "reference-notes-dialog-picker-smoke",
-    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);
@@ -223,7 +222,7 @@ test("dispatches hosted dialog actions to fail-closed macOS and Windows drivers"
   assert.equal(calls[1].options.windowsHide, true);
 });
 
-test("the macOS driver selects an existing open file but uses the parent for a new save file", () => {
+test("the macOS driver uses bounded keyboard attempts without traversing the UI tree", () => {
   const source = readFileSync(
     new URL("./dialog-picker-driver-macos.applescript", import.meta.url),
     "utf8",
@@ -233,10 +232,17 @@ test("the macOS driver selects an existing open file but uses the parent for a n
   assert.match(source, /\/usr\/bin\/test -e/u);
   assert.match(source, /set navigationTarget to do shell script "\/usr\/bin\/dirname /u);
   assert.match(source, /keystroke navigationTarget/u);
-  assert.match(source, /on waitForGoToFolderSheet\(/u);
-  assert.match(source, /on waitForGoToFolderSheetToClose\(/u);
-  assert.match(source, /on waitForDialogToClose\(/u);
-  assert.doesNotMatch(source, /delay 0\.[24]/u);
+  assert.match(source, /on focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/u);
+  assert.match(source, /with timeout of timeoutSeconds seconds/u);
+  assert.match(source, /keystroke "a" using \{command down\}/u);
+  assert.match(source, /front window of targetProcess/u);
+  assert.match(source, /front window title did not match/u);
+  assert.ok(
+    (source.match(/my focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/gu) ?? []).length >= 3,
+  );
+  assert.doesNotMatch(source, /entire contents/u);
+  assert.doesNotMatch(source, /windows of targetProcess/u);
+  assert.doesNotMatch(source, /sheets of /u);
 });
 
 test("the Windows driver budget covers Add-Type startup, discovery, and close", () => {
@@ -473,6 +479,119 @@ test("accepts only the complete real picker, Promise, controller, and disk journ
     readFileSync(path.join(directory, DIALOG_PICKER_OPEN_FILE), "utf8"),
     DIALOG_PICKER_OPEN_BODY,
   );
+});
+
+test("retries each macOS keyboard attempt until probe output confirms stage progress", async (t) => {
+  const directory = fixture(t);
+  const child = inertChild();
+  const attempts = [];
+  const proof = expectedProof(directory);
+
+  await runReferenceNotesDialogPickerSmoke({
+    platform: "darwin",
+    hostPlatform: "darwin",
+    compile: false,
+    binaryPath: process.execPath,
+    workingDirectory: directory,
+    timeoutMs: 1_000,
+    driverTimeoutMs: 250,
+    driverAttemptTimeoutMs: 50,
+    driverRetryDelayMs: 5,
+    driverMaxAttempts: 3,
+    spawnImpl() {
+      queueMicrotask(() => {
+        child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}save\n`);
+      });
+      return child;
+    },
+    driveDialog({ step, timeoutMs }) {
+      attempts.push({ step, timeoutMs });
+      const count = attempts.filter((attempt) => attempt.step === step).length;
+      if (count !== 2) return;
+      queueMicrotask(() => {
+        if (step === "save") {
+          writeFileSync(path.join(directory, DIALOG_PICKER_SAVE_FILE), DIALOG_PICKER_SAVE_BODY);
+          child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}open\n`);
+        } else if (step === "open") {
+          child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}cancel\n`);
+        } else {
+          child.stdout.write(
+            `${DIALOG_PICKER_SMOKE_STATE_PREFIX}${JSON.stringify(proof)}\n${DIALOG_PICKER_SMOKE_MARKER}\n`,
+          );
+        }
+      });
+    },
+    terminateChild(_target, signal) {
+      queueMicrotask(() => {
+        child.signalCode = signal;
+        child.emit("close", null, signal);
+      });
+    },
+    forceTerminateChild() {},
+    stdout: silentWriter(),
+    stderr: silentWriter(),
+  });
+
+  assert.deepEqual(
+    attempts.map(({ step }) => step),
+    ["save", "save", "open", "open", "cancel", "cancel"],
+  );
+  assert.ok(attempts.every(({ timeoutMs }) => timeoutMs > 0 && timeoutMs <= 50));
+});
+
+test("retries a transient macOS driver timeout before accepting stage progress", async (t) => {
+  const directory = fixture(t);
+  const child = inertChild();
+  const attempts = [];
+  const proof = expectedProof(directory);
+
+  await runReferenceNotesDialogPickerSmoke({
+    platform: "darwin",
+    hostPlatform: "darwin",
+    compile: false,
+    binaryPath: process.execPath,
+    workingDirectory: directory,
+    timeoutMs: 1_000,
+    driverTimeoutMs: 200,
+    driverAttemptTimeoutMs: 40,
+    driverRetryDelayMs: 1,
+    driverMaxAttempts: 2,
+    spawnImpl() {
+      queueMicrotask(() => child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}save\n`));
+      return child;
+    },
+    driveDialog({ step }) {
+      attempts.push(step);
+      if (attempts.length === 1) {
+        const error = new Error("osascript timed out");
+        error.retryable = true;
+        throw error;
+      }
+      writeFileSync(path.join(directory, DIALOG_PICKER_SAVE_FILE), DIALOG_PICKER_SAVE_BODY);
+      if (step === "save") {
+        queueMicrotask(() => child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}open\n`));
+      } else if (step === "open") {
+        queueMicrotask(() => child.stdout.write(`${DIALOG_PICKER_STAGE_PREFIX}cancel\n`));
+      } else {
+        queueMicrotask(() =>
+          child.stdout.write(
+            `${DIALOG_PICKER_SMOKE_STATE_PREFIX}${JSON.stringify(proof)}\n${DIALOG_PICKER_SMOKE_MARKER}\n`,
+          ),
+        );
+      }
+    },
+    terminateChild(_target, signal) {
+      queueMicrotask(() => {
+        child.signalCode = signal;
+        child.emit("close", null, signal);
+      });
+    },
+    forceTerminateChild() {},
+    stdout: silentWriter(),
+    stderr: silentWriter(),
+  });
+
+  assert.deepEqual(attempts, ["save", "save", "open", "cancel"]);
 });
 
 test("rejects a missing stage even when proof, marker, and disk bytes look valid", async (t) => {

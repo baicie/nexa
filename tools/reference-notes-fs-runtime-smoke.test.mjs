@@ -71,7 +71,6 @@ test("compiles the FS smoke with the trusted manifest and Windows console subsys
     "fs-runtime-smoke.tsx",
     "-o",
     "reference-notes-fs-runtime-smoke",
-    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);

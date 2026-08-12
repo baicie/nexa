@@ -1,76 +1,17 @@
-on elementMatches(anElement, expectedTitle)
-  try
-    if (name of anElement as text) is expectedTitle then return true
-  end try
-  try
-    if (value of anElement as text) is expectedTitle then return true
-  end try
-  try
-    if (description of anElement as text) is expectedTitle then return true
-  end try
-  return false
-end elementMatches
-
-on locateDialog(targetPid, expectedTitle)
+on focusOwner(targetPid, expectedTitle, timeoutSeconds)
   tell application "System Events"
-    if not (exists (first application process whose unix id is targetPid)) then return missing value
-    set targetProcess to first application process whose unix id is targetPid
-    repeat with candidateWindow in windows of targetProcess
-      if my elementMatches(candidateWindow, expectedTitle) then return candidateWindow
+    with timeout of timeoutSeconds seconds
+      if UI elements enabled is false then error "macOS Accessibility permission unavailable; cannot drive the real rfd picker"
+      if not (exists (first application process whose unix id is targetPid)) then error "real rfd picker owner process is unavailable: " & targetPid
+      set targetProcess to first application process whose unix id is targetPid
+      set frontmost of targetProcess to true
       try
-        repeat with candidateSheet in sheets of candidateWindow
-          if my elementMatches(candidateSheet, expectedTitle) then return candidateWindow
-        end repeat
+        set frontWindowTitle to name of front window of targetProcess as text
+        if frontWindowTitle is not "" and frontWindowTitle is not expectedTitle then error "real rfd picker front window title did not match: " & expectedTitle
       end try
-    end repeat
+    end timeout
   end tell
-  return missing value
-end locateDialog
-
-on processExists(targetPid)
-  tell application "System Events"
-    return exists (first application process whose unix id is targetPid)
-  end tell
-end processExists
-
-on waitForGoToFolderSheet(targetPid, expectedTitle, deadline)
-  repeat
-    if (current date) > deadline then error "timed out waiting for the Go to Folder sheet in " & expectedTitle
-    set dialogWindow to my locateDialog(targetPid, expectedTitle)
-    if dialogWindow is missing value then error "real rfd picker closed before the Go to Folder sheet appeared: " & expectedTitle
-    tell application "System Events"
-      try
-        if (count of sheets of dialogWindow) > 0 then return
-      end try
-    end tell
-    delay 0.1
-  end repeat
-end waitForGoToFolderSheet
-
-on waitForGoToFolderSheetToClose(targetPid, expectedTitle, deadline)
-  repeat
-    if (current date) > deadline then error "timed out waiting for the Go to Folder sheet to close in " & expectedTitle
-    set dialogWindow to my locateDialog(targetPid, expectedTitle)
-    if dialogWindow is missing value then return false
-    set sheetIsOpen to false
-    tell application "System Events"
-      try
-        set sheetIsOpen to (count of sheets of dialogWindow) > 0
-      end try
-    end tell
-    if sheetIsOpen is false then return true
-    delay 0.1
-  end repeat
-end waitForGoToFolderSheetToClose
-
-on waitForDialogToClose(targetPid, expectedTitle, deadline)
-  repeat
-    if (current date) > deadline then error "real rfd picker did not close after the requested action: " & expectedTitle
-    if my processExists(targetPid) is false then error "picker owner process exited before the dialog closed: " & targetPid
-    if my locateDialog(targetPid, expectedTitle) is missing value then return
-    delay 0.1
-  end repeat
-end waitForDialogToClose
+end focusOwner
 
 on run argv
   if (count of argv) < 4 then error "usage: driver <pid> <accept|cancel> <title> <timeout-ms> [selection-path]"
@@ -84,9 +25,8 @@ on run argv
   if actionName is "accept" and selectionPath is "" then error "accept requires a selection path"
   if timeoutMilliseconds < 1 then error "timeout must be positive"
 
-  tell application "System Events"
-    if UI elements enabled is false then error "macOS Accessibility permission unavailable; cannot drive the real rfd picker"
-  end tell
+  set timeoutSeconds to (timeoutMilliseconds div 1000) + 1
+  if timeoutSeconds > 5 then set timeoutSeconds to 5
 
   set navigationTarget to ""
   if actionName is "accept" then
@@ -97,34 +37,39 @@ on run argv
       set navigationTarget to do shell script "/usr/bin/dirname " & quoted form of selectionPath
     end try
   end if
-  tell application "System Events"
-    if not (exists (first application process whose unix id is targetPid)) then error "real rfd picker owner process is unavailable: " & targetPid
-    set targetProcess to first application process whose unix id is targetPid
-    set frontmost of targetProcess to true
-    if actionName is "cancel" then
-      key code 53
-    else
-      keystroke "g" using {command down, shift down}
-    end if
-  end tell
 
-  if actionName is "accept" then
-    delay 1
+  my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+  delay 0.6
+  if actionName is "cancel" then
     tell application "System Events"
-      set targetProcess to first application process whose unix id is targetPid
-      set frontmost of targetProcess to true
-      keystroke navigationTarget
-      key code 36
+      with timeout of timeoutSeconds seconds
+        key code 53
+      end timeout
     end tell
-    delay 1
+  else
     tell application "System Events"
-      set targetProcess to first application process whose unix id is targetPid
-      set frontmost of targetProcess to true
-      key code 36
+      with timeout of timeoutSeconds seconds
+        keystroke "g" using {command down, shift down}
+      end timeout
+    end tell
+    delay 0.6
+    my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+    tell application "System Events"
+      with timeout of timeoutSeconds seconds
+        keystroke "a" using {command down}
+        keystroke navigationTarget
+        key code 36
+      end timeout
+    end tell
+    delay 0.6
+    my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+    tell application "System Events"
+      with timeout of timeoutSeconds seconds
+        key code 36
+      end timeout
     end tell
   end if
 
-  delay 1
-
-  return "drove real rfd picker " & expectedTitle
+  delay 0.6
+  return "drove one bounded real rfd picker attempt for " & expectedTitle
 end run

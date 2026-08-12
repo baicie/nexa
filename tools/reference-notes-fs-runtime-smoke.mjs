@@ -130,7 +130,7 @@ export function compileReferenceNotesFsRuntimeSmoke({
     "reference-notes-fs-runtime-smoke",
   ];
   if (platform === "win32") {
-    args.push("--no-auto-optimize", "--windows-subsystem", "console");
+    args.push("--windows-subsystem", "console");
   }
 
   const result = spawnSyncImpl(pnpm, args, {

@@ -51,7 +51,6 @@ test("compiles the Clipboard smoke with the trusted manifest and Windows console
     "clipboard-runtime-smoke.tsx",
     "-o",
     "reference-notes-clipboard-runtime-smoke",
-    "--no-auto-optimize",
     "--windows-subsystem",
     "console",
   ]);

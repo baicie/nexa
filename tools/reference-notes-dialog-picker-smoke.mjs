@@ -87,6 +87,13 @@ function assertSucceeded(result, stage) {
   }
 }
 
+function isRetryableDriverFailure(result) {
+  const code = result?.error?.code;
+  if (code === "ETIMEDOUT" || result?.signal === "SIGTERM") return true;
+  const detail = `${result?.stderr ?? ""}\n${result?.stdout ?? ""}`;
+  return /timed out|timeout|time out/u.test(detail);
+}
+
 function expectedProof(workingDirectory) {
   const afterSave = {
     path: path.join(workingDirectory, DIALOG_PICKER_SAVE_FILE),
@@ -197,7 +204,7 @@ export function compileReferenceNotesDialogPickerSmoke({
     "reference-notes-dialog-picker-smoke",
   ];
   if (platform === "win32") {
-    args.push("--no-auto-optimize", "--windows-subsystem", "console");
+    args.push("--windows-subsystem", "console");
   }
 
   const result = spawnSyncImpl(pnpm, args, {
@@ -281,16 +288,20 @@ export function driveHostedDialog({
     windowsHide: true,
   });
   if (result.error) {
-    throw new Error(
+    const error = new Error(
       `Notes real Dialog picker ${platform} driver could not start: ${result.error.message}`,
       { cause: result.error },
     );
+    if (isRetryableDriverFailure(result)) error.retryable = true;
+    throw error;
   }
   if (result.status !== 0) {
     const detail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`.trim();
-    throw new Error(
+    const error = new Error(
       `Notes real Dialog picker ${platform} driver failed with exit code ${result.status ?? "no status"}${detail ? `: ${detail}` : ""}`,
     );
+    if (isRetryableDriverFailure(result)) error.retryable = true;
+    throw error;
   }
 }
 
@@ -349,6 +360,9 @@ export function runReferenceNotesDialogPickerSmoke({
   environment = process.env,
   timeoutMs = 150_000,
   driverTimeoutMs = 45_000,
+  driverAttemptTimeoutMs = 7_000,
+  driverRetryDelayMs = 1_000,
+  driverMaxAttempts = 5,
   shutdownTimeoutMs = 5_000,
   terminationConfirmationTimeoutMs = 5_000,
   hostPlatform = process.platform,
@@ -372,6 +386,16 @@ export function runReferenceNotesDialogPickerSmoke({
   removeTemporaryDirectory = rmSync,
 } = {}) {
   assertSupportedPlatform(platform);
+  for (const [name, value] of [
+    ["driver timeout", driverTimeoutMs],
+    ["driver attempt timeout", driverAttemptTimeoutMs],
+    ["driver retry delay", driverRetryDelayMs],
+    ["driver max attempts", driverMaxAttempts],
+  ]) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`Notes real Dialog picker smoke ${name} must be a positive integer`);
+    }
+  }
   const executableInput =
     binaryPath ??
     (compile ? compileReferenceNotesDialogPickerSmoke({ platform, environment }) : undefined);
@@ -423,6 +447,71 @@ export function runReferenceNotesDialogPickerSmoke({
     const receivedStages = [];
     let driverChain = Promise.resolve();
     const deadline = Date.now() + timeoutMs;
+
+    const wait = (milliseconds) =>
+      new Promise((resolveWait) => {
+        setTimeout(resolveWait, milliseconds);
+      });
+
+    const stageProgressed = (stageIndex) =>
+      receivedStages.length > stageIndex + 1 ||
+      (stageIndex === stages.length - 1 && output.includes(DIALOG_PICKER_SMOKE_MARKER));
+
+    const driveStage = async ({ stageIndex, expected, selectionPath }) => {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        throw new Error(`Notes real Dialog picker smoke timed out after ${timeoutMs} ms`);
+      }
+      if (platform !== "darwin") {
+        return driveDialog({
+          platform,
+          processId: probeProcessId ?? child.pid,
+          step: expected.step,
+          title: expected.title,
+          selectionPath,
+          timeoutMs: Math.min(driverTimeoutMs, remainingMs),
+        });
+      }
+
+      const stageDeadline = Math.min(deadline, Date.now() + driverTimeoutMs);
+      let attempts = 0;
+      let lastError;
+      for (let attempt = 1; attempt <= driverMaxAttempts; attempt += 1) {
+        if (finishRequested || (attempt > 1 && stageProgressed(stageIndex))) return;
+        const attemptRemainingMs = stageDeadline - Date.now();
+        if (attemptRemainingMs <= 0) break;
+        attempts += 1;
+        try {
+          await driveDialog({
+            platform,
+            processId: probeProcessId ?? child.pid,
+            step: expected.step,
+            title: expected.title,
+            selectionPath,
+            timeoutMs: Math.min(driverAttemptTimeoutMs, attemptRemainingMs),
+          });
+        } catch (error) {
+          lastError = error;
+          if (error?.retryable !== true) throw error;
+          if (finishRequested || stageProgressed(stageIndex)) return;
+        }
+        if (finishRequested || stageProgressed(stageIndex)) return;
+        if (output.includes(DIALOG_PICKER_SMOKE_MARKER)) break;
+        const retryRemainingMs = stageDeadline - Date.now();
+        if (attempt === driverMaxAttempts || retryRemainingMs <= 0) break;
+        await wait(Math.min(driverRetryDelayMs, retryRemainingMs));
+      }
+      if (finishRequested || stageProgressed(stageIndex)) return;
+      if (output.includes(DIALOG_PICKER_SMOKE_MARKER)) {
+        throw new Error(
+          `Notes real Dialog picker smoke stage sequence did not advance after ${expected.step}`,
+        );
+      }
+      if (lastError !== undefined) throw lastError;
+      throw new Error(
+        `Notes real Dialog picker macOS driver did not advance ${expected.step} after ${attempts} bounded attempts`,
+      );
+    };
 
     const cleanup = () => {
       if (!ownsWorkingDirectory) return;
@@ -644,21 +733,9 @@ export function runReferenceNotesDialogPickerSmoke({
         return;
       }
       receivedStages.push(step);
+      const stageIndex = receivedStages.length - 1;
       const selectionPath = step === "save" ? savePath : step === "open" ? openPath : undefined;
-      driverChain = driverChain.then(() => {
-        const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) {
-          throw new Error(`Notes real Dialog picker smoke timed out after ${timeoutMs} ms`);
-        }
-        return driveDialog({
-          platform,
-          processId: probeProcessId ?? child.pid,
-          step,
-          title: expected.title,
-          selectionPath,
-          timeoutMs: Math.min(driverTimeoutMs, remainingMs),
-        });
-      });
+      driverChain = driverChain.then(() => driveStage({ stageIndex, expected, selectionPath }));
       driverChain.catch((error) => finish(error));
     };
 

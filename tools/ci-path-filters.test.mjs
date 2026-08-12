@@ -4,6 +4,8 @@ import test from "node:test";
 import { matchesGlob } from "node:path";
 import { parse } from "yaml";
 
+import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
+
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
@@ -307,6 +309,21 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.deepEqual(packageJob.strategy.matrix.os, ["macos-15", "windows-2022"]);
   assert.deepEqual(launchJob.strategy.matrix.os, ["macos-15", "windows-2022"]);
   assert.equal(launchJob.needs, "package");
+
+  const perryCheckoutIndex = packageJob.steps.findIndex(
+    (step) => step.with?.repository === "PerryTS/perry",
+  );
+  assert.ok(perryCheckoutIndex >= 0, "the package matrix must check out Perry source");
+  const perryCheckout = packageJob.steps[perryCheckoutIndex];
+  assert.equal(perryCheckout.with.ref, PERRY_SOURCE_REVISION);
+  assert.equal(perryCheckout.with.path, ".perry-source");
+  assert.equal(perryCheckout.with["persist-credentials"], false);
+  assert.equal(packageJob.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  const installIndex = packageJob.steps.findIndex((step) => step.name === "Install");
+  assert.ok(
+    perryCheckoutIndex < installIndex,
+    "Perry source must exist before package setup and build",
+  );
 
   const packageCommands = packageJob.steps.flatMap((step) =>
     typeof step.run === "string" ? [step.run] : [],
