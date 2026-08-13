@@ -13,7 +13,7 @@
 | Perry CLI | 根 `devDependencies`                | 0.5.1220                                   | 通过 `pnpm exec perry` 调用，禁止依赖全局浮动版本                |
 | Perry FFI | 两个 FFI `Cargo.toml`               | `06137858dc8c6f80975238377138f2f948d6ef88` | 对应 Perry `v0.5.1220`，两个 nativeLibrary 必须使用同一 revision |
 
-`packages/nui-host/Cargo.lock`、`packages/system-host/Cargo.lock` 与 `tools/windows-static-closure/Cargo.lock` 都必须提交。它们是独立 staticlib crate/组合闭包的可重复依赖快照，不受根 `Cargo.lock` 覆盖；Windows 闭包只启用 Technical Preview 参考应用使用的 Perry `core` 与 Host Promise 所需 `async-runtime` feature，并由 hosted AOT/launch 门禁验证。
+`packages/nui-host/Cargo.lock`、`packages/system-host/Cargo.lock` 与 `tools/windows-static-closure/Cargo.lock` 都必须提交。它们是独立 staticlib crate/组合闭包的可重复依赖快照，不受根 `Cargo.lock` 覆盖；Windows 闭包只启用 Technical Preview 参考应用使用的 Perry `core`、Host Promise 所需 `async-runtime` 与协议校验所需 `regex-engine` feature，并由 hosted AOT/launch 门禁验证。
 
 仓库 `.npmrc` 固定官方 npm registry。Perry CLI 依赖按平台分包，镜像缺少任一 optional package 都会产生“wrapper 已安装但 CLI 不可执行”的假安装。
 

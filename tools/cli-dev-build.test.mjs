@@ -152,12 +152,13 @@ function nativePerryFixture(fixture, { name = "perry.exe", throughParentLink = f
   mkdirSync(realDirectory, { recursive: true });
   const realPath = path.join(realDirectory, name);
   writeFileSync(realPath, "native Perry fixture\n");
-  if (!throughParentLink) return { canonicalPath: realpathSync(realPath), requestedPath: realPath };
+  if (!throughParentLink)
+    return { canonicalPath: realpathSync.native(realPath), requestedPath: realPath };
 
   const linkedDirectory = path.join(fixture.cwd, "native-perry-link");
   symlinkSync(realDirectory, linkedDirectory, process.platform === "win32" ? "junction" : "dir");
   return {
-    canonicalPath: realpathSync(realPath),
+    canonicalPath: realpathSync.native(realPath),
     requestedPath: path.join(linkedDirectory, name),
   };
 }

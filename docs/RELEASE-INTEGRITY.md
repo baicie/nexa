@@ -91,12 +91,12 @@ publishable hosted release must fail unless it is `false`.
   from every package in `release/packages.json` and excludes root development
   tooling;
 - `cargo metadata --locked --format-version 1` starts independently from the
-  NUI Host and System Host manifests, follows normal and build dependencies,
-  and excludes dev-only dependencies.
+  NUI Host, System Host, and Windows unified static closure manifests, follows
+  normal and build dependencies, and excludes dev-only dependencies.
 
 The collector normalizes absolute paths, sorts all components and edges,
-deduplicates shared Rust crates, and records the exact pnpm and Host Cargo lock
-digests. The descriptor carries this normalized graph. Evidence generation
+deduplicates shared Rust crates, and records the exact pnpm and Cargo closure
+lock digests. The descriptor carries this normalized graph. Evidence generation
 rejects duplicate references, unknown edges, missing edge sets, unreachable
 components, unsupported ecosystems, and lockfile/material digest drift.
 

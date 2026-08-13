@@ -37,7 +37,7 @@
           "tools/signing-executor.mjs",
           "tools/signing-policy.mjs"
         ],
-        "sha256": "88e37e0561a0eba36504235a814efaa264f904497be26acdb89b8673c23a520c"
+        "sha256": "c6f4a1fda484e007dd73b9a30ac653e11f955c66e9ece57851829c14faea3058"
       },
       "platforms": {
         "darwin": {

@@ -99,6 +99,20 @@ test("Perry host dependencies bind the audited revision to its declared version"
   assert.match(read("packages/system-host/Cargo.toml"), dependency);
 });
 
+test("Windows static closure enables only the Perry runtime features used by Preview apps", () => {
+  const manifest = read("tools/windows-static-closure/Cargo.toml");
+
+  assert.match(
+    manifest,
+    /perry-stdlib = \{[^\n]+default-features = false, features = \["core", "async-runtime"\] \}/u,
+  );
+  assert.match(
+    manifest,
+    /perry-runtime = \{[^\n]+default-features = false, features = \["stdlib", "regex-engine"\] \}/u,
+  );
+  assert.doesNotMatch(manifest, /features = \[[^\]]*"crypto"/u);
+});
+
 test("supply-chain policies define allowed licenses, exceptions, and secret boundaries", () => {
   const supplyChain = read("docs/SUPPLY-CHAIN.md");
   const deny = read("deny.toml");
