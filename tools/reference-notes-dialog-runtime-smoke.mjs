@@ -5,6 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
+import {
+  environmentWithoutPerryCompilerOverride,
+  resolvePerryCompilerCommand,
+} from "../packages/cli/src/perry-command.mjs";
+
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
 const dialogFixturePath = path.join(exampleDirectory, "dialog-runtime-smoke.fixture.json");
@@ -95,6 +100,7 @@ function assertJourneyProof(output) {
 
 export function compileReferenceNotesDialogRuntimeSmoke({
   platform = process.platform,
+  environment = process.env,
   spawnSyncImpl = spawnSync,
   existsImpl = existsSync,
 } = {}) {
@@ -102,14 +108,20 @@ export function compileReferenceNotesDialogRuntimeSmoke({
     throw new Error("Notes Dialog runtime smoke currently supports only macOS and Windows");
   }
   const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const perry = resolvePerryCompilerCommand({
+    environment,
+    fallbackCommand: pnpm,
+    fallbackPrefixArgs: ["exec", "perry"],
+    fallbackShell: platform === "win32",
+    platform,
+  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-dialog-runtime-smoke.exe"
       : "reference-notes-dialog-runtime-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
   const args = [
-    "exec",
-    "perry",
+    ...perry.prefixArgs,
     "compile",
     "dialog-runtime-smoke.tsx",
     "-o",
@@ -119,15 +131,15 @@ export function compileReferenceNotesDialogRuntimeSmoke({
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(pnpm, args, {
+  const result = spawnSyncImpl(perry.command, args, {
     cwd: exampleDirectory,
     env: {
-      ...process.env,
+      ...perry.environment,
       NEXA_APP_MANIFEST_PATH: manifestPath,
       NEXA_DIALOG_TEST_FIXTURE_PATH: dialogFixturePath,
     },
     stdio: "inherit",
-    shell: platform === "win32",
+    shell: perry.shell,
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
@@ -138,6 +150,7 @@ export function compileReferenceNotesDialogRuntimeSmoke({
 
 export function runReferenceNotesDialogRuntimeSmoke({
   platform = process.platform,
+  environment = process.env,
   compile = true,
   binaryPath,
   binaryArgs = [],
@@ -148,7 +161,8 @@ export function runReferenceNotesDialogRuntimeSmoke({
   stderr = process.stderr,
 } = {}) {
   const executable =
-    binaryPath ?? (compile ? compileReferenceNotesDialogRuntimeSmoke({ platform }) : undefined);
+    binaryPath ??
+    (compile ? compileReferenceNotesDialogRuntimeSmoke({ platform, environment }) : undefined);
   if (!executable) {
     return Promise.reject(new Error("Notes Dialog runtime smoke requires a binary path"));
   }
@@ -163,7 +177,7 @@ export function runReferenceNotesDialogRuntimeSmoke({
     let cleanupPending = ownsWorkingDirectory;
     const child = spawnImpl(executable, binaryArgs, {
       cwd,
-      env: process.env,
+      env: environmentWithoutPerryCompilerOverride(environment),
       stdio: ["ignore", "pipe", "pipe"],
     });
 

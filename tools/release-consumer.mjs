@@ -12,7 +12,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildAllReleasePackages } from "./build-release-packages.mjs";
-import { collectDependencyGraph } from "./release-dependency-graph.mjs";
+import {
+  cargoDependencyRoots,
+  collectDependencyGraph,
+} from "./release-dependency-graph.mjs";
 import { generateEvidence, verifyEvidence } from "./release-evidence.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
@@ -149,8 +152,7 @@ function createDescriptor(outputDirectory) {
   const materials = [
     "pnpm-lock.yaml",
     "Cargo.lock",
-    "packages/nui-host/Cargo.lock",
-    "packages/system-host/Cargo.lock",
+    ...cargoDependencyRoots.map(({ lockfile }) => lockfile),
   ].map((file) => ({
     uri: `${repository}/blob/${revision}/${file}`,
     digest: { sha256: sha256(path.join(root, file)) },

@@ -1,0 +1,15 @@
+diff --git a/crates/perry/src/commands/compile/link/platform_cmd.rs b/crates/perry/src/commands/compile/link/platform_cmd.rs
+--- a/crates/perry/src/commands/compile/link/platform_cmd.rs
++++ b/crates/perry/src/commands/compile/link/platform_cmd.rs
+@@ -817,10 +817,7 @@ pub(super) fn create_platform_link_command(
+         // Perry generates large init functions for TS modules (one function
+         // per module). Large codebases (100+ modules) can overflow the
+         // default 1MB stack. Reserve 8MB.
+-        .arg("/STACK:67108864")
+-        // Native libs (hone_editor_windows etc) bundle perry_runtime objects
+-        // that can't be fully stripped. Identical symbols are safe to merge.
+-        .arg("/FORCE:MULTIPLE");
++        .arg("/STACK:67108864");
+         // Set up MSVC library search paths if LIB env isn't already configured
+         if std::env::var("LIB").is_err() {
+             if let Some(lib_paths) = find_msvc_lib_paths() {

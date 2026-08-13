@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -29,6 +29,7 @@ const proof = {
   restoreAttempted: true,
   restoreVerified: true,
 };
+const perryOverrideEnvironment = "NEXA_PERRY_BIN";
 
 test("compiles the Clipboard smoke with the trusted manifest and Windows console subsystem", () => {
   const calls = [];
@@ -56,6 +57,42 @@ test("compiles the Clipboard smoke with the trusted manifest and Windows console
   ]);
   assert.match(calls[0].options.env.NEXA_APP_MANIFEST_PATH, /app\.manifest\.json$/u);
   assert.equal(calls[0].options.stdio, "inherit");
+});
+
+test("compiles the Clipboard smoke with a native Perry override and sanitized environment", (t) => {
+  const directory = fixture(t);
+  const compiler = path.join(directory, "perry.exe");
+  writeFileSync(compiler, "native Perry fixture\n");
+  const canonicalCompiler = realpathSync(compiler);
+  const calls = [];
+
+  compileReferenceNotesClipboardRuntimeSmoke({
+    platform: "win32",
+    environment: { PATH: process.env.PATH, [perryOverrideEnvironment]: compiler },
+    spawnSyncImpl(command, args, options) {
+      calls.push({ command, args, options });
+      return { status: 0 };
+    },
+    existsImpl: () => true,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, canonicalCompiler);
+  assert.deepEqual(calls[0].args, [
+    "compile",
+    "clipboard-runtime-smoke.tsx",
+    "-o",
+    "reference-notes-clipboard-runtime-smoke",
+    "--windows-subsystem",
+    "console",
+  ]);
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(
+    Object.keys(calls[0].options.env).some(
+      (name) => name.toUpperCase() === perryOverrideEnvironment,
+    ),
+    false,
+  );
 });
 
 test("rejects unsupported platforms before starting a compiler", () => {

@@ -28,6 +28,7 @@ const commonProtocol = JSON.parse(
   readFileSync(path.join(workspaceRoot, "protocol", "common.json"), "utf8"),
 );
 const dialogFixtureCanary = "nexa-ui-dialog-open.txt";
+const perryOverrideEnvironment = "NEXA_PERRY_BIN";
 
 const validManifest = {
   $schema: "https://nexa-ui.dev/schema/app-manifest-v1.json",
@@ -73,6 +74,12 @@ function invoke(argv, options = {}) {
 
 function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function withoutPerryOverride(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(([name]) => name.toUpperCase() !== perryOverrideEnvironment),
+  );
 }
 
 function fakePerrySource() {
@@ -129,7 +136,7 @@ function projectFixture(t, { manifest = validManifest, perryVersion = COMPATIBIL
   return {
     cwd,
     environment: {
-      ...process.env,
+      ...withoutPerryOverride(process.env),
       NEXA_DIALOG_TEST_FIXTURE_PATH: path.join(cwd, "must-not-leak.json"),
       NEXA_TEST_LOG: logPath,
       PERRY_SKIP_CODEGEN: "1",
@@ -137,6 +144,21 @@ function projectFixture(t, { manifest = validManifest, perryVersion = COMPATIBIL
     logPath,
     manifestPath: path.join(cwd, "app.manifest.json"),
     perryBin,
+  };
+}
+
+function nativePerryFixture(fixture, { name = "perry.exe", throughParentLink = false } = {}) {
+  const realDirectory = path.join(fixture.cwd, "native-perry");
+  mkdirSync(realDirectory, { recursive: true });
+  const realPath = path.join(realDirectory, name);
+  writeFileSync(realPath, "native Perry fixture\n");
+  if (!throughParentLink) return { canonicalPath: realpathSync(realPath), requestedPath: realPath };
+
+  const linkedDirectory = path.join(fixture.cwd, "native-perry-link");
+  symlinkSync(realDirectory, linkedDirectory, process.platform === "win32" ? "junction" : "dir");
+  return {
+    canonicalPath: realpathSync(realPath),
+    requestedPath: path.join(linkedDirectory, name),
   };
 }
 
@@ -208,6 +230,144 @@ test("Windows build selects an exe and the GUI subsystem without a shell", (t) =
   assert.equal(environmentKeys.filter((key) => key === "NEXA_APP_MANIFEST_PATH").length, 1);
   assert.equal(environmentKeys.includes("NEXA_DIALOG_TEST_FIXTURE_PATH"), false);
   assert.equal(environmentKeys.includes("PERRY_SKIP_CODEGEN"), false);
+});
+
+test("build executes a canonical native Perry override without a shell or control-variable leak", (t) => {
+  const fixture = projectFixture(t);
+  const override = nativePerryFixture(fixture, { throughParentLink: true });
+  const calls = [];
+  const result = invoke(["build"], {
+    cwd: fixture.cwd,
+    environment: {
+      ...fixture.environment,
+      [perryOverrideEnvironment]: override.requestedPath,
+    },
+    runtime: supportedRuntime("win32"),
+    runner(command, args, options) {
+      calls.push({ args, command, options });
+      writeFileSync(
+        path.join(fixture.cwd, "dist", "temp-app.exe"),
+        readFileSync(fixture.manifestPath),
+      );
+      return { status: 0 };
+    },
+  });
+
+  assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, override.canonicalPath);
+  assert.deepEqual(calls[0].args, [
+    "compile",
+    "src/main.tsx",
+    "-o",
+    path.join("dist", "temp-app"),
+    "--windows-subsystem",
+    "windows",
+  ]);
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(
+    Object.keys(calls[0].options.env).some(
+      (name) => name.toUpperCase() === perryOverrideEnvironment,
+    ),
+    false,
+  );
+});
+
+test("dev accepts a native macOS Perry override without requiring an exe suffix", (t) => {
+  const fixture = projectFixture(t);
+  const override = nativePerryFixture(fixture, { name: "perry" });
+  const calls = [];
+  const result = invoke(["dev"], {
+    cwd: fixture.cwd,
+    environment: {
+      ...fixture.environment,
+      [perryOverrideEnvironment]: override.requestedPath,
+    },
+    runtime: supportedRuntime(),
+    runner(command, args, options) {
+      calls.push({ args, command, options });
+      return { status: 0 };
+    },
+  });
+
+  assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, override.canonicalPath);
+  assert.deepEqual(calls[0].args, [
+    "dev",
+    "src/main.tsx",
+    "-o",
+    path.join(".nexa", "dev", "temp-app"),
+  ]);
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(
+    Object.keys(calls[0].options.env).some(
+      (name) => name.toUpperCase() === perryOverrideEnvironment,
+    ),
+    false,
+  );
+});
+
+test("build rejects ambiguous or unsafe native Perry overrides before starting a compiler", (t) => {
+  const fixture = projectFixture(t);
+  const regular = nativePerryFixture(fixture);
+  const directory = path.join(fixture.cwd, "perry-directory.exe");
+  const symlink = path.join(fixture.cwd, "perry-link.exe");
+  mkdirSync(directory);
+  symlinkSync(regular.requestedPath, symlink, "file");
+
+  const cases = [
+    {
+      environment: { ...fixture.environment, [perryOverrideEnvironment]: "relative/perry.exe" },
+      pattern: /absolute path/iu,
+    },
+    {
+      environment: { ...fixture.environment, [perryOverrideEnvironment]: directory },
+      pattern: /non-symbolic-link regular file/iu,
+    },
+    {
+      environment: { ...fixture.environment, [perryOverrideEnvironment]: symlink },
+      pattern: /non-symbolic-link regular file/iu,
+    },
+    {
+      environment: {
+        ...fixture.environment,
+        [perryOverrideEnvironment]: path.join(fixture.cwd, "missing.exe"),
+      },
+      pattern: /does not exist/iu,
+    },
+    {
+      environment: {
+        ...fixture.environment,
+        [perryOverrideEnvironment]: nativePerryFixture(fixture, { name: "perry" }).requestedPath,
+      },
+      pattern: /\.exe/iu,
+    },
+    {
+      environment: {
+        ...fixture.environment,
+        [perryOverrideEnvironment]: regular.requestedPath,
+        nexa_perry_bin: regular.requestedPath,
+      },
+      pattern: /multiple.*NEXA_PERRY_BIN|ambiguous/iu,
+    },
+  ];
+
+  let calls = 0;
+  for (const testCase of cases) {
+    const result = invoke(["build"], {
+      cwd: fixture.cwd,
+      environment: testCase.environment,
+      runtime: supportedRuntime("win32"),
+      runner() {
+        calls += 1;
+        return { status: 0 };
+      },
+    });
+    assert.equal(result.exitCode, 1);
+    assert.match(result.stderr, testCase.pattern);
+  }
+  assert.equal(calls, 0);
 });
 
 test("dev delegates watch, recompile, and run to project-local Perry", (t) => {
@@ -291,12 +451,23 @@ test("build rejects oversized and symlinked manifests before starting Perry", (t
 
 test("build rejects mismatched Perry versions and unsupported targets", (t) => {
   const wrongPerry = projectFixture(t, { perryVersion: "0.5.1219" });
+  const override = nativePerryFixture(wrongPerry);
+  let calls = 0;
   const versionResult = invoke(["build"], {
     cwd: wrongPerry.cwd,
+    environment: {
+      ...wrongPerry.environment,
+      [perryOverrideEnvironment]: override.requestedPath,
+    },
     runtime: supportedRuntime(),
+    runner() {
+      calls += 1;
+      return { status: 0 };
+    },
   });
   assert.equal(versionResult.exitCode, 1);
   assert.match(versionResult.stderr, /Perry.*0\.5\.1219.*0\.5\.1220/iu);
+  assert.equal(calls, 0);
 
   const fixture = projectFixture(t);
   const targetResult = invoke(["build"], {

@@ -94,3 +94,4 @@ examples/semantic-e2e/semantic-e2e.exe
 .nexa/
 packages/nui-host/target/
 packages/system-host/target/
+tools/windows-static-closure/target/

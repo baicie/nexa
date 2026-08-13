@@ -10,6 +10,7 @@ import {
   COMPATIBILITY,
 } from "./constants.mjs";
 import { resolveInstalledPackage, resolveInstalledPackageBin } from "./doctor.mjs";
+import { resolvePerryCompilerCommand } from "./perry-command.mjs";
 
 const supportedTargets = new Set(["darwin/arm64", "darwin/x64", "win32/x64"]);
 const manifestKeys = [
@@ -292,14 +293,21 @@ export function readProject(filesystem, cwd) {
   };
 }
 
-function resolvePerry(cwd) {
+function resolvePerry(cwd, environment, filesystem, platform) {
   const resolved = resolveInstalledPackage("@perryts/perry", cwd);
   if (resolved.manifest.version !== COMPATIBILITY.perry) {
     throw new Error(
       `Perry package version ${String(resolved.manifest.version)} does not match required ${COMPATIBILITY.perry}`,
     );
   }
-  return resolveInstalledPackageBin("@perryts/perry", "perry", cwd);
+  const installedBin = resolveInstalledPackageBin("@perryts/perry", "perry", cwd);
+  return resolvePerryCompilerCommand({
+    environment,
+    fallbackCommand: process.execPath,
+    fallbackPrefixArgs: [installedBin],
+    filesystem,
+    platform,
+  });
 }
 
 export function assertSupportedTarget(runtime) {
@@ -395,18 +403,25 @@ export function runProjectBuild({
 } = {}) {
   assertSupportedTarget(runtime);
   const project = readProject(filesystem, cwd);
-  const perryBin = resolvePerry(project.projectDirectory);
+  const perry = resolvePerry(project.projectDirectory, environment, filesystem, runtime.platform);
   ensureDirectory(filesystem, project.projectDirectory, ["dist"]);
   const outputRelative = path.join("dist", project.binaryName);
   const binaryRelative = runtime.platform === "win32" ? `${outputRelative}.exe` : outputRelative;
   const binaryPath = path.join(project.projectDirectory, binaryRelative);
   assertOwnedBinaryPath(filesystem, binaryPath, true);
 
-  const args = [perryBin, "compile", portablePath(project.entryRelative), "-o", outputRelative];
+  const args = [
+    ...perry.prefixArgs,
+    "compile",
+    portablePath(project.entryRelative),
+    "-o",
+    outputRelative,
+  ];
   if (runtime.platform === "win32") args.push("--windows-subsystem", "windows");
-  const result = runner(process.execPath, args, {
+  const result = runner(perry.command, args, {
     cwd: project.projectDirectory,
-    env: sanitizedEnvironment(environment, project.manifestPath),
+    env: sanitizedEnvironment(perry.environment, project.manifestPath),
+    shell: perry.shell,
     stdio: "inherit",
   });
   assertProcessSucceeded(result, "Perry compile");
@@ -430,7 +445,7 @@ export function runProjectDev({
 } = {}) {
   assertSupportedTarget(runtime);
   const project = readProject(filesystem, cwd);
-  const perryBin = resolvePerry(project.projectDirectory);
+  const perry = resolvePerry(project.projectDirectory, environment, filesystem, runtime.platform);
   ensureDirectory(filesystem, project.projectDirectory, [".nexa", "dev"]);
   const outputRelative = path.join(".nexa", "dev", project.binaryName);
   const binaryRelative = runtime.platform === "win32" ? `${outputRelative}.exe` : outputRelative;
@@ -440,11 +455,12 @@ export function runProjectDev({
     id: project.manifest.id,
   });
   const result = runner(
-    process.execPath,
-    [perryBin, "dev", portablePath(project.entryRelative), "-o", outputRelative],
+    perry.command,
+    [...perry.prefixArgs, "dev", portablePath(project.entryRelative), "-o", outputRelative],
     {
       cwd: project.projectDirectory,
-      env: sanitizedEnvironment(environment, project.manifestPath),
+      env: sanitizedEnvironment(perry.environment, project.manifestPath),
+      shell: perry.shell,
       stdio: "inherit",
     },
   );

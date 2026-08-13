@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -35,6 +35,8 @@ function fixture(t) {
 function silentWriter() {
   return { write() {} };
 }
+
+const perryOverrideEnvironment = "NEXA_PERRY_BIN";
 
 function inertChild({ killResult = false } = {}) {
   const child = new EventEmitter();
@@ -149,6 +151,48 @@ test("compiles a fixture-free picker probe with only the trusted manifest inject
   );
 });
 
+test("compiles the picker probe with a native Perry override and sanitized environment", (t) => {
+  const directory = fixture(t);
+  const compiler = path.join(directory, "perry.exe");
+  writeFileSync(compiler, "native Perry fixture\n");
+  const canonicalCompiler = realpathSync(compiler);
+  const calls = [];
+
+  compileReferenceNotesDialogPickerSmoke({
+    platform: "win32",
+    environment: {
+      PATH: process.env.PATH,
+      [perryOverrideEnvironment]: compiler,
+      NEXA_DIALOG_TEST_FIXTURE_PATH: "/tmp/must-not-leak.json",
+    },
+    spawnSyncImpl(command, args, options) {
+      calls.push({ command, args, options });
+      return { status: 0 };
+    },
+    existsImpl: () => true,
+    readBinaryImpl: () => Buffer.from("fixture-free-picker-binary"),
+    stdout: silentWriter(),
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, canonicalCompiler);
+  assert.deepEqual(calls[0].args, [
+    "compile",
+    "dialog-picker-smoke.tsx",
+    "-o",
+    "reference-notes-dialog-picker-smoke",
+    "--windows-subsystem",
+    "console",
+  ]);
+  assert.equal(calls[0].options.shell, false);
+  for (const blocked of [perryOverrideEnvironment, "NEXA_DIALOG_TEST_FIXTURE_PATH"]) {
+    assert.equal(
+      Object.keys(calls[0].options.env).some((name) => name.toUpperCase() === blocked),
+      false,
+    );
+  }
+});
+
 test("rejects a compiled picker probe containing deterministic fixture canaries", () => {
   assert.throws(
     () =>
@@ -260,12 +304,15 @@ test("the macOS driver navigates to the parent before selecting an open filename
   assert.match(source, /on baseNameFor\(inputPath\)/u);
   assert.match(source, /set navigationTarget to my parentPathFor\(selectionPath\)/u);
   assert.match(source, /set selectionName to my baseNameFor\(selectionPath\)/u);
+  assert.match(source, /set selectedBaseName to \(item -1 of components\) as text/u);
   assert.match(source, /on ensureRegularFile\(inputPath\)/u);
-  assert.match(source, /if not \(exists disk item fileItem\) then error/u);
+  assert.match(source, /if not \(exists disk item inputPath\) then error/u);
+  assert.doesNotMatch(source, /disk item fileItem/u);
   assert.match(source, /keystroke navigationTarget/u);
-  assert.match(source, /keystroke selectionName/u);
+  assert.match(source, /keystroke \(selectionName as text\)/u);
   assert.ok(
-    source.indexOf("keystroke navigationTarget") < source.indexOf("keystroke selectionName"),
+    source.indexOf("keystroke navigationTarget") <
+      source.indexOf("keystroke (selectionName as text)"),
   );
   assert.match(source, /on focusOwner\(targetPid, timeoutSeconds\)/u);
   assert.match(source, /with timeout of timeoutSeconds seconds/u);

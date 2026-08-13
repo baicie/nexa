@@ -27,16 +27,15 @@ on baseNameFor(inputPath)
   set oldDelimiters to AppleScript's text item delimiters
   set AppleScript's text item delimiters to "/"
   set components to text items of normalizedPath
-  set fileName to item -1 of components
+  set selectedBaseName to (item -1 of components) as text
   set AppleScript's text item delimiters to oldDelimiters
-  return fileName
+  return selectedBaseName
 end baseNameFor
 
 on ensureRegularFile(inputPath)
-  set fileItem to POSIX file inputPath
   tell application "System Events"
-    if not (exists disk item fileItem) then error "open selection file does not exist: " & inputPath
-    set fileKind to kind of disk item fileItem as text
+    if not (exists disk item inputPath) then error "open selection file does not exist: " & inputPath
+    set fileKind to kind of disk item inputPath as text
   end tell
   if fileKind is "folder" or fileKind is "Folder" then error "open selection path is not a file: " & inputPath
 end ensureRegularFile
@@ -106,7 +105,7 @@ on run argv
     if actionName is "open" then
       tell application "System Events"
         with timeout of timeoutSeconds seconds
-          keystroke selectionName
+          keystroke (selectionName as text)
         end timeout
       end tell
       delay 0.4

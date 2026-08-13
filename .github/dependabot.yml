@@ -27,6 +27,15 @@ updates:
       - dependencies
       - rust
 
+  - package-ecosystem: cargo
+    directory: /tools/windows-static-closure
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+
   - package-ecosystem: npm
     directory: /
     schedule:

@@ -164,6 +164,10 @@ test("workflow, script, and root config changes route to their owners", () => {
     [".github/workflows/perry-frameworks.yml", ["typescript", "perry"]],
     [".github/workflows/native-smoke.yml", ["typescript", "native"]],
     [".github/workflows/reference-notes-package.yml", ["typescript", "package"]],
+    ["patches/perry/0001-windows-reject-duplicate-symbols.patch", ["package"]],
+    ["tools/windows-static-closure/Cargo.toml", ["package"]],
+    ["tools/windows-static-closure/Cargo.lock", ["package"]],
+    ["tools/windows-static-closure/src/lib.rs", ["package"]],
     [".github/workflows/docs.yml", ["typescript", "docs"]],
     ["scripts/build-native.sh", ["rust", "typescript", "ffi", "native"]],
     ["protocol/nui-host.json", ["rust", "typescript", "ffi", "perry"]],
@@ -339,7 +343,7 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
     (step) => step.name === "Build pinned Perry full unwind runtime closure (macOS)",
   );
   const windowsFullRuntimeIndex = packageJob.steps.findIndex(
-    (step) => step.name === "Build pinned Perry full unwind runtime closure (Windows)",
+    (step) => step.name === "Build patched Perry and unified static closure (Windows)",
   );
   const macFullRuntimeStep = packageJob.steps[macFullRuntimeIndex];
   const windowsFullRuntimeStep = packageJob.steps[windowsFullRuntimeIndex];
@@ -379,23 +383,36 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
     assert.match(fullRuntimeStep.run, /cargo build/u);
     assert.match(fullRuntimeStep.run, /--locked/u);
     assert.match(fullRuntimeStep.run, /--release/u);
-    assert.match(fullRuntimeStep.run, /-p perry-runtime-static/u);
-    assert.match(fullRuntimeStep.run, /-p perry-stdlib-static/u);
     assert.doesNotMatch(fullRuntimeStep.run, /--no-default-features|panic=abort/u);
   }
+  assert.match(macFullRuntimeStep.run, /-p perry-runtime-static/u);
+  assert.match(macFullRuntimeStep.run, /-p perry-stdlib-static/u);
   assert.match(macFullRuntimeStep.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
   assert.match(macFullRuntimeStep.run, /--manifest-path "\$PERRY_WORKSPACE_ROOT\/Cargo\.toml"/u);
   assert.match(macFullRuntimeStep.run, /--target-dir "\$PERRY_WORKSPACE_ROOT\/target"/u);
   assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/libperry_runtime\.a"/u);
   assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/libperry_stdlib\.a"/u);
   assert.match(windowsFullRuntimeStep.run, /git -C \$env:PERRY_WORKSPACE_ROOT rev-parse HEAD/u);
+  assert.match(
+    windowsFullRuntimeStep.run,
+    /patches\/perry\/0001-windows-reject-duplicate-symbols\.patch/u,
+  );
+  assert.match(windowsFullRuntimeStep.run, /apply --check \$patch/u);
+  assert.match(windowsFullRuntimeStep.run, /apply --reverse --check \$patch/u);
   assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "Cargo\.toml"/u);
   assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "target"/u);
+  assert.match(windowsFullRuntimeStep.run, /-p perry/u);
+  assert.match(windowsFullRuntimeStep.run, /tools\/windows-static-closure\/Cargo\.toml/u);
+  assert.match(windowsFullRuntimeStep.run, /nexa_windows_static_closure\.lib/u);
   assert.match(
     windowsFullRuntimeStep.run,
     /Join-Path \$env:PERRY_RUNTIME_DIR "perry_runtime\.lib"/u,
   );
   assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_LIB_DIR "perry_stdlib\.lib"/u);
+  assert.match(windowsFullRuntimeStep.run, /Get-FileHash -Algorithm SHA256/u);
+  assert.match(windowsFullRuntimeStep.run, /\$nativeVersion -ne "perry 0\.5\.1220"/u);
+  assert.match(windowsFullRuntimeStep.run, /\$npmVersion -ne "perry 0\.5\.1220"/u);
+  assert.match(windowsFullRuntimeStep.run, /NEXA_PERRY_BIN=\$compiler/u);
 
   const packageCommands = packageJob.steps.flatMap((step) =>
     typeof step.run === "string" ? [step.run] : [],

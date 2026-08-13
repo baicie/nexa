@@ -1,8 +1,8 @@
 # Supply Chain Policy
 
 Technical Preview release inputs are locked, scanned, and fail closed. The
-policy applies to the root pnpm graph and all three Cargo lockfiles: the
-workspace, UI Host, and System Host graphs.
+policy applies to the root pnpm graph and all four Cargo lockfiles: the
+workspace, UI Host, System Host, and Windows unified-static-closure graphs.
 
 ## Required gates
 
@@ -11,7 +11,7 @@ workspace, UI Host, and System Host graphs.
 - npm and Cargo license allowlists;
 - gitleaks history and working-tree scans;
 - immutable full-length SHA references for every external GitHub Action;
-- Dependabot updates for npm, all three independently locked Cargo roots, and Actions.
+- Dependabot updates for npm, all four independently locked Cargo roots, and Actions.
 
 High or critical advisories block release. Registry errors, malformed reports,
 missing scanners, and unrecognized licenses are failures, not warnings. MIT,
@@ -29,7 +29,7 @@ supported Linux window backends and client-side decorations without the title
 font dependency chain; macOS and Windows behavior is unchanged.
 
 Re-enabling the default feature set or `wayland-csd-adwaita` requires a new
-three-lockfile audit and policy review. The advisory must not be ignored or
+four-lockfile audit and policy review. The advisory must not be ignored or
 downgraded merely to make the release gate pass.
 
 ## Exceptions

@@ -13,6 +13,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
+import {
+  environmentWithoutPerryCompilerOverride,
+  resolvePerryCompilerCommand,
+} from "../packages/cli/src/perry-command.mjs";
+
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
 const macOSDriverPath = fileURLToPath(
@@ -63,10 +68,10 @@ function omitEnvironmentKeyCaseInsensitive(environment, forbiddenNames) {
 }
 
 function fixtureFreeEnvironment(environment, { injectManifest = false } = {}) {
-  const clean = omitEnvironmentKeyCaseInsensitive(environment, [
-    dialogFixtureEnvironment,
-    ...(injectManifest ? [manifestEnvironment] : []),
-  ]);
+  const clean = omitEnvironmentKeyCaseInsensitive(
+    environmentWithoutPerryCompilerOverride(environment),
+    [dialogFixtureEnvironment, ...(injectManifest ? [manifestEnvironment] : [])],
+  );
   if (injectManifest) clean[manifestEnvironment] = manifestPath;
   return clean;
 }
@@ -190,14 +195,20 @@ export function compileReferenceNotesDialogPickerSmoke({
 } = {}) {
   assertSupportedPlatform(platform);
   const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const perry = resolvePerryCompilerCommand({
+    environment,
+    fallbackCommand: pnpm,
+    fallbackPrefixArgs: ["exec", "perry"],
+    fallbackShell: platform === "win32",
+    platform,
+  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-dialog-picker-smoke.exe"
       : "reference-notes-dialog-picker-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
   const args = [
-    "exec",
-    "perry",
+    ...perry.prefixArgs,
     "compile",
     "dialog-picker-smoke.tsx",
     "-o",
@@ -207,11 +218,11 @@ export function compileReferenceNotesDialogPickerSmoke({
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(pnpm, args, {
+  const result = spawnSyncImpl(perry.command, args, {
     cwd: exampleDirectory,
-    env: fixtureFreeEnvironment(environment, { injectManifest: true }),
+    env: fixtureFreeEnvironment(perry.environment, { injectManifest: true }),
     stdio: "inherit",
-    shell: platform === "win32",
+    shell: perry.shell,
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {

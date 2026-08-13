@@ -69,7 +69,7 @@
 2. macOS/Windows 无 fixture picker 的 save/open/cancel 与 Promise journey 成功，并记录 probe digest。
 3. 双平台 artifact 在 fresh hosted job 中下载、复核并启动成功。
 4. 精确 Node 22 的最终 TypeScript/Rust/FFI/Perry/docs/native/package required checks 全绿。
-5. 绑定同一 revision 的 hosted npm registry audit、三份 Cargo lock audit/deny、license policy 与 gitleaks 成功记录。
+5. 绑定同一 revision 的 hosted npm registry audit、四份 Cargo lock audit/deny、license policy 与 gitleaks 成功记录。
 6. macOS/Windows hosted raw performance report 经评审后激活 baseline，六项预算全部通过。
 7. 授权或公开 registry 的 external clean install/create-to-package，并验证九包 metadata、integrity 与 lockfile。
 8. 签名 owner、protected Environments 与凭据激活完成，并取得双平台 hosted signed staging、fresh verify 和 launch 证据。

@@ -35,9 +35,11 @@ test("security workflow scans every dependency graph and fails closed", () => {
     "Cargo.lock",
     "packages/nui-host/Cargo.lock",
     "packages/system-host/Cargo.lock",
+    "tools/windows-static-closure/Cargo.lock",
   ]) {
     assert.match(workflow, new RegExp(lockfile.replaceAll("/", "\\/"), "u"));
   }
+  assert.match(workflow, /tools\/windows-static-closure\/Cargo\.toml/u);
   for (const command of [
     "pnpm audit --audit-level=high",
     "cargo audit",
@@ -68,7 +70,12 @@ test("security workflow pins compatible Rust scanners and invokes cargo deny cor
 test("Dependabot covers every independently locked Cargo root", () => {
   const dependabot = read(".github/dependabot.yml");
 
-  for (const directory of ["/", "/packages/nui-host", "/packages/system-host"]) {
+  for (const directory of [
+    "/",
+    "/packages/nui-host",
+    "/packages/system-host",
+    "/tools/windows-static-closure",
+  ]) {
     const escaped = directory.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     assert.match(
       dependabot,

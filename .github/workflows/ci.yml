@@ -189,6 +189,8 @@ jobs:
               - 'tools/cli-create-package-smoke.mjs'
               - 'tools/cli-dev-build.test.mjs'
               - 'tools/cli-package.test.mjs'
+              - 'tools/windows-static-closure/**'
+              - 'patches/perry/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'

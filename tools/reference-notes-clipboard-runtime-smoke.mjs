@@ -4,6 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
+import {
+  environmentWithoutPerryCompilerOverride,
+  resolvePerryCompilerCommand,
+} from "../packages/cli/src/perry-command.mjs";
+
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
 
@@ -58,6 +63,7 @@ function assertRoundTripProof(output) {
 
 export function compileReferenceNotesClipboardRuntimeSmoke({
   platform = process.platform,
+  environment = process.env,
   spawnSyncImpl = spawnSync,
   existsImpl = existsSync,
 } = {}) {
@@ -65,14 +71,20 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
     throw new Error("Notes Clipboard runtime smoke currently supports only macOS and Windows");
   }
   const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const perry = resolvePerryCompilerCommand({
+    environment,
+    fallbackCommand: pnpm,
+    fallbackPrefixArgs: ["exec", "perry"],
+    fallbackShell: platform === "win32",
+    platform,
+  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-clipboard-runtime-smoke.exe"
       : "reference-notes-clipboard-runtime-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
   const args = [
-    "exec",
-    "perry",
+    ...perry.prefixArgs,
     "compile",
     "clipboard-runtime-smoke.tsx",
     "-o",
@@ -82,11 +94,11 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(pnpm, args, {
+  const result = spawnSyncImpl(perry.command, args, {
     cwd: exampleDirectory,
-    env: { ...process.env, NEXA_APP_MANIFEST_PATH: manifestPath },
+    env: { ...perry.environment, NEXA_APP_MANIFEST_PATH: manifestPath },
     stdio: "inherit",
-    shell: platform === "win32",
+    shell: perry.shell,
   });
   assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
@@ -97,6 +109,7 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
 
 export function runReferenceNotesClipboardRuntimeSmoke({
   platform = process.platform,
+  environment = process.env,
   compile = true,
   binaryPath,
   binaryArgs = [],
@@ -107,7 +120,8 @@ export function runReferenceNotesClipboardRuntimeSmoke({
   stderr = process.stderr,
 } = {}) {
   const executable =
-    binaryPath ?? (compile ? compileReferenceNotesClipboardRuntimeSmoke({ platform }) : undefined);
+    binaryPath ??
+    (compile ? compileReferenceNotesClipboardRuntimeSmoke({ platform, environment }) : undefined);
   if (!executable) {
     return Promise.reject(new Error("Notes Clipboard runtime smoke requires a binary path"));
   }
@@ -117,7 +131,7 @@ export function runReferenceNotesClipboardRuntimeSmoke({
     let output = "";
     const child = spawnImpl(executable, binaryArgs, {
       cwd: workingDirectory,
-      env: process.env,
+      env: environmentWithoutPerryCompilerOverride(environment),
       stdio: ["ignore", "pipe", "pipe"],
     });
 

@@ -9,6 +9,17 @@ const ecosystemOrder = new Map([
   ["cargo", 0],
   ["npm", 1],
 ]);
+export const cargoDependencyRoots = [
+  { manifest: "packages/nui-host/Cargo.toml", lockfile: "packages/nui-host/Cargo.lock" },
+  {
+    manifest: "packages/system-host/Cargo.toml",
+    lockfile: "packages/system-host/Cargo.lock",
+  },
+  {
+    manifest: "tools/windows-static-closure/Cargo.toml",
+    lockfile: "tools/windows-static-closure/Cargo.lock",
+  },
+];
 
 function fail(message) {
   throw new Error(`[release-dependencies] ${message}`);
@@ -456,14 +467,7 @@ export function collectDependencyGraph({
     fail("pnpm dependency roots do not match the public release package set");
   }
 
-  const cargoClosures = [
-    { manifest: "packages/nui-host/Cargo.toml", lockfile: "packages/nui-host/Cargo.lock" },
-    {
-      manifest: "packages/system-host/Cargo.toml",
-      lockfile: "packages/system-host/Cargo.lock",
-    },
-  ];
-  const cargoMetadata = cargoClosures.map(({ manifest }) =>
+  const cargoMetadata = cargoDependencyRoots.map(({ manifest }) =>
     parseCommandJson(
       execute(
         "cargo",
@@ -480,7 +484,7 @@ export function collectDependencyGraph({
       resolver: "pnpm list --filter <public-package> --prod --json --depth Infinity",
       digest: { sha256: sha256File(path.join(rootDirectory_, "pnpm-lock.yaml")) },
     },
-    ...cargoClosures.map(({ manifest, lockfile }) => ({
+    ...cargoDependencyRoots.map(({ manifest, lockfile }) => ({
       ecosystem: "cargo",
       lockfile,
       manifest,

@@ -1,7 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeDependencyGraph, validateDependencyGraph } from "./release-dependency-graph.mjs";
+import {
+  cargoDependencyRoots,
+  normalizeDependencyGraph,
+  validateDependencyGraph,
+} from "./release-dependency-graph.mjs";
+
+test("release graph includes every shipped Cargo closure", () => {
+  assert.deepEqual(cargoDependencyRoots, [
+    { manifest: "packages/nui-host/Cargo.toml", lockfile: "packages/nui-host/Cargo.lock" },
+    {
+      manifest: "packages/system-host/Cargo.toml",
+      lockfile: "packages/system-host/Cargo.lock",
+    },
+    {
+      manifest: "tools/windows-static-closure/Cargo.toml",
+      lockfile: "tools/windows-static-closure/Cargo.lock",
+    },
+  ]);
+});
 
 const sources = [
   {

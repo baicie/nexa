@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -64,6 +64,7 @@ const expectedProof = {
     window: "active",
   },
 };
+const perryOverrideEnvironment = "NEXA_PERRY_BIN";
 
 test("compiles the Dialog smoke with trusted manifest and build-time fixture", () => {
   const calls = [];
@@ -93,6 +94,42 @@ test("compiles the Dialog smoke with trusted manifest and build-time fixture", (
   assert.match(
     calls[0].options.env.NEXA_DIALOG_TEST_FIXTURE_PATH,
     /dialog-runtime-smoke\.fixture\.json$/u,
+  );
+});
+
+test("compiles the Dialog smoke with a native Perry override and sanitized environment", (t) => {
+  const directory = fixture(t);
+  const compiler = path.join(directory, "perry.exe");
+  writeFileSync(compiler, "native Perry fixture\n");
+  const canonicalCompiler = realpathSync(compiler);
+  const calls = [];
+
+  compileReferenceNotesDialogRuntimeSmoke({
+    platform: "win32",
+    environment: { PATH: process.env.PATH, [perryOverrideEnvironment]: compiler },
+    spawnSyncImpl(command, args, options) {
+      calls.push({ command, args, options });
+      return { status: 0 };
+    },
+    existsImpl: () => true,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, canonicalCompiler);
+  assert.deepEqual(calls[0].args, [
+    "compile",
+    "dialog-runtime-smoke.tsx",
+    "-o",
+    "reference-notes-dialog-runtime-smoke",
+    "--windows-subsystem",
+    "console",
+  ]);
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(
+    Object.keys(calls[0].options.env).some(
+      (name) => name.toUpperCase() === perryOverrideEnvironment,
+    ),
+    false,
   );
 });
 
