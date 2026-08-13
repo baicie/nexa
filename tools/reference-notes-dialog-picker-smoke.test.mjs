@@ -256,25 +256,27 @@ test("the macOS driver navigates to the parent before selecting an open filename
   );
 
   assert.match(source, /if actionName is "open" then/u);
-  assert.match(source, /set navigationTarget to do shell script "\/usr\/bin\/dirname /u);
-  assert.match(source, /set selectionName to do shell script "\/usr\/bin\/basename /u);
+  assert.match(source, /on parentPathFor\(inputPath\)/u);
+  assert.match(source, /on baseNameFor\(inputPath\)/u);
+  assert.match(source, /set navigationTarget to my parentPathFor\(selectionPath\)/u);
+  assert.match(source, /set selectionName to my baseNameFor\(selectionPath\)/u);
+  assert.match(source, /on ensureRegularFile\(inputPath\)/u);
+  assert.match(source, /if not \(exists disk item fileItem\) then error/u);
   assert.match(source, /keystroke navigationTarget/u);
   assert.match(source, /keystroke selectionName/u);
   assert.ok(
     source.indexOf("keystroke navigationTarget") < source.indexOf("keystroke selectionName"),
   );
-  assert.match(source, /on focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/u);
+  assert.match(source, /on focusOwner\(targetPid, timeoutSeconds\)/u);
   assert.match(source, /with timeout of timeoutSeconds seconds/u);
   assert.match(source, /keystroke "a" using \{command down\}/u);
+  assert.match(source, /first application process whose unix id is targetPid/u);
+  assert.match(source, /set frontmost of targetProcess to true/u);
+  assert.match(source, /if not \(exists front window of targetProcess\) then error/u);
   assert.match(source, /front window of targetProcess/u);
-  assert.match(source, /front window title did not match/u);
-  assert.ok(
-    source.indexOf("end try") <
-      source.indexOf('if frontWindowTitle is not "" and frontWindowTitle is not expectedTitle'),
-  );
-  assert.ok(
-    (source.match(/my focusOwner\(targetPid, expectedTitle, timeoutSeconds\)/gu) ?? []).length >= 3,
-  );
+  assert.doesNotMatch(source, /frontWindowTitle/u);
+  assert.doesNotMatch(source, /front window title did not match/u);
+  assert.ok((source.match(/my focusOwner\(targetPid, timeoutSeconds\)/gu) ?? []).length >= 3);
   assert.doesNotMatch(source, /entire contents/u);
   assert.doesNotMatch(source, /windows of targetProcess/u);
   assert.doesNotMatch(source, /sheets of /u);

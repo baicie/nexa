@@ -1,15 +1,54 @@
-on focusOwner(targetPid, expectedTitle, timeoutSeconds)
+on normalizePath(inputPath)
+  set normalizedPath to inputPath as text
+  repeat while normalizedPath ends with "/" and normalizedPath is not "/"
+    set normalizedPath to text 1 thru -2 of normalizedPath
+  end repeat
+  return normalizedPath
+end normalizePath
+
+on parentPathFor(inputPath)
+  set normalizedPath to my normalizePath(inputPath)
+  set oldDelimiters to AppleScript's text item delimiters
+  set AppleScript's text item delimiters to "/"
+  set components to text items of normalizedPath
+  if (count of components) < 2 then
+    set AppleScript's text item delimiters to oldDelimiters
+    error "selection path must be absolute: " & inputPath
+  end if
+  set parentComponents to items 1 thru -2 of components
+  set parentPath to parentComponents as text
+  set AppleScript's text item delimiters to oldDelimiters
+  if parentPath is "" then set parentPath to "/"
+  return parentPath
+end parentPathFor
+
+on baseNameFor(inputPath)
+  set normalizedPath to my normalizePath(inputPath)
+  set oldDelimiters to AppleScript's text item delimiters
+  set AppleScript's text item delimiters to "/"
+  set components to text items of normalizedPath
+  set fileName to item -1 of components
+  set AppleScript's text item delimiters to oldDelimiters
+  return fileName
+end baseNameFor
+
+on ensureRegularFile(inputPath)
+  set fileItem to POSIX file inputPath
+  tell application "System Events"
+    if not (exists disk item fileItem) then error "open selection file does not exist: " & inputPath
+    set fileKind to kind of disk item fileItem as text
+  end tell
+  if fileKind is "folder" or fileKind is "Folder" then error "open selection path is not a file: " & inputPath
+end ensureRegularFile
+
+on focusOwner(targetPid, timeoutSeconds)
   tell application "System Events"
     with timeout of timeoutSeconds seconds
       if UI elements enabled is false then error "macOS Accessibility permission unavailable; cannot drive the real rfd picker"
       if not (exists (first application process whose unix id is targetPid)) then error "real rfd picker owner process is unavailable: " & targetPid
       set targetProcess to first application process whose unix id is targetPid
       set frontmost of targetProcess to true
-      set frontWindowTitle to ""
-      try
-        set frontWindowTitle to name of front window of targetProcess as text
-      end try
-      if frontWindowTitle is not "" and frontWindowTitle is not expectedTitle then error "real rfd picker front window title did not match: " & expectedTitle
+      if not (exists front window of targetProcess) then error "real rfd picker owner process has no front window: " & targetPid
     end timeout
   end tell
 end focusOwner
@@ -32,14 +71,14 @@ on run argv
   set navigationTarget to ""
   set selectionName to ""
   if actionName is "open" then
-    do shell script "/usr/bin/test -f " & quoted form of selectionPath
-    set navigationTarget to do shell script "/usr/bin/dirname " & quoted form of selectionPath
-    set selectionName to do shell script "/usr/bin/basename " & quoted form of selectionPath
+    my ensureRegularFile(selectionPath)
+    set navigationTarget to my parentPathFor(selectionPath)
+    set selectionName to my baseNameFor(selectionPath)
   else if actionName is "accept" then
-    set navigationTarget to do shell script "/usr/bin/dirname " & quoted form of selectionPath
+    set navigationTarget to my parentPathFor(selectionPath)
   end if
 
-  my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+  my focusOwner(targetPid, timeoutSeconds)
   delay 0.6
   if actionName is "cancel" then
     tell application "System Events"
@@ -54,7 +93,7 @@ on run argv
       end timeout
     end tell
     delay 0.6
-    my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+    my focusOwner(targetPid, timeoutSeconds)
     tell application "System Events"
       with timeout of timeoutSeconds seconds
         keystroke "a" using {command down}
@@ -63,7 +102,7 @@ on run argv
       end timeout
     end tell
     delay 0.6
-    my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+    my focusOwner(targetPid, timeoutSeconds)
     if actionName is "open" then
       tell application "System Events"
         with timeout of timeoutSeconds seconds
@@ -71,7 +110,7 @@ on run argv
         end timeout
       end tell
       delay 0.4
-      my focusOwner(targetPid, expectedTitle, timeoutSeconds)
+      my focusOwner(targetPid, timeoutSeconds)
     end if
     tell application "System Events"
       with timeout of timeoutSeconds seconds
