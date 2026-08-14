@@ -24,6 +24,7 @@ const NUI_HOST = "@nexa/nui-host";
 const SYSTEM_HOST = "@nexa/system-host";
 const HOST_NAMES = new Set(["nui-host", "system-host"]);
 const WINDOWS_SKIA_LIBRARIES = ["skia.lib", "skia-bindings.lib"];
+const CARGO_METADATA_BUFFER_LIMIT = 16 * 1024 * 1024;
 const FORBIDDEN_SEGMENTS = new Set(["target", "node_modules", ".git"]);
 const PACKAGED_TEMPLATE_ROOT = path.resolve(
   fileURLToPath(new URL("./windows-static-closure/", import.meta.url)),
@@ -652,7 +653,13 @@ export function prepareWindowsPerryRuntime({
         "--manifest-path",
         closureManifest,
       ],
-      { cwd: merged, env: cargoEnvironment, encoding: "utf8", stdio: "pipe" },
+      {
+        cwd: merged,
+        env: cargoEnvironment,
+        encoding: "utf8",
+        stdio: "pipe",
+        maxBuffer: CARGO_METADATA_BUFFER_LIMIT,
+      },
     );
     validateMergedMetadata(metadataResult, merged, hostManifestPaths);
     const result = runner(

@@ -197,6 +197,7 @@ test("builds one installed-source closure for the current manifest and owns both
     "1",
   ]);
   assert.equal(calls[0].options.stdio, "pipe");
+  assert.equal(calls[0].options.maxBuffer, 16 * 1024 * 1024);
   assert.deepEqual(calls[1].args.slice(0, 4), [
     `+${WINDOWS_CLOSURE_RUST_TOOLCHAIN}`,
     "build",
