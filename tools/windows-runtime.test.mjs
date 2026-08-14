@@ -775,7 +775,7 @@ test("resolves the installed NUI Host Windows library directory from its manifes
     }),
     [
       path.join(
-        realpathSync(value.hosts.get("@nexa/nui-host").packageDirectory),
+        realpathSync.native(value.hosts.get("@nexa/nui-host").packageDirectory),
         "target/perry-native/windows/skia-binaries",
       ),
     ],
