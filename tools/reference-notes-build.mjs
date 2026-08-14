@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolvePerryCompilerCommand } from "../packages/cli/src/perry-command.mjs";
+import { environmentWithoutPerryCompilerOverride } from "../packages/cli/src/perry-command.mjs";
+import { runPerryCompile } from "./perry-compile.mjs";
 
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
@@ -40,30 +41,25 @@ export function runReferenceNotesBuild({
   stdout = process.stdout,
   stderr = process.stderr,
 } = {}) {
-  const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const perry = resolvePerryCompilerCommand({
-    environment,
-    fallbackCommand: pnpm,
-    fallbackPrefixArgs: ["exec", "perry"],
-    fallbackShell: platform === "win32",
-    platform,
-  });
   const binaryName = platform === "win32" ? "reference-notes.exe" : "reference-notes";
   const binaryPath = path.join(exampleDirectory, binaryName);
-  const compileArgs = [...perry.prefixArgs, "compile", "main.tsx", "-o", "reference-notes"];
+  const compileArgs = ["main.tsx", "-o", "reference-notes"];
   if (platform === "win32") {
     compileArgs.push("--windows-subsystem", "console");
   }
 
-  const productionEnvironment = { ...perry.environment };
+  const productionEnvironment = { ...environment };
   delete productionEnvironment[dialogTestFixtureEnvironment];
-  const options = {
+  const executionEnvironment = environmentWithoutPerryCompilerOverride(productionEnvironment);
+  runPerryCompile({
+    args: compileArgs,
     cwd: exampleDirectory,
-    env: { ...productionEnvironment, NEXA_APP_MANIFEST_PATH: manifestPath },
-    stdio: "inherit",
-    shell: perry.shell,
-  };
-  assertSucceeded(spawn(perry.command, compileArgs, options), "compilation");
+    manifestPath,
+    environment: productionEnvironment,
+    forceRuntime: spawn === spawnSync,
+    platform,
+    runner: spawn,
+  });
 
   const binary = readBinary(binaryPath);
   for (const marker of manifestMarkers) {
@@ -80,21 +76,23 @@ export function runReferenceNotesBuild({
   const smokeName =
     platform === "win32" ? "reference-notes-startup-smoke.exe" : "reference-notes-startup-smoke";
   const smokePath = path.join(exampleDirectory, smokeName);
-  const smokeCompileArgs = [
-    ...perry.prefixArgs,
-    "compile",
-    "startup-smoke.tsx",
-    "-o",
-    "reference-notes-startup-smoke",
-  ];
+  const smokeCompileArgs = ["startup-smoke.tsx", "-o", "reference-notes-startup-smoke"];
   if (platform === "win32") {
     smokeCompileArgs.push("--windows-subsystem", "console");
   }
-  assertSucceeded(spawn(perry.command, smokeCompileArgs, options), "startup smoke compilation");
+  runPerryCompile({
+    args: smokeCompileArgs,
+    cwd: exampleDirectory,
+    manifestPath,
+    environment: productionEnvironment,
+    forceRuntime: spawn === spawnSync,
+    platform,
+    runner: spawn,
+  });
 
   const smoke = spawn(smokePath, [], {
     cwd: exampleDirectory,
-    env: productionEnvironment,
+    env: executionEnvironment,
     encoding: "utf8",
   });
   if (smoke.stdout) stdout.write(smoke.stdout);
@@ -110,7 +108,7 @@ export function runReferenceNotesBuild({
     assertSucceeded(
       spawn(binaryPath, [], {
         cwd: exampleDirectory,
-        env: productionEnvironment,
+        env: executionEnvironment,
         stdio: "inherit",
       }),
       "execution",

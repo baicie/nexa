@@ -14,6 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { parse as parseYaml } from "yaml";
 
+import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 import {
   collectRegistryEvidence,
   createRegistryConsumerManifest,
@@ -113,38 +114,28 @@ function commandRunner() {
       mkdirSync(path.join(project, "src"), { recursive: true });
       writeFileSync(
         path.join(project, "package.json"),
-        `${JSON.stringify({
-          name: "hello-nexa",
-          version: "0.1.0",
-          private: true,
-          type: "module",
-          packageManager: "pnpm@10.34.3",
-          engines: { node: ">=22", pnpm: ">=9" },
-          scripts: {
-            build: "nexa build",
-            dev: "nexa dev",
-            doctor: "nexa doctor",
-            package: "nexa package",
-            typecheck: "tsc -p tsconfig.json --noEmit",
-          },
-          dependencies: { "@nexa/ui": "0.1.0" },
-          devDependencies: {
-            "@nexa/cli": "0.1.0",
-            "@perryts/perry": "0.5.1220",
-            typescript: "5.9.2",
-          },
-          perry: {
-            compilePackages: [
-              "@nexa/ui",
-              "@nexa/fs",
-              "@nexa/dialog",
-              "@nexa/clipboard",
-              "@nexa/protocol",
-              "@nexa/nui-host",
-              "@nexa/system-host",
-            ],
-            allow: {
-              nativeLibrary: ["@nexa/nui-host", "@nexa/system-host", "@nexa/ui"],
+        `${JSON.stringify(
+          {
+            name: "hello-nexa",
+            version: "0.1.0",
+            private: true,
+            type: "module",
+            packageManager: "pnpm@10.34.3",
+            engines: { node: ">=22", pnpm: ">=9" },
+            scripts: {
+              build: "nexa build",
+              dev: "nexa dev",
+              doctor: "nexa doctor",
+              package: "nexa package",
+              typecheck: "tsc -p tsconfig.json --noEmit",
+            },
+            dependencies: { "@nexa/ui": "0.1.0" },
+            devDependencies: {
+              "@nexa/cli": "0.1.0",
+              "@perryts/perry": "0.5.1220",
+              typescript: "5.9.2",
+            },
+            perry: {
               compilePackages: [
                 "@nexa/ui",
                 "@nexa/fs",
@@ -154,21 +145,39 @@ function commandRunner() {
                 "@nexa/nui-host",
                 "@nexa/system-host",
               ],
+              allow: {
+                nativeLibrary: ["@nexa/nui-host", "@nexa/system-host", "@nexa/ui"],
+                compilePackages: [
+                  "@nexa/ui",
+                  "@nexa/fs",
+                  "@nexa/dialog",
+                  "@nexa/clipboard",
+                  "@nexa/protocol",
+                  "@nexa/nui-host",
+                  "@nexa/system-host",
+                ],
+              },
             },
           },
-        }, null, 2)}\n`,
+          null,
+          2,
+        )}\n`,
       );
       writeFileSync(
         path.join(project, "app.manifest.json"),
-        `${JSON.stringify({
-          $schema: "https://nexa-ui.dev/schema/app-manifest-v1.json",
-          schemaVersion: 1,
-          id: "dev.nexa.hello-nexa",
-          name: "Hello Nexa",
-          version: "0.1.0",
-          requiredProtocol: { major: 1, minor: 0 },
-          permissions: [],
-        }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            $schema: "https://nexa-ui.dev/schema/app-manifest-v1.json",
+            schemaVersion: 1,
+            id: "dev.nexa.hello-nexa",
+            name: "Hello Nexa",
+            version: "0.1.0",
+            requiredProtocol: { major: 1, minor: 0 },
+            permissions: [],
+          },
+          null,
+          2,
+        )}\n`,
       );
       writeFileSync(path.join(project, "src", "main.tsx"), "export {};\n");
     }
@@ -180,12 +189,7 @@ function commandRunner() {
       writeFileSync(path.join(options.cwd, "dist", "hello-nexa"), "native binary\n");
     }
     if (command === "pnpm" && args.join(" ") === "run package") {
-      const bundle = path.join(
-        options.cwd,
-        "dist",
-        "hello-nexa-macos-arm64",
-        "hello-nexa.app",
-      );
+      const bundle = path.join(options.cwd, "dist", "hello-nexa-macos-arm64", "hello-nexa.app");
       mkdirSync(path.join(bundle, "Contents", "MacOS"), { recursive: true });
       mkdirSync(path.join(bundle, "Contents", "Resources"), { recursive: true });
       writeFileSync(path.join(bundle, "Contents", "MacOS", "hello-nexa"), "native binary\n");
@@ -196,8 +200,7 @@ function commandRunner() {
       );
       return {
         status: 0,
-        stdout:
-          "Packaged dev.nexa.hello-nexa@0.1.0: dist/hello-nexa-macos-arm64/hello-nexa.app\n",
+        stdout: "Packaged dev.nexa.hello-nexa@0.1.0: dist/hello-nexa-macos-arm64/hello-nexa.app\n",
         stderr: "",
       };
     }
@@ -362,7 +365,8 @@ test("registry proof rejects unsupported runners and a substituted package inven
   const metadataByName = new Map(
     packages.map((name) => [name, metadata(name, "0.1.0", bootstrapChannel)]),
   );
-  const fetchJson = async (url) => metadataByName.get(decodeURIComponent(url.slice(registry.length)));
+  const fetchJson = async (url) =>
+    metadataByName.get(decodeURIComponent(url.slice(registry.length)));
 
   await assert.rejects(
     () =>
@@ -470,6 +474,26 @@ test("registry workflow confines real evidence collection to an exact tagged Git
   const job = workflow.jobs.registry;
   assert.equal(job.environment.name, "technical-preview-registry-evidence");
   assert.equal(job["runs-on"], "macos-15");
+  assert.equal(job.env.RUSTUP_TOOLCHAIN, "1.95.0");
+  assert.equal(job.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  assert.equal(job.env.PERRY_RUNTIME_DIR, "${{ github.workspace }}/.perry-source/target/release");
+  assert.equal(job.env.PERRY_LIB_DIR, "${{ github.workspace }}/.perry-source/target/release");
+  const perryCheckout = job.steps.find((step) => step.with?.repository === "PerryTS/perry");
+  assert.equal(perryCheckout.with.ref, PERRY_SOURCE_REVISION);
+  assert.equal(perryCheckout.with.path, ".perry-source");
+  assert.equal(perryCheckout.with["persist-credentials"], false);
+  const toolchain = job.steps.find(
+    (step) => step.name === "Install Perry-compatible Rust toolchain",
+  );
+  assert.equal(toolchain.with.toolchain, "1.95.0");
+  const runtime = job.steps.find(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure",
+  );
+  assert.equal(runtime.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+  assert.equal(runtime.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.match(runtime.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
+  assert.match(runtime.run, /-p perry-runtime-static/u);
+  assert.match(runtime.run, /-p perry-stdlib-static/u);
   const commands = job.steps
     .filter((step) => typeof step.run === "string")
     .map((step) => step.run)

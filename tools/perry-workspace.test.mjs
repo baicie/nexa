@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -15,13 +8,9 @@ import {
   createPerryWorkspaceEnvironment,
   resolvePerryWorkspace,
 } from "../packages/cli/src/perry-workspace.mjs";
-import {
-  COMPATIBILITY,
-  PERRY_SOURCE_REVISION,
-} from "../packages/cli/src/constants.mjs";
+import { COMPATIBILITY, PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 
-const perrySource =
-  `git+https://github.com/PerryTS/perry?rev=${PERRY_SOURCE_REVISION}#${PERRY_SOURCE_REVISION}`;
+const perrySource = `git+https://github.com/PerryTS/perry?rev=${PERRY_SOURCE_REVISION}#${PERRY_SOURCE_REVISION}`;
 const requiredCrates = ["perry-ffi", "perry-runtime", "perry-stdlib", "perry-ui-geisterhand"];
 
 function temporaryDirectory(t) {
@@ -30,7 +19,7 @@ function temporaryDirectory(t) {
   return directory;
 }
 
-function writeFile(filePath, source = "[package]\nname = \"fixture\"\nversion = \"0.0.0\"\n") {
+function writeFile(filePath, source = '[package]\nname = "fixture"\nversion = "0.0.0"\n') {
   mkdirSync(path.dirname(filePath), { recursive: true });
   writeFileSync(filePath, source);
 }
@@ -38,7 +27,7 @@ function writeFile(filePath, source = "[package]\nname = \"fixture\"\nversion = 
 function workspaceFixture(t) {
   const directory = temporaryDirectory(t);
   const workspace = path.join(directory, "perry");
-  writeFile(path.join(workspace, "Cargo.toml"), "[workspace]\nresolver = \"2\"\n");
+  writeFile(path.join(workspace, "Cargo.toml"), '[workspace]\nresolver = "2"\n');
   for (const crate of requiredCrates) {
     writeFile(path.join(workspace, "crates", crate, "Cargo.toml"));
   }
@@ -171,9 +160,7 @@ test("resolver rejects wrong Perry versions, source revisions, and checkout revi
   const fixture = workspaceFixture(t);
   const hostManifestPath = directHostManifest(fixture.directory);
 
-  const wrongVersion = metadataRunner(
-    perryMetadata(fixture.workspace, { version: "0.5.1219" }),
-  );
+  const wrongVersion = metadataRunner(perryMetadata(fixture.workspace, { version: "0.5.1219" }));
   assert.throws(
     () => resolvePerryWorkspace({ hostManifestPath, runner: wrongVersion.runner }),
     /Perry source version 0\.5\.1219 does not match required 0\.5\.1220/u,
@@ -187,13 +174,19 @@ test("resolver rejects wrong Perry versions, source revisions, and checkout revi
   );
   assert.throws(
     () => resolvePerryWorkspace({ hostManifestPath, runner: wrongSource.runner }),
-    new RegExp(`Perry source revision ${otherRevision} does not match required ${PERRY_SOURCE_REVISION}`, "u"),
+    new RegExp(
+      `Perry source revision ${otherRevision} does not match required ${PERRY_SOURCE_REVISION}`,
+      "u",
+    ),
   );
 
   const wrongCheckout = metadataRunner(perryMetadata(fixture.workspace), { head: otherRevision });
   assert.throws(
     () => resolvePerryWorkspace({ hostManifestPath, runner: wrongCheckout.runner }),
-    new RegExp(`Perry checkout HEAD ${otherRevision} does not match required ${PERRY_SOURCE_REVISION}`, "u"),
+    new RegExp(
+      `Perry checkout HEAD ${otherRevision} does not match required ${PERRY_SOURCE_REVISION}`,
+      "u",
+    ),
   );
 });
 
@@ -281,5 +274,8 @@ test("Perry environment replacement removes stale case variants", (t) => {
     Object.keys(environment).filter((key) => key.toUpperCase() === "PERRY_WORKSPACE_ROOT"),
     ["PERRY_WORKSPACE_ROOT"],
   );
-  assert.equal(readFileSync(path.join(environment.PERRY_WORKSPACE_ROOT, "Cargo.toml"), "utf8"), "[workspace]\nresolver = \"2\"\n");
+  assert.equal(
+    readFileSync(path.join(environment.PERRY_WORKSPACE_ROOT, "Cargo.toml"), "utf8"),
+    '[workspace]\nresolver = "2"\n',
+  );
 });

@@ -51,6 +51,8 @@ out/
 cmake-build-*/
 
 # Perry build outputs
+/.perry-source/
+/.nexa-windows-runtime/
 examples/perry-counter/perry-counter
 examples/perry-counter/perry-counter.exe
 examples/counter/counter
@@ -95,4 +97,4 @@ examples/semantic-e2e/semantic-e2e.exe
 .nexa/
 packages/nui-host/target/
 packages/system-host/target/
-tools/windows-static-closure/target/
+packages/cli/src/windows-static-closure/target/

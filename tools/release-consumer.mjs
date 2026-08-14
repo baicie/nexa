@@ -12,11 +12,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildAllReleasePackages } from "./build-release-packages.mjs";
-import {
-  cargoDependencyRoots,
-  collectDependencyGraph,
-} from "./release-dependency-graph.mjs";
+import { cargoDependencyRoots, collectDependencyGraph } from "./release-dependency-graph.mjs";
 import { generateEvidence, verifyEvidence } from "./release-evidence.mjs";
+import { stageWindowsSkia } from "./stage-windows-skia.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const release = JSON.parse(readFileSync(path.join(root, "release/packages.json"), "utf8"));
@@ -29,6 +27,16 @@ const publicRuntimeCompilePackages = ["solid-js"];
 
 function portablePath(value) {
   return value.split(path.sep).join("/");
+}
+
+function replaceEnvironmentCaseInsensitive(environment, values) {
+  const names = new Set(Object.keys(values).map((name) => name.toUpperCase()));
+  return {
+    ...Object.fromEntries(
+      Object.entries(environment ?? {}).filter(([name]) => !names.has(name.toUpperCase())),
+    ),
+    ...values,
+  };
 }
 
 function run(command, args, { cwd = root, capture = false, env = process.env } = {}) {
@@ -244,6 +252,50 @@ function verifyNodeImports(consumerDirectory) {
   );
 }
 
+export function prepareNativeConsumerEnvironment({
+  consumerDirectory,
+  environment = process.env,
+  runtime = { platform: process.platform, arch: process.arch },
+  stageSkia = stageWindowsSkia,
+} = {}) {
+  const consumer = path.resolve(consumerDirectory);
+  const nativeEnvironment = replaceEnvironmentCaseInsensitive(environment, {
+    NEXA_REQUIRE_INSTALLED_HOSTS: "1",
+  });
+  if (runtime.platform !== "win32") {
+    return { environment: nativeEnvironment, windowsSkia: null };
+  }
+  if (runtime.arch !== "x64") {
+    throw new Error(`release consumer does not support Windows ${runtime.arch}`);
+  }
+  const archivePath = nativeEnvironment.NEXA_WINDOWS_SKIA_ARCHIVE;
+  if (typeof archivePath !== "string" || !path.isAbsolute(archivePath)) {
+    throw new Error("NEXA_WINDOWS_SKIA_ARCHIVE must be an absolute path on Windows");
+  }
+  const staged = stageSkia({
+    projectDirectory: consumer,
+    archivePath,
+    expectedSha256: nativeEnvironment.SKIA_WINDOWS_ARCHIVE_SHA256,
+    environment: nativeEnvironment,
+  });
+  const relativeDestination = path.relative(consumer, staged.destination);
+  if (
+    relativeDestination === "" ||
+    relativeDestination === ".." ||
+    relativeDestination.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeDestination)
+  ) {
+    throw new Error("staged Windows Skia directory must stay inside the clean consumer");
+  }
+  return {
+    environment: nativeEnvironment,
+    windowsSkia: {
+      destination: portablePath(relativeDestination),
+      sha256: staged.sha256,
+    },
+  };
+}
+
 export function releaseRehearsalPlan() {
   return {
     schemaVersion: 1,
@@ -253,6 +305,7 @@ export function releaseRehearsalPlan() {
       "pack-tarballs",
       "generate-evidence",
       "install-clean-consumer",
+      "prepare-installed-native-inputs",
       "typecheck",
       "node-import",
       "doctor",
@@ -284,20 +337,27 @@ export function runReleaseConsumer({ outputDirectory, native = true }) {
   run("pnpm", ["run", "typecheck"], { cwd: consumer });
   verifyNodeImports(consumer);
   verifyDoctor(consumer);
+  let nativeInputs = null;
   if (native) {
-    run("pnpm", ["run", "build"], { cwd: consumer });
+    const prepared = prepareNativeConsumerEnvironment({ consumerDirectory: consumer });
+    nativeInputs = {
+      installedHostsRequired: true,
+      windowsSkia: prepared.windowsSkia,
+    };
+    run("pnpm", ["run", "build"], { cwd: consumer, env: prepared.environment });
     const binaryName =
       process.platform === "win32" ? "nexa-release-consumer.exe" : "nexa-release-consumer";
     assertNativeHostsLinked(
       readFileSync(path.join(consumer, "dist", binaryName)),
       readFileSync(path.join(consumer, "app.manifest.json")),
     );
-    run("pnpm", ["run", "package"], { cwd: consumer });
+    run("pnpm", ["run", "package"], { cwd: consumer, env: prepared.environment });
   }
   verifyEvidence({ artifactsDir: artifacts, evidenceDir: evidence, descriptorPath });
   writeJson(path.join(output, "result.json"), {
     schemaVersion: 1,
     native,
+    nativeInputs,
     packages: [...tarballs.keys()],
     output: portablePath(output),
   });

@@ -8,6 +8,7 @@ import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
+const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
 const docsWorkflowUrl = new URL("../.github/workflows/docs.yml", import.meta.url);
 const perryFrameworksWorkflowUrl = new URL(
@@ -21,6 +22,12 @@ const notesPackageWorkflowUrl = new URL(
   "../.github/workflows/reference-notes-package.yml",
   import.meta.url,
 );
+const guardedPerryWorkflowUrls = [
+  new URL("../.github/workflows/performance.yml", import.meta.url),
+  new URL("../.github/workflows/perry-frameworks.yml", import.meta.url),
+  notesPackageWorkflowUrl,
+  new URL("../.github/workflows/release-rehearsal.yml", import.meta.url),
+];
 const rootPackageUrl = new URL("../package.json", import.meta.url);
 const cliPackageUrl = new URL("../packages/cli/package.json", import.meta.url);
 const notesPackageUrl = new URL("../examples/reference-notes/package.json", import.meta.url);
@@ -36,6 +43,11 @@ const filters = parse(filterStep.with.filters);
 function routes(path, filter) {
   return filters[filter].some((pattern) => matchesGlob(path, pattern));
 }
+
+test("workspace-owned hosted toolchain caches cannot dirty release evidence", () => {
+  assert.match(gitignore, /^\/\.perry-source\/$/mu);
+  assert.match(gitignore, /^\/\.nexa-windows-runtime\/$/mu);
+});
 
 test("all thirteen pnpm examples trigger TypeScript checks", () => {
   const examples = [...workspace.matchAll(/^\s*- "(examples\/[^"]+)"$/gm)].map(([, path]) => path);
@@ -164,10 +176,15 @@ test("workflow, script, and root config changes route to their owners", () => {
     [".github/workflows/perry-frameworks.yml", ["typescript", "perry"]],
     [".github/workflows/native-smoke.yml", ["typescript", "native"]],
     [".github/workflows/reference-notes-package.yml", ["typescript", "package"]],
-    ["patches/perry/0001-windows-reject-duplicate-symbols.patch", ["package"]],
-    ["tools/windows-static-closure/Cargo.toml", ["package"]],
-    ["tools/windows-static-closure/Cargo.lock", ["package"]],
-    ["tools/windows-static-closure/src/lib.rs", ["package"]],
+    [".gitignore", ["typescript"]],
+    ["patches/perry/0001-windows-reject-duplicate-symbols.patch", ["perry", "package"]],
+    ["packages/cli/src/windows-static-closure/Cargo.toml", ["perry", "package"]],
+    ["packages/cli/src/windows-static-closure/Cargo.lock", ["perry", "package"]],
+    ["packages/cli/src/windows-static-closure/src/lib.rs", ["perry", "package"]],
+    ["tools/perry-compile.mjs", ["perry", "package"]],
+    ["tools/stage-windows-skia.mjs", ["perry", "package"]],
+    ["tools/stage-windows-skia.test.mjs", ["perry", "package"]],
+    ["tools/windows-runtime.test.mjs", ["perry", "package"]],
     [".github/workflows/docs.yml", ["typescript", "docs"]],
     ["scripts/build-native.sh", ["rust", "typescript", "ffi", "native"]],
     ["protocol/nui-host.json", ["rust", "typescript", "ffi", "perry"]],
@@ -194,6 +211,22 @@ test("workflow, script, and root config changes route to their owners", () => {
     for (const filter of expectedFilters) {
       assert.equal(routes(path, filter), true, `${path} must route to ${filter}`);
     }
+  }
+});
+
+test("guarded Perry compiler builds reject patch-created untracked files", () => {
+  for (const workflowUrl of guardedPerryWorkflowUrls) {
+    const source = readFileSync(workflowUrl, "utf8");
+    assert.match(
+      source,
+      /git -C \$env:PERRY_WORKSPACE_ROOT ls-files --others\)\r?$/mu,
+      `${workflowUrl.pathname} must include ignored and visible untracked files in the patch allowlist`,
+    );
+    assert.doesNotMatch(
+      source,
+      /git -C \$env:PERRY_WORKSPACE_ROOT ls-files --others --exclude-standard/u,
+      `${workflowUrl.pathname} must not hide ignored files from the patch allowlist`,
+    );
   }
 });
 
@@ -326,6 +359,10 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.equal(packageJob.env.RUSTUP_TOOLCHAIN, "1.95.0");
   assert.equal(packageJob.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
   assert.equal(
+    packageJob.env.NEXA_WINDOWS_RUNTIME_ROOT,
+    "${{ github.workspace }}/.nexa-windows-runtime",
+  );
+  assert.equal(
     packageJob.env.PERRY_RUNTIME_DIR,
     "${{ github.workspace }}/.perry-source/target/release",
   );
@@ -342,11 +379,11 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   const macFullRuntimeIndex = packageJob.steps.findIndex(
     (step) => step.name === "Build pinned Perry full unwind runtime closure (macOS)",
   );
-  const windowsFullRuntimeIndex = packageJob.steps.findIndex(
-    (step) => step.name === "Build patched Perry and unified static closure (Windows)",
+  const windowsCompilerIndex = packageJob.steps.findIndex(
+    (step) => step.name === "Build patched Perry compiler (Windows)",
   );
   const macFullRuntimeStep = packageJob.steps[macFullRuntimeIndex];
-  const windowsFullRuntimeStep = packageJob.steps[windowsFullRuntimeIndex];
+  const windowsCompilerStep = packageJob.steps[windowsCompilerIndex];
   const toolchainIndex = packageJob.steps.findIndex(
     (step) => step.name === "Install Perry-compatible Rust toolchain",
   );
@@ -354,7 +391,7 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.ok(
     perryCheckoutIndex < toolchainIndex &&
       toolchainIndex < macFullRuntimeIndex &&
-      toolchainIndex < windowsFullRuntimeIndex,
+      toolchainIndex < windowsCompilerIndex,
     "the Perry-compatible toolchain must be installed after checkout and before full closure",
   );
   assert.equal(
@@ -368,15 +405,15 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.ok(
     perryCheckoutIndex < macFullRuntimeIndex &&
       macFullRuntimeIndex < cliSmokeIndex &&
-      perryCheckoutIndex < windowsFullRuntimeIndex &&
-      windowsFullRuntimeIndex < cliSmokeIndex,
-    "the pinned full Perry runtime closure must exist before the first package compile",
+      perryCheckoutIndex < windowsCompilerIndex &&
+      windowsCompilerIndex < cliSmokeIndex,
+    "the pinned macOS runtime and patched Windows compiler must exist before the first package compile",
   );
   assert.equal(macFullRuntimeStep.if, "runner.os == 'macOS'");
   assert.equal(macFullRuntimeStep.shell, "bash");
-  assert.equal(windowsFullRuntimeStep.if, "runner.os == 'Windows'");
-  assert.equal(windowsFullRuntimeStep.shell, "pwsh");
-  for (const fullRuntimeStep of [macFullRuntimeStep, windowsFullRuntimeStep]) {
+  assert.equal(windowsCompilerStep.if, "runner.os == 'Windows'");
+  assert.equal(windowsCompilerStep.shell, "pwsh");
+  for (const fullRuntimeStep of [macFullRuntimeStep, windowsCompilerStep]) {
     assert.equal(fullRuntimeStep.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
     assert.equal(fullRuntimeStep.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
     assert.match(fullRuntimeStep.run, /rustc --version/u);
@@ -392,27 +429,23 @@ test("package and fresh launch matrices prove the generic and Notes hosted artif
   assert.match(macFullRuntimeStep.run, /--target-dir "\$PERRY_WORKSPACE_ROOT\/target"/u);
   assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_RUNTIME_DIR\/libperry_runtime\.a"/u);
   assert.match(macFullRuntimeStep.run, /test -s "\$PERRY_LIB_DIR\/libperry_stdlib\.a"/u);
-  assert.match(windowsFullRuntimeStep.run, /git -C \$env:PERRY_WORKSPACE_ROOT rev-parse HEAD/u);
+  assert.match(windowsCompilerStep.run, /git -C \$env:PERRY_WORKSPACE_ROOT rev-parse HEAD/u);
   assert.match(
-    windowsFullRuntimeStep.run,
+    windowsCompilerStep.run,
     /patches\/perry\/0001-windows-reject-duplicate-symbols\.patch/u,
   );
-  assert.match(windowsFullRuntimeStep.run, /apply --check \$patch/u);
-  assert.match(windowsFullRuntimeStep.run, /apply --reverse --check \$patch/u);
-  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "Cargo\.toml"/u);
-  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "target"/u);
-  assert.match(windowsFullRuntimeStep.run, /-p perry/u);
-  assert.match(windowsFullRuntimeStep.run, /tools\/windows-static-closure\/Cargo\.toml/u);
-  assert.match(windowsFullRuntimeStep.run, /nexa_windows_static_closure\.lib/u);
-  assert.match(
-    windowsFullRuntimeStep.run,
-    /Join-Path \$env:PERRY_RUNTIME_DIR "perry_runtime\.lib"/u,
+  assert.match(windowsCompilerStep.run, /apply --check \$patch/u);
+  assert.match(windowsCompilerStep.run, /apply --reverse --check \$patch/u);
+  assert.match(windowsCompilerStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "Cargo\.toml"/u);
+  assert.match(windowsCompilerStep.run, /Join-Path \$env:PERRY_WORKSPACE_ROOT "target"/u);
+  assert.match(windowsCompilerStep.run, /-p perry/u);
+  assert.doesNotMatch(
+    windowsCompilerStep.run,
+    /windows-static-closure|perry_runtime\.lib|perry_stdlib\.lib/u,
   );
-  assert.match(windowsFullRuntimeStep.run, /Join-Path \$env:PERRY_LIB_DIR "perry_stdlib\.lib"/u);
-  assert.match(windowsFullRuntimeStep.run, /Get-FileHash -Algorithm SHA256/u);
-  assert.match(windowsFullRuntimeStep.run, /\$nativeVersion -ne "perry 0\.5\.1220"/u);
-  assert.match(windowsFullRuntimeStep.run, /\$npmVersion -ne "perry 0\.5\.1220"/u);
-  assert.match(windowsFullRuntimeStep.run, /NEXA_PERRY_BIN=\$compiler/u);
+  assert.match(windowsCompilerStep.run, /\$nativeVersion -ne "perry 0\.5\.1220"/u);
+  assert.match(windowsCompilerStep.run, /\$npmVersion -ne "perry 0\.5\.1220"/u);
+  assert.match(windowsCompilerStep.run, /NEXA_PERRY_BIN=\$compiler/u);
 
   const packageCommands = packageJob.steps.flatMap((step) =>
     typeof step.run === "string" ? [step.run] : [],
@@ -816,8 +849,10 @@ test("the required Perry framework gate runs the adapters and Tier-1 Notes as in
   assert.ok(msvcStep, "Windows AOT jobs must initialize the MSVC SDK environment");
   assert.equal(msvcStep.if, "runner.os == 'Windows'");
 
-  const windowsSkiaStep = build.steps.find((step) => step.name === "Stage Windows Skia binaries");
-  assert.ok(windowsSkiaStep, "Windows AOT jobs must stage Skia outside Cargo's deep OUT_DIR");
+  const windowsSkiaStep = build.steps.find(
+    (step) => step.name === "Download verified Windows Skia archive",
+  );
+  assert.ok(windowsSkiaStep, "Windows AOT jobs must verify the pinned Skia archive");
   assert.equal(windowsSkiaStep.if, "runner.os == 'Windows'");
   assert.equal(windowsSkiaStep.shell, "pwsh");
   assert.match(windowsSkiaStep.run, /curl\.exe/);
@@ -825,17 +860,66 @@ test("the required Perry framework gate runs the adapters and Tier-1 Notes as in
   assert.match(windowsSkiaStep.run, /SKIA_BINARIES_URL/);
   assert.match(build.env.SKIA_WINDOWS_ARCHIVE_URL, /rust-skia\/skia-binaries/);
   assert.match(build.env.SKIA_WINDOWS_ARCHIVE_SHA256, /^[a-f0-9]{64}$/);
+  assert.equal(build.env.RUSTUP_TOOLCHAIN, undefined);
+  assert.equal(build.env.PERRY_WORKSPACE_ROOT, undefined);
+  assert.equal(
+    build.env.NEXA_WINDOWS_RUNTIME_ROOT,
+    "${{ github.workspace }}/.nexa-windows-runtime",
+  );
+
+  const sourceCheckout = build.steps.find((step) => step.with?.repository === "PerryTS/perry");
+  assert.equal(sourceCheckout.if, "runner.os == 'Windows'");
+  assert.equal(sourceCheckout.with.ref, PERRY_SOURCE_REVISION);
+  assert.equal(sourceCheckout.with.path, ".perry-source");
+  assert.equal(sourceCheckout.with["persist-credentials"], false);
+
+  const toolchain = build.steps.find(
+    (step) => step.name === "Install Perry-compatible Rust toolchain",
+  );
+  assert.equal(toolchain.if, "runner.os == 'Windows'");
+  assert.equal(toolchain.with.toolchain, "1.95.0");
+
+  const compiler = build.steps.find(
+    (step) => step.name === "Build patched Perry compiler (Windows)",
+  );
+  assert.equal(compiler.if, "runner.os == 'Windows'");
+  assert.equal(compiler.shell, "pwsh");
+  assert.equal(compiler.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.equal(compiler.env.RUSTUP_TOOLCHAIN, "1.95.0");
+  assert.equal(compiler.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  assert.match(compiler.run, /0001-windows-reject-duplicate-symbols\.patch/u);
+  assert.match(compiler.run, /apply --check \$patch/u);
+  assert.match(compiler.run, /apply --reverse --check \$patch/u);
+  assert.match(compiler.run, /-p perry/u);
+  assert.match(compiler.run, /NEXA_PERRY_BIN=\$compiler/u);
+  assert.doesNotMatch(compiler.run, /FORCE:MULTIPLE/u);
 
   const commands = build.steps.flatMap((step) => (typeof step.run === "string" ? [step.run] : []));
   assert.ok(commands.includes("pnpm install --frozen-lockfile"));
-  assert.ok(commands.includes("pnpm test:perry ${{ matrix.framework }}"));
+  const macAot = build.steps.find((step) => step.name === "Clean AOT build (macOS)");
+  assert.equal(macAot.if, "runner.os == 'macOS'");
+  assert.equal(macAot.shell, "bash");
+  assert.equal(macAot.run, "pnpm test:perry ${{ matrix.framework }}");
+  const windowsAot = build.steps.find(
+    (step) => step.name === "Clean AOT build and audit linker output (Windows)",
+  );
+  assert.equal(windowsAot.if, "runner.os == 'Windows'");
+  assert.equal(windowsAot.shell, "pwsh");
+  assert.match(windowsAot.run, /pnpm test:perry \$\{\{ matrix\.framework \}\}/u);
+  assert.match(windowsAot.run, /Tee-Object -FilePath \$log/u);
+  assert.match(windowsAot.run, /FORCE:MULTIPLE\|LNK4006\|LNK4088/u);
+  assert.match(windowsAot.run, /throw "Windows AOT linker audit failed/u);
 });
 
 test("Windows Perry bootstrap prepares fixed Skia link inputs before AOT", () => {
   const perryWorkflow = parse(readFileSync(perryFrameworksWorkflowUrl, "utf8"));
   const steps = perryWorkflow.jobs.build.steps;
-  const aotIndex = steps.findIndex((step) => step.name === "Clean AOT build");
-  const stagingIndex = steps.findIndex((step) => step.name === "Stage Windows Skia binaries");
+  const aotIndex = steps.findIndex(
+    (step) => step.name === "Clean AOT build and audit linker output (Windows)",
+  );
+  const stagingIndex = steps.findIndex(
+    (step) => step.name === "Stage verified Windows Skia for Perry frameworks",
+  );
 
   assert.ok(aotIndex >= 0, "Perry workflow must contain the clean AOT step");
   assert.ok(
@@ -844,16 +928,11 @@ test("Windows Perry bootstrap prepares fixed Skia link inputs before AOT", () =>
   );
 
   const stagingCommand = steps[stagingIndex].run;
-  assert.match(
-    stagingCommand,
-    /packages[\\/]nui-host[\\/]target[\\/]perry-native[\\/]windows/,
-    "Windows Skia archive must be extracted into nui-host's fixed Perry native directory",
-  );
-  assert.match(
-    stagingCommand,
-    /(?:tar(?:\.exe)?\s+.*(?:--extract|-[^\r\n]*x)|Expand-Archive)/i,
-    "Windows Skia staging must extract the pinned archive",
-  );
+  assert.equal(steps[stagingIndex].shell, "pwsh");
+  assert.match(stagingCommand, /node tools\/stage-windows-skia\.mjs/u);
+  assert.match(stagingCommand, /--project "examples\/reference-notes"/u);
+  assert.match(stagingCommand, /--archive "\$env:NEXA_WINDOWS_SKIA_ARCHIVE"/u);
+  assert.match(stagingCommand, /--sha256 "\$env:SKIA_WINDOWS_ARCHIVE_SHA256"/u);
 
   const windowsBootstrapSteps = steps
     .slice(0, aotIndex)
@@ -863,17 +942,9 @@ test("Windows Perry bootstrap prepares fixed Skia link inputs before AOT", () =>
         step.shell === "pwsh" &&
         typeof step.run === "string",
     );
-  const verificationStep = windowsBootstrapSteps.find(
-    (step) =>
-      /skia-binaries[\\/]skia\.lib/.test(step.run) &&
-      /skia-binaries[\\/]skia-bindings\.lib/.test(step.run),
-  );
-  assert.ok(verificationStep, "Windows bootstrap must verify both Skia link inputs before AOT");
-  assert.match(verificationStep.run, /Test-Path/i);
-  assert.match(
-    verificationStep.run,
-    /throw/i,
-    "Windows bootstrap must fail before AOT when either Skia link input is missing",
+  assert.ok(
+    windowsBootstrapSteps.some((step) => step.name === "Download verified Windows Skia archive"),
+    "Windows bootstrap must verify the Skia archive before AOT",
   );
 });
 

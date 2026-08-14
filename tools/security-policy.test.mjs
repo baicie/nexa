@@ -35,11 +35,11 @@ test("security workflow scans every dependency graph and fails closed", () => {
     "Cargo.lock",
     "packages/nui-host/Cargo.lock",
     "packages/system-host/Cargo.lock",
-    "tools/windows-static-closure/Cargo.lock",
+    "packages/cli/src/windows-static-closure/Cargo.lock",
   ]) {
     assert.match(workflow, new RegExp(lockfile.replaceAll("/", "\\/"), "u"));
   }
-  assert.match(workflow, /tools\/windows-static-closure\/Cargo\.toml/u);
+  assert.match(workflow, /packages\/cli\/src\/windows-static-closure\/Cargo\.toml/u);
   for (const command of [
     "pnpm audit --audit-level=high",
     "cargo audit",
@@ -74,7 +74,7 @@ test("Dependabot covers every independently locked Cargo root", () => {
     "/",
     "/packages/nui-host",
     "/packages/system-host",
-    "/tools/windows-static-closure",
+    "/packages/cli/src/windows-static-closure",
   ]) {
     const escaped = directory.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     assert.match(
@@ -100,7 +100,7 @@ test("Perry host dependencies bind the audited revision to its declared version"
 });
 
 test("Windows static closure enables only the Perry runtime features used by Preview apps", () => {
-  const manifest = read("tools/windows-static-closure/Cargo.toml");
+  const manifest = read("packages/cli/src/windows-static-closure/Cargo.toml");
 
   assert.match(
     manifest,

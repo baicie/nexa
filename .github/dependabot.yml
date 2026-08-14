@@ -28,7 +28,7 @@ updates:
       - rust
 
   - package-ecosystem: cargo
-    directory: /tools/windows-static-closure
+    directory: /packages/cli/src/windows-static-closure
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

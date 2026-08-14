@@ -21,8 +21,8 @@
     "build": "node ../../tools/build-release-packages.mjs --package @nexa/cli",
     "smoke:build": "node ../../tools/cli-create-build-smoke.mjs",
     "smoke:package": "node ../../tools/cli-create-package-smoke.mjs",
-    "typecheck": "node --check src/bin.mjs && node --check src/build.mjs && node --check src/constants.mjs && node --check src/doctor.mjs && node --check src/index.mjs && node --check src/new.mjs && node --check src/package.mjs",
-    "test": "node --test ../../tools/cli-new-doctor.test.mjs ../../tools/cli-dev-build.test.mjs ../../tools/cli-package.test.mjs"
+    "typecheck": "node --check src/bin.mjs && node --check src/build.mjs && node --check src/constants.mjs && node --check src/doctor.mjs && node --check src/index.mjs && node --check src/new.mjs && node --check src/package.mjs && node --check src/perry-command.mjs && node --check src/perry-workspace.mjs && node --check src/windows-runtime.mjs",
+    "test": "node --test ../../tools/cli-new-doctor.test.mjs ../../tools/cli-dev-build.test.mjs ../../tools/cli-package.test.mjs ../../tools/perry-workspace.test.mjs ../../tools/windows-runtime.test.mjs"
   },
   "license": "MIT OR Apache-2.0"
 }

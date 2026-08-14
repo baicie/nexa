@@ -13,10 +13,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
-import {
-  environmentWithoutPerryCompilerOverride,
-  resolvePerryCompilerCommand,
-} from "../packages/cli/src/perry-command.mjs";
+import { environmentWithoutPerryCompilerOverride } from "../packages/cli/src/perry-command.mjs";
+import { runPerryCompile } from "./perry-compile.mjs";
 
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
@@ -74,22 +72,6 @@ function fixtureFreeEnvironment(environment, { injectManifest = false } = {}) {
   );
   if (injectManifest) clean[manifestEnvironment] = manifestPath;
   return clean;
-}
-
-function assertSucceeded(result, stage) {
-  if (result.error) {
-    throw new Error(
-      `Notes real Dialog picker smoke ${stage} could not start: ${result.error.message}`,
-      {
-        cause: result.error,
-      },
-    );
-  }
-  if (result.status !== 0) {
-    throw new Error(
-      `Notes real Dialog picker smoke ${stage} failed with exit code ${result.status ?? "no status"}`,
-    );
-  }
 }
 
 function isRetryableDriverFailure(result) {
@@ -194,37 +176,25 @@ export function compileReferenceNotesDialogPickerSmoke({
   stdout = process.stdout,
 } = {}) {
   assertSupportedPlatform(platform);
-  const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const perry = resolvePerryCompilerCommand({
-    environment,
-    fallbackCommand: pnpm,
-    fallbackPrefixArgs: ["exec", "perry"],
-    fallbackShell: platform === "win32",
-    platform,
-  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-dialog-picker-smoke.exe"
       : "reference-notes-dialog-picker-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
-  const args = [
-    ...perry.prefixArgs,
-    "compile",
-    "dialog-picker-smoke.tsx",
-    "-o",
-    "reference-notes-dialog-picker-smoke",
-  ];
+  const args = ["dialog-picker-smoke.tsx", "-o", "reference-notes-dialog-picker-smoke"];
   if (platform === "win32") {
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(perry.command, args, {
+  runPerryCompile({
+    args,
     cwd: exampleDirectory,
-    env: fixtureFreeEnvironment(perry.environment, { injectManifest: true }),
-    stdio: "inherit",
-    shell: perry.shell,
+    manifestPath,
+    environment: omitEnvironmentKeyCaseInsensitive(environment, [dialogFixtureEnvironment]),
+    forceRuntime: spawnSyncImpl === spawnSync,
+    platform,
+    runner: spawnSyncImpl,
   });
-  assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
     throw new Error(`Notes real Dialog picker compilation produced no binary: ${binaryPath}`);
   }

@@ -76,6 +76,7 @@ export function runCli(argv, options = {}) {
         cwd,
         environment: options.environment,
         filesystem: options.filesystem,
+        prepareRuntime: options.prepareRuntime,
         runner: options.runner,
         runtime: options.runtime,
       });
@@ -95,6 +96,7 @@ export function runCli(argv, options = {}) {
         onStart({ entryRelative, id }) {
           stdout.write(`Starting ${id} from ${entryRelative}\n`);
         },
+        prepareRuntime: options.prepareRuntime,
         runner: options.runner,
         runtime: options.runtime,
       });
@@ -111,6 +113,7 @@ export function runCli(argv, options = {}) {
         cwd,
         environment: options.environment,
         filesystem: options.filesystem,
+        prepareRuntime: options.prepareRuntime,
         runner: options.runner,
         runtime: options.runtime,
       });

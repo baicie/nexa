@@ -39,7 +39,7 @@ jobs:
           - Cargo.lock
           - packages/nui-host/Cargo.lock
           - packages/system-host/Cargo.lock
-          - tools/windows-static-closure/Cargo.lock
+          - packages/cli/src/windows-static-closure/Cargo.lock
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
@@ -58,7 +58,7 @@ jobs:
           - Cargo.toml
           - packages/nui-host/Cargo.toml
           - packages/system-host/Cargo.toml
-          - tools/windows-static-closure/Cargo.toml
+          - packages/cli/src/windows-static-closure/Cargo.toml
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09

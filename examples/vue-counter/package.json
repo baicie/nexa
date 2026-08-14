@@ -12,8 +12,8 @@
     "@vue/shared": "^3.5.22"
   },
   "scripts": {
-    "build": "perry compile main.ts -o vue-counter",
-    "start": "perry compile main.ts -o vue-counter && ./vue-counter",
+    "build": "node ../../tools/perry-compile.mjs --manifest app.manifest.json -- main.ts -o vue-counter",
+    "start": "pnpm build && ./vue-counter",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "perry": {

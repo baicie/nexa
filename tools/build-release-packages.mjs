@@ -184,7 +184,11 @@ function emitTypeScript(entry, dist) {
 
 function emitCli(entry, dist) {
   copyTree(path.join(packageRoot(entry), "src"), dist, {
-    filter: (filePath) => filePath.endsWith(".mjs"),
+    filter: (filePath) =>
+      filePath.endsWith(".mjs") ||
+      filePath.endsWith(".toml") ||
+      filePath.endsWith(".rs") ||
+      path.basename(filePath) === "Cargo.lock",
   });
   copyRegularFile(path.join(root, "LICENSE-MIT"), path.join(dist, "LICENSE-MIT"));
   copyRegularFile(path.join(root, "LICENSE-APACHE"), path.join(dist, "LICENSE-APACHE"));

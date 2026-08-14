@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,6 +17,7 @@ import ts from "typescript";
 
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const release = JSON.parse(readFileSync(path.join(root, "release/packages.json"), "utf8"));
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function run(args) {
   return spawnSync(
@@ -68,6 +77,29 @@ test("release build emits importable ESM and self-contained Host source in isola
     assert.equal(lstatSync(dist).isDirectory(), true);
     if (entry.name === "@nexa/cli") {
       assert.equal(existsSync(path.join(dist, "bin.mjs")), true);
+      const closureFiles = [
+        "windows-static-closure/Cargo.toml",
+        "windows-static-closure/Cargo.lock",
+        "windows-static-closure/src/lib.rs",
+      ];
+      for (const required of closureFiles) {
+        assert.equal(existsSync(path.join(dist, required)), true, `@nexa/cli: ${required}`);
+      }
+
+      const cliRoot = path.join(outputRoot, entry.path);
+      copyFileSync(path.join(root, entry.path, "package.json"), path.join(cliRoot, "package.json"));
+      const packed = spawnSync(npmCommand, ["pack", "--dry-run", "--json", "--ignore-scripts"], {
+        cwd: cliRoot,
+        encoding: "utf8",
+        env: { ...process.env, npm_config_cache: path.join(outputRoot, ".npm-cache") },
+      });
+      assert.equal(packed.status, 0, packed.stderr || packed.stdout);
+      const publishedFiles = new Set(
+        JSON.parse(packed.stdout)[0].files.map(({ path: filePath }) => filePath),
+      );
+      for (const required of closureFiles) {
+        assert.equal(publishedFiles.has(`dist/${required}`), true, `@nexa/cli pack: ${required}`);
+      }
     } else {
       assert.equal(existsSync(path.join(dist, "index.js")), true, entry.name);
       assert.equal(existsSync(path.join(dist, "index.d.ts")), true, entry.name);

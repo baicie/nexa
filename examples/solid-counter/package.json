@@ -17,7 +17,7 @@
   },
   "scripts": {
     "babel": "babel main.tsx --out-file dist/main.js --extensions .tsx,.ts,.jsx,.js",
-    "build": "pnpm babel && perry compile dist/main.js -o solid-counter",
+    "build": "pnpm babel && node ../../tools/perry-compile.mjs --manifest app.manifest.json -- dist/main.js -o solid-counter",
     "start": "pnpm build && ./solid-counter",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -32,6 +32,7 @@ jobs:
       PERRY_WORKSPACE_ROOT: ${{ github.workspace }}/.perry-source
       PERRY_RUNTIME_DIR: ${{ github.workspace }}/.perry-source/target/release
       PERRY_LIB_DIR: ${{ github.workspace }}/.perry-source/target/release
+      NEXA_WINDOWS_RUNTIME_ROOT: ${{ github.workspace }}/.nexa-windows-runtime
       SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
       SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
     steps:
@@ -54,7 +55,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
-      - name: Stage Windows Skia binaries
+      - name: Download verified Windows Skia archive
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -64,19 +65,8 @@ jobs:
           if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
             throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
           }
-          $destination = Join-Path $env:GITHUB_WORKSPACE "packages/nui-host/target/perry-native/windows"
-          New-Item -ItemType Directory -Force -Path $destination | Out-Null
-          tar.exe --extract --gzip --file $archive --directory $destination
-          $libraries = @(
-            (Join-Path $destination "skia-binaries/skia.lib"),
-            (Join-Path $destination "skia-binaries/skia-bindings.lib")
-          )
-          foreach ($library in $libraries) {
-            if (-not (Test-Path -LiteralPath $library -PathType Leaf)) {
-              throw "Skia archive is missing required link input: $library"
-            }
-          }
           $fileUrl = "file://" + $archive.Replace('\', '/')
+          "NEXA_WINDOWS_SKIA_ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
@@ -91,6 +81,15 @@ jobs:
 
       - name: Build clean workspace package artifacts
         run: pnpm release:build
+
+      - name: Stage verified Windows Skia for Reference Notes
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          node tools/stage-windows-skia.mjs
+          --project "examples/reference-notes"
+          --archive "$env:NEXA_WINDOWS_SKIA_ARCHIVE"
+          --sha256 "$env:SKIA_WINDOWS_ARCHIVE_SHA256"
 
       - name: Build pinned Perry full unwind runtime closure (macOS)
         if: runner.os == 'macOS'
@@ -113,7 +112,7 @@ jobs:
           test -s "$PERRY_RUNTIME_DIR/libperry_runtime.a"
           test -s "$PERRY_LIB_DIR/libperry_stdlib.a"
 
-      - name: Build patched Perry and unified static closure (Windows)
+      - name: Build patched Perry compiler (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -133,8 +132,11 @@ jobs:
           git -C $env:PERRY_WORKSPACE_ROOT apply $patch
           if ($LASTEXITCODE -ne 0) { throw "Could not apply the Perry duplicate-symbol patch" }
           $changedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT diff --name-only)
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect the tracked Perry patch changes" }
+          $untrackedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT ls-files --others)
           if (
             $LASTEXITCODE -ne 0 -or
+            $untrackedPaths.Count -ne 0 -or
             $changedPaths.Count -ne 1 -or
             $changedPaths[0] -ne "crates/perry/src/commands/compile/link/platform_cmd.rs"
           ) {
@@ -151,29 +153,6 @@ jobs:
             -p perry
           if ($LASTEXITCODE -ne 0) { throw "Could not build the patched Perry compiler" }
 
-          $closureTarget = Join-Path $env:RUNNER_TEMP "nexa-windows-static-closure-target"
-          cargo build `
-            --locked `
-            --release `
-            --manifest-path (Join-Path $env:GITHUB_WORKSPACE "tools/windows-static-closure/Cargo.toml") `
-            --target-dir $closureTarget
-          if ($LASTEXITCODE -ne 0) { throw "Could not build the unified Windows static closure" }
-
-          $closure = Join-Path $closureTarget "release/nexa_windows_static_closure.lib"
-          if (-not (Test-Path -LiteralPath $closure -PathType Leaf) -or (Get-Item -LiteralPath $closure).Length -eq 0) {
-            throw "The unified Windows static closure is missing or empty: $closure"
-          }
-          $runtime = Join-Path $env:PERRY_RUNTIME_DIR "perry_runtime.lib"
-          $stdlib = Join-Path $env:PERRY_LIB_DIR "perry_stdlib.lib"
-          Copy-Item -LiteralPath $closure -Destination $runtime -Force
-          Copy-Item -LiteralPath $closure -Destination $stdlib -Force
-          $closureHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $closure).Hash
-          $runtimeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $runtime).Hash
-          $stdlibHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $stdlib).Hash
-          if ($closureHash -ne $runtimeHash -or $closureHash -ne $stdlibHash) {
-            throw "Perry runtime and stdlib must be byte-identical copies of the unified closure"
-          }
-
           $compiler = (Resolve-Path -LiteralPath (Join-Path $env:PERRY_WORKSPACE_ROOT "target/release/perry.exe")).Path
           $nativeVersion = (& $compiler --version | Out-String).Trim()
           if ($LASTEXITCODE -ne 0 -or $nativeVersion -ne "perry 0.5.1220") {
@@ -183,7 +162,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $npmVersion -ne "perry 0.5.1220") {
             throw "Unexpected npm Perry version: $npmVersion"
           }
-          Write-Host "Unified static closure SHA256: $closureHash"
           Write-Host "Patched Perry: $nativeVersion; npm Perry: $npmVersion"
           "NEXA_PERRY_BIN=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 

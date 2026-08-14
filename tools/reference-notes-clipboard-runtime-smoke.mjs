@@ -4,10 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
-import {
-  environmentWithoutPerryCompilerOverride,
-  resolvePerryCompilerCommand,
-} from "../packages/cli/src/perry-command.mjs";
+import { environmentWithoutPerryCompilerOverride } from "../packages/cli/src/perry-command.mjs";
+import { runPerryCompile } from "./perry-compile.mjs";
 
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
@@ -18,20 +16,6 @@ export const CLIPBOARD_RUNTIME_SMOKE_FAILURE =
   "nexa-ui reference notes clipboard runtime smoke failed";
 export const CLIPBOARD_RUNTIME_SMOKE_PROOF_PREFIX =
   "nexa-ui reference notes clipboard round-trip: ";
-
-function assertSucceeded(result, stage) {
-  if (result.error) {
-    throw new Error(
-      `Notes Clipboard runtime smoke ${stage} could not start: ${result.error.message}`,
-      { cause: result.error },
-    );
-  }
-  if (result.status !== 0) {
-    throw new Error(
-      `Notes Clipboard runtime smoke ${stage} failed with exit code ${result.status ?? "no status"}`,
-    );
-  }
-}
 
 function assertRoundTripProof(output) {
   const proofLine = output
@@ -70,37 +54,25 @@ export function compileReferenceNotesClipboardRuntimeSmoke({
   if (platform !== "darwin" && platform !== "win32") {
     throw new Error("Notes Clipboard runtime smoke currently supports only macOS and Windows");
   }
-  const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const perry = resolvePerryCompilerCommand({
-    environment,
-    fallbackCommand: pnpm,
-    fallbackPrefixArgs: ["exec", "perry"],
-    fallbackShell: platform === "win32",
-    platform,
-  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-clipboard-runtime-smoke.exe"
       : "reference-notes-clipboard-runtime-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
-  const args = [
-    ...perry.prefixArgs,
-    "compile",
-    "clipboard-runtime-smoke.tsx",
-    "-o",
-    "reference-notes-clipboard-runtime-smoke",
-  ];
+  const args = ["clipboard-runtime-smoke.tsx", "-o", "reference-notes-clipboard-runtime-smoke"];
   if (platform === "win32") {
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(perry.command, args, {
+  runPerryCompile({
+    args,
     cwd: exampleDirectory,
-    env: { ...perry.environment, NEXA_APP_MANIFEST_PATH: manifestPath },
-    stdio: "inherit",
-    shell: perry.shell,
+    manifestPath,
+    environment,
+    forceRuntime: spawnSyncImpl === spawnSync,
+    platform,
+    runner: spawnSyncImpl,
   });
-  assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
     throw new Error(`Notes Clipboard runtime smoke compilation produced no binary: ${binaryPath}`);
   }

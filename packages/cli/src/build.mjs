@@ -11,6 +11,7 @@ import {
 } from "./constants.mjs";
 import { resolveInstalledPackage, resolveInstalledPackageBin } from "./doctor.mjs";
 import { resolvePerryCompilerCommand } from "./perry-command.mjs";
+import { preparePerryRuntimeForCompile } from "./windows-runtime.mjs";
 
 const supportedTargets = new Set(["darwin/arm64", "darwin/x64", "win32/x64"]);
 const manifestKeys = [
@@ -398,6 +399,7 @@ export function runProjectBuild({
   cwd = process.cwd(),
   environment = process.env,
   filesystem = nodeFilesystem,
+  prepareRuntime = preparePerryRuntimeForCompile,
   runner = defaultRunner,
   runtime = { arch: process.arch, platform: process.platform },
 } = {}) {
@@ -418,14 +420,26 @@ export function runProjectBuild({
     outputRelative,
   ];
   if (runtime.platform === "win32") args.push("--windows-subsystem", "windows");
-  const result = runner(perry.command, args, {
-    cwd: project.projectDirectory,
-    env: sanitizedEnvironment(perry.environment, project.manifestPath),
-    shell: perry.shell,
-    stdio: "inherit",
-  });
-  assertProcessSucceeded(result, "Perry compile");
-  verifyBuiltBinary(filesystem, binaryPath, project.manifestSource);
+  let prepared;
+  try {
+    prepared = prepareRuntime({
+      projectDirectory: project.projectDirectory,
+      manifestPath: project.manifestPath,
+      environment: perry.environment,
+      force: runner === defaultRunner,
+      runtime,
+    });
+    const result = runner(perry.command, args, {
+      cwd: project.projectDirectory,
+      env: sanitizedEnvironment(prepared.environment, project.manifestPath),
+      shell: perry.shell,
+      stdio: "inherit",
+    });
+    assertProcessSucceeded(result, "Perry compile");
+    verifyBuiltBinary(filesystem, binaryPath, project.manifestSource);
+  } finally {
+    prepared?.cleanup();
+  }
 
   return {
     binaryPath,
@@ -440,6 +454,7 @@ export function runProjectDev({
   environment = process.env,
   filesystem = nodeFilesystem,
   onStart = () => {},
+  prepareRuntime = preparePerryRuntimeForCompile,
   runner = defaultRunner,
   runtime = { arch: process.arch, platform: process.platform },
 } = {}) {
@@ -454,15 +469,27 @@ export function runProjectDev({
     entryRelative: portablePath(project.entryRelative),
     id: project.manifest.id,
   });
-  const result = runner(
-    perry.command,
-    [...perry.prefixArgs, "dev", portablePath(project.entryRelative), "-o", outputRelative],
-    {
-      cwd: project.projectDirectory,
-      env: sanitizedEnvironment(perry.environment, project.manifestPath),
-      shell: perry.shell,
-      stdio: "inherit",
-    },
-  );
-  assertProcessSucceeded(result, "Perry dev");
+  let prepared;
+  try {
+    prepared = prepareRuntime({
+      projectDirectory: project.projectDirectory,
+      manifestPath: project.manifestPath,
+      environment: perry.environment,
+      force: runner === defaultRunner,
+      runtime,
+    });
+    const result = runner(
+      perry.command,
+      [...perry.prefixArgs, "dev", portablePath(project.entryRelative), "-o", outputRelative],
+      {
+        cwd: project.projectDirectory,
+        env: sanitizedEnvironment(prepared.environment, project.manifestPath),
+        shell: perry.shell,
+        stdio: "inherit",
+      },
+    );
+    assertProcessSucceeded(result, "Perry dev");
+  } finally {
+    prepared?.cleanup();
+  }
 }

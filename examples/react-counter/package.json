@@ -15,8 +15,8 @@
     "@types/react": "^18.3.18"
   },
   "scripts": {
-    "build": "perry compile main.tsx -o react-counter",
-    "start": "perry compile main.tsx -o react-counter && ./react-counter"
+    "build": "node ../../tools/perry-compile.mjs --manifest app.manifest.json -- main.tsx -o react-counter",
+    "start": "pnpm build && ./react-counter"
   },
   "perry": {
     "compilePackages": [

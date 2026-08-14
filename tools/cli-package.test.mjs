@@ -43,12 +43,17 @@ function outputSink() {
   };
 }
 
+function passthroughRuntimePreparation({ environment }) {
+  return { environment, cleanup() {} };
+}
+
 function invoke(argv, options = {}) {
   const stdout = outputSink();
   const stderr = outputSink();
   const exitCode = runCli(argv, {
     stdout: stdout.stream,
     stderr: stderr.stream,
+    prepareRuntime: passthroughRuntimePreparation,
     ...options,
   });
   return { exitCode, stderr: stderr.value(), stdout: stdout.value() };
@@ -221,13 +226,28 @@ test("package builds an unsigned macOS bundle with exact manifest, metadata, and
 
 test("package builds a Windows distribution with no development-tool files", (t) => {
   const fixture = projectFixture(t);
+  let prepared = 0;
+  let cleaned = 0;
   const result = invoke(["package"], {
     cwd: fixture.cwd,
     environment: fixture.environment,
+    prepareRuntime(options) {
+      prepared += 1;
+      assert.equal(options.force, true);
+      assert.deepEqual(options.runtime, runtime("win32"));
+      return {
+        environment: options.environment,
+        cleanup() {
+          cleaned += 1;
+        },
+      };
+    },
     runtime: runtime("win32"),
   });
 
   assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  assert.equal(prepared, 1);
+  assert.equal(cleaned, 1);
   assert.equal(
     result.stdout,
     "Packaged dev.nexa.temp-app@1.2.3-beta.1+build.5: dist/temp-app-windows-x64\n",

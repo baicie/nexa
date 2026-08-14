@@ -11,8 +11,8 @@
   },
   "scripts": {
     "compile:svelte": "node ./compile.mjs",
-    "build": "pnpm compile:svelte && perry compile main.ts -o svelte-counter",
-    "start": "pnpm compile:svelte && perry compile main.ts -o svelte-counter && ./svelte-counter"
+    "build": "pnpm compile:svelte && node ../../tools/perry-compile.mjs --manifest app.manifest.json -- main.ts -o svelte-counter",
+    "start": "pnpm build && ./svelte-counter"
   },
   "perry": {
     "compilePackages": [

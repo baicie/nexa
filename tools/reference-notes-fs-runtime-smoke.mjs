@@ -5,10 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
-import {
-  environmentWithoutPerryCompilerOverride,
-  resolvePerryCompilerCommand,
-} from "../packages/cli/src/perry-command.mjs";
+import { environmentWithoutPerryCompilerOverride } from "../packages/cli/src/perry-command.mjs";
+import { runPerryCompile } from "./perry-compile.mjs";
 
 const exampleDirectory = fileURLToPath(new URL("../examples/reference-notes/", import.meta.url));
 const manifestPath = path.join(exampleDirectory, "app.manifest.json");
@@ -99,19 +97,6 @@ function assertInvalidDataProof(output) {
   }
 }
 
-function assertSucceeded(result, stage) {
-  if (result.error) {
-    throw new Error(`Notes FS runtime smoke ${stage} could not start: ${result.error.message}`, {
-      cause: result.error,
-    });
-  }
-  if (result.status !== 0) {
-    throw new Error(
-      `Notes FS runtime smoke ${stage} failed with exit code ${result.status ?? "no status"}`,
-    );
-  }
-}
-
 export function compileReferenceNotesFsRuntimeSmoke({
   platform = process.platform,
   environment = process.env,
@@ -121,37 +106,25 @@ export function compileReferenceNotesFsRuntimeSmoke({
   if (platform !== "darwin" && platform !== "win32") {
     throw new Error("Notes FS runtime smoke currently supports only macOS and Windows");
   }
-  const pnpm = platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const perry = resolvePerryCompilerCommand({
-    environment,
-    fallbackCommand: pnpm,
-    fallbackPrefixArgs: ["exec", "perry"],
-    fallbackShell: platform === "win32",
-    platform,
-  });
   const binaryName =
     platform === "win32"
       ? "reference-notes-fs-runtime-smoke.exe"
       : "reference-notes-fs-runtime-smoke";
   const binaryPath = path.join(exampleDirectory, binaryName);
-  const args = [
-    ...perry.prefixArgs,
-    "compile",
-    "fs-runtime-smoke.tsx",
-    "-o",
-    "reference-notes-fs-runtime-smoke",
-  ];
+  const args = ["fs-runtime-smoke.tsx", "-o", "reference-notes-fs-runtime-smoke"];
   if (platform === "win32") {
     args.push("--windows-subsystem", "console");
   }
 
-  const result = spawnSyncImpl(perry.command, args, {
+  runPerryCompile({
+    args,
     cwd: exampleDirectory,
-    env: { ...perry.environment, NEXA_APP_MANIFEST_PATH: manifestPath },
-    stdio: "inherit",
-    shell: perry.shell,
+    manifestPath,
+    environment,
+    forceRuntime: spawnSyncImpl === spawnSync,
+    platform,
+    runner: spawnSyncImpl,
   });
-  assertSucceeded(result, "compilation");
   if (!existsImpl(binaryPath)) {
     throw new Error(`Notes FS runtime smoke compilation produced no binary: ${binaryPath}`);
   }

@@ -15,8 +15,8 @@ test("release graph includes every shipped Cargo closure", () => {
       lockfile: "packages/system-host/Cargo.lock",
     },
     {
-      manifest: "tools/windows-static-closure/Cargo.toml",
-      lockfile: "tools/windows-static-closure/Cargo.lock",
+      manifest: "packages/cli/src/windows-static-closure/Cargo.toml",
+      lockfile: "packages/cli/src/windows-static-closure/Cargo.lock",
     },
   ]);
 });

@@ -12,7 +12,9 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { parse as parseYaml } from "yaml";
 
+import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 import { generateEvidence } from "./release-evidence.mjs";
 import {
   createRehearsalDecision,
@@ -454,4 +456,60 @@ test("isolated workflow and runbook encode fresh jobs, rollback, and no release 
   assert.match(runbook, /tag.*artifact.*fresh download.*integrity.*launch.*rollback/isu);
   assert.match(runbook, /none-first-preview/u);
   assert.match(runbook, /does not publish|不发布/iu);
+});
+
+test("rehearsal consumer builds with the pinned native toolchain and clean installed Hosts", () => {
+  const workflow = parseYaml(
+    readFileSync(new URL("../.github/workflows/release-rehearsal.yml", import.meta.url), "utf8"),
+  );
+  const job = workflow.jobs.consumer;
+  assert.equal(job.env.RUSTUP_TOOLCHAIN, "1.95.0");
+  assert.equal(job.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  assert.equal(job.env.PERRY_RUNTIME_DIR, "${{ github.workspace }}/.perry-source/target/release");
+  assert.equal(job.env.PERRY_LIB_DIR, "${{ github.workspace }}/.perry-source/target/release");
+  assert.equal(
+    job.env.NEXA_WINDOWS_RUNTIME_ROOT,
+    "${{ github.workspace }}/.nexa-windows-runtime",
+  );
+
+  const checkout = job.steps.find((step) => step.with?.repository === "PerryTS/perry");
+  assert.equal(checkout.with.ref, PERRY_SOURCE_REVISION);
+  assert.equal(checkout.with.path, ".perry-source");
+  assert.equal(checkout.with["persist-credentials"], false);
+  const toolchain = job.steps.find(
+    (step) => step.name === "Install Perry-compatible Rust toolchain",
+  );
+  assert.equal(toolchain.with.toolchain, "1.95.0");
+
+  const macRuntime = job.steps.find(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure (macOS)",
+  );
+  assert.equal(macRuntime.if, "runner.os == 'macOS'");
+  assert.equal(macRuntime.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+  assert.equal(macRuntime.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.match(macRuntime.run, /-p perry-runtime-static/u);
+  assert.match(macRuntime.run, /-p perry-stdlib-static/u);
+
+  const windowsCompiler = job.steps.find(
+    (step) => step.name === "Build patched Perry compiler (Windows)",
+  );
+  assert.equal(windowsCompiler.if, "runner.os == 'Windows'");
+  assert.equal(windowsCompiler.env.PERRY_SOURCE_REVISION, PERRY_SOURCE_REVISION);
+  assert.match(windowsCompiler.run, /0001-windows-reject-duplicate-symbols\.patch/u);
+  assert.match(windowsCompiler.run, /apply --check \$patch/u);
+  assert.match(windowsCompiler.run, /apply --reverse --check \$patch/u);
+  assert.match(windowsCompiler.run, /-p perry/u);
+  assert.doesNotMatch(windowsCompiler.run, /FORCE:MULTIPLE|windows-static-closure/u);
+  assert.match(windowsCompiler.run, /NEXA_PERRY_BIN=\$compiler/u);
+
+  const skia = job.steps.find((step) => step.name === "Download pinned Windows Skia archive");
+  assert.equal(skia.if, "runner.os == 'Windows'");
+  assert.match(skia.run, /Get-FileHash -Algorithm SHA256/u);
+  assert.match(skia.run, /NEXA_WINDOWS_SKIA_ARCHIVE=\$archive/u);
+  assert.doesNotMatch(skia.run, /tar\.exe|packages\/nui-host/u);
+  assert.match(skia.run, /SKIA_BINARIES_URL=\$fileUrl/u);
+  const consume = job.steps.find(
+    (step) => step.name === "Build, pack, and consume public tarballs",
+  );
+  assert.ok(job.steps.indexOf(skia) < job.steps.indexOf(consume));
 });

@@ -434,6 +434,7 @@ test("the performance CLI rejects unknown, duplicate, and malformed options", ()
 });
 
 test("the dedicated workflow keeps native capture on pinned macOS and Windows hosted runners", () => {
+  const perryRevision = "06137858dc8c6f80975238377138f2f948d6ef88";
   const source = readFileSync(
     new URL("../.github/workflows/performance.yml", import.meta.url),
     "utf8",
@@ -449,15 +450,124 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
   assert.match(source, /actions\/checkout@[0-9a-f]{40}/u);
   assert.match(source, /actions\/setup-node@[0-9a-f]{40}/u);
   assert.match(source, /node-version: "22"/u);
+  assert.equal(hosted.env.PERRY_NO_AUTO_OPTIMIZE, "1");
+  assert.equal(hosted.env.RUSTUP_TOOLCHAIN, "1.95.0");
+  assert.equal(hosted.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
+  assert.equal(
+    hosted.env.PERRY_RUNTIME_DIR,
+    "${{ github.workspace }}/.perry-source/target/release",
+  );
+  assert.equal(hosted.env.PERRY_LIB_DIR, "${{ github.workspace }}/.perry-source/target/release");
+  assert.equal(
+    hosted.env.NEXA_WINDOWS_RUNTIME_ROOT,
+    "${{ github.workspace }}/.nexa-windows-runtime",
+  );
   assert.match(
     source,
     /node tools\/performance-budget\.mjs status --platform "\$\{\{ matrix\.platform \}\}"/u,
   );
+
+  const perryCheckoutIndex = hosted.steps.findIndex(
+    (step) =>
+      typeof step.uses === "string" &&
+      step.uses.startsWith("actions/checkout@") &&
+      step.with?.repository === "PerryTS/perry",
+  );
+  const perryCheckout = hosted.steps[perryCheckoutIndex];
+  assert.ok(perryCheckoutIndex >= 0, "the hosted build must check out Perry source");
+  assert.equal(perryCheckout.with.ref, perryRevision);
+  assert.equal(perryCheckout.with.path, ".perry-source");
+  assert.equal(perryCheckout.with["persist-credentials"], false);
+
+  const rustToolchainIndex = hosted.steps.findIndex(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("dtolnay/rust-toolchain@"),
+  );
+  const rustToolchain = hosted.steps[rustToolchainIndex];
+  assert.ok(rustToolchainIndex > perryCheckoutIndex, "Rust must be installed after Perry checkout");
+  assert.equal(rustToolchain.with.toolchain, "1.95.0");
+
+  const installIndex = hosted.steps.findIndex(
+    (step) => step.run === "pnpm install --frozen-lockfile",
+  );
+  const releaseBuildIndex = hosted.steps.findIndex((step) => step.run === "pnpm release:build");
+  const macRuntimeIndex = hosted.steps.findIndex(
+    (step) => step.name === "Build pinned Perry full unwind runtime closure (macOS)",
+  );
+  const windowsCompilerIndex = hosted.steps.findIndex(
+    (step) => step.name === "Build patched Perry compiler (Windows)",
+  );
+  const macRuntime = hosted.steps[macRuntimeIndex];
+  const windowsCompiler = hosted.steps[windowsCompilerIndex];
+  assert.ok(
+    rustToolchainIndex < macRuntimeIndex && installIndex < macRuntimeIndex,
+    "the macOS runtime must use the pinned toolchain after the dependency graph is installed",
+  );
+  assert.equal(macRuntime.if, "runner.os == 'macOS'");
+  assert.equal(macRuntime.shell, "bash");
+  assert.equal(macRuntime.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+  assert.equal(macRuntime.env.PERRY_SOURCE_REVISION, perryRevision);
+  assert.match(macRuntime.run, /git -C "\$PERRY_WORKSPACE_ROOT" rev-parse HEAD/u);
+  assert.match(macRuntime.run, /cargo build[\s\S]*--locked[\s\S]*--release/u);
+  assert.match(macRuntime.run, /-p perry-runtime-static/u);
+  assert.match(macRuntime.run, /-p perry-stdlib-static/u);
+  assert.match(macRuntime.run, /libperry_runtime\.a/u);
+  assert.match(macRuntime.run, /libperry_stdlib\.a/u);
+
+  assert.ok(
+    rustToolchainIndex < windowsCompilerIndex && installIndex < windowsCompilerIndex,
+    "the patched Windows compiler must use the installed pinned toolchain",
+  );
+  assert.equal(windowsCompiler.if, "runner.os == 'Windows'");
+  assert.equal(windowsCompiler.shell, "pwsh");
+  assert.equal(windowsCompiler.env.CARGO_PROFILE_RELEASE_PANIC, "unwind");
+  assert.equal(windowsCompiler.env.PERRY_SOURCE_REVISION, perryRevision);
+  assert.match(
+    windowsCompiler.run,
+    /patches\/perry\/0001-windows-reject-duplicate-symbols\.patch/u,
+  );
+  assert.match(windowsCompiler.run, /git -C \$env:PERRY_WORKSPACE_ROOT apply --check \$patch/u);
+  assert.match(
+    windowsCompiler.run,
+    /git -C \$env:PERRY_WORKSPACE_ROOT apply --reverse --check \$patch/u,
+  );
+  assert.match(windowsCompiler.run, /cargo build[\s\S]*-p perry/u);
+  assert.match(windowsCompiler.run, /NEXA_PERRY_BIN=\$compiler/u);
+  assert.doesNotMatch(
+    windowsCompiler.run,
+    /windows-static-closure|perry_runtime\.lib|perry_stdlib\.lib|FORCE:MULTIPLE/u,
+  );
+
+  const skiaDownloadIndex = hosted.steps.findIndex(
+    (step) => step.name === "Download verified Windows Skia archive",
+  );
+  const skiaDownload = hosted.steps[skiaDownloadIndex];
+  assert.ok(skiaDownloadIndex >= 0, "Windows must download the reviewed Skia archive");
+  assert.equal(skiaDownload.if, "runner.os == 'Windows'");
+  assert.equal(skiaDownload.shell, "pwsh");
+  assert.match(skiaDownload.run, /Get-FileHash -Algorithm SHA256/u);
+  assert.match(skiaDownload.run, /NEXA_WINDOWS_SKIA_ARCHIVE=\$archive/u);
+  assert.doesNotMatch(skiaDownload.run, /tar\.exe|packages[\\/]nui-host|stage-windows-skia/u);
+  assert.match(skiaDownload.run, /SKIA_BINARIES_URL=\$fileUrl/u);
+
+  const skiaStageIndex = hosted.steps.findIndex(
+    (step) => step.name === "Stage verified Windows Skia for Reference Notes",
+  );
+  const skiaStage = hosted.steps[skiaStageIndex];
+  assert.ok(
+    releaseBuildIndex < skiaStageIndex,
+    "Skia must be staged only after the release Host snapshot exists",
+  );
+  assert.equal(skiaStage.if, "runner.os == 'Windows'");
+  assert.equal(skiaStage.shell, "pwsh");
+  assert.match(skiaStage.run, /node tools\/stage-windows-skia\.mjs/u);
+  assert.match(skiaStage.run, /--project "examples\/reference-notes"/u);
+  assert.match(skiaStage.run, /--archive "\$env:NEXA_WINDOWS_SKIA_ARCHIVE"/u);
+  assert.match(skiaStage.run, /--sha256 "\$env:SKIA_WINDOWS_ARCHIVE_SHA256"/u);
+
   const hostedCommands = hosted.steps
     .filter((step) => typeof step.run === "string")
     .map((step) => step.run)
     .join("\n");
-  const releaseBuildIndex = hosted.steps.findIndex((step) => step.run === "pnpm release:build");
   const notesPackageIndex = hosted.steps.findIndex(
     (step) => step.run === "pnpm --filter @nexa/example-reference-notes package",
   );
@@ -466,6 +576,9 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
     notesPackageIndex > releaseBuildIndex,
     "Notes must be packaged only after the native Host release snapshots exist",
   );
+  assert.ok(macRuntimeIndex < notesPackageIndex);
+  assert.ok(windowsCompilerIndex < notesPackageIndex);
+  assert.ok(skiaStageIndex < notesPackageIndex);
   assert.match(hostedCommands, /node tools\/performance-collector\.mjs/u);
   assert.match(hostedCommands, /node tools\/performance-budget\.mjs check[\s\S]*--allow-pending/u);
   const captureStep = hosted.steps.find((step) => step.id === "capture");

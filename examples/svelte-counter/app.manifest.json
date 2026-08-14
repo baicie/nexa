@@ -1,0 +1,9 @@
+{
+  "$schema": "https://nexa-ui.dev/schema/app-manifest-v1.json",
+  "schemaVersion": 1,
+  "id": "dev.nexa.examples.svelte-counter",
+  "name": "Nexa Svelte Counter",
+  "version": "0.1.0",
+  "requiredProtocol": { "major": 1, "minor": 0 },
+  "permissions": []
+}

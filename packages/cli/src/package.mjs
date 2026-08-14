@@ -356,6 +356,7 @@ export function runProjectPackage({
   cwd = process.cwd(),
   environment = process.env,
   filesystem = nodeFilesystem,
+  prepareRuntime,
   runner,
   runtime = { arch: process.arch, platform: process.platform },
 } = {}) {
@@ -367,6 +368,7 @@ export function runProjectPackage({
   assertDestinationAvailable(filesystem, artifactDirectory);
 
   const buildOptions = { cwd, environment, filesystem, runtime };
+  if (prepareRuntime !== undefined) buildOptions.prepareRuntime = prepareRuntime;
   if (runner !== undefined) buildOptions.runner = runner;
   const built = build(buildOptions);
   const project = readProject(filesystem, cwd);

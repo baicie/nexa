@@ -8,6 +8,7 @@ import {
   PERRY_FRAMEWORKS,
   runPerryFrameworkBuilds,
 } from "./perry-frameworks.mjs";
+import { runPerryCompileCommand } from "./perry-compile.mjs";
 
 function result(status, stdout = "", stderr = "") {
   return { status, stdout, stderr };
@@ -93,10 +94,98 @@ test("the Svelte Counter build compiles and executes the real component fixture"
     "utf8",
   );
 
-  assert.match(packageJson.scripts.build, /^pnpm compile:svelte && perry compile main\.ts /);
-  assert.match(packageJson.scripts.start, /^pnpm compile:svelte && perry compile main\.ts /);
+  assert.match(
+    packageJson.scripts.build,
+    /^pnpm compile:svelte && node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- main\.ts /,
+  );
+  assert.match(packageJson.scripts.start, /^pnpm build && \.\/svelte-counter/);
   assert.match(entry, /import Counter from ["']\.\/dist\/Counter\.host\.js["']/);
   assert.match(entry, /new Counter\(\{ target/);
+});
+
+test("framework product scripts use the guarded compiler and an application-owned manifest", () => {
+  const cases = [
+    {
+      directory: "solid-counter",
+      build:
+        /^pnpm babel && node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- dist\/main\.js -o solid-counter$/,
+      start: /^pnpm build && \.\/solid-counter$/,
+      id: "dev.nexa.examples.solid-counter",
+    },
+    {
+      directory: "vue-counter",
+      build:
+        /^node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- main\.ts -o vue-counter$/,
+      start: /^pnpm build && \.\/vue-counter$/,
+      id: "dev.nexa.examples.vue-counter",
+    },
+    {
+      directory: "react-counter",
+      build:
+        /^node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- main\.tsx -o react-counter$/,
+      start: /^pnpm build && \.\/react-counter$/,
+      id: "dev.nexa.examples.react-counter",
+    },
+    {
+      directory: "svelte-counter",
+      build:
+        /^pnpm compile:svelte && node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- main\.ts -o svelte-counter$/,
+      start: /^pnpm build && \.\/svelte-counter$/,
+      id: "dev.nexa.examples.svelte-counter",
+    },
+  ];
+
+  for (const fixture of cases) {
+    const root = new URL(`../examples/${fixture.directory}/`, import.meta.url);
+    const packageJson = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
+    const manifest = JSON.parse(readFileSync(new URL("app.manifest.json", root), "utf8"));
+
+    assert.match(packageJson.scripts.build, fixture.build);
+    assert.match(packageJson.scripts.start, fixture.start);
+    assert.doesNotMatch(packageJson.scripts.build, /(?:^|&&\s*)perry compile/u);
+    assert.equal(manifest.id, fixture.id);
+    assert.equal(manifest.version, packageJson.version);
+    assert.deepEqual(manifest.permissions, []);
+  }
+
+  const notesPackage = JSON.parse(
+    readFileSync(new URL("../examples/reference-notes/package.json", import.meta.url), "utf8"),
+  );
+  assert.match(
+    notesPackage.scripts["solid:build"],
+    /^pnpm solid:babel && node \.\.\/\.\.\/tools\/perry-compile\.mjs --manifest app\.manifest\.json -- dist-solid\/solid-main\.js -o reference-notes-solid$/,
+  );
+  assert.doesNotMatch(notesPackage.scripts["solid:build"], /(?:^|&&\s*)perry compile/u);
+});
+
+test("the guarded compiler CLI binds the owned manifest and forces Windows runtime preparation", () => {
+  let call;
+  runPerryCompileCommand({
+    argv: ["--manifest", "app.manifest.json", "--", "main.ts", "-o", "counter"],
+    cwd: "/workspace/example",
+    environment: { NEXA_PERRY_BIN: "/tools/perry.exe" },
+    compile(options) {
+      call = options;
+    },
+  });
+
+  assert.deepEqual(call.args, ["main.ts", "-o", "counter"]);
+  assert.equal(call.cwd, "/workspace/example");
+  assert.equal(call.manifestPath, path.resolve("/workspace/example", "app.manifest.json"));
+  assert.equal(call.environment.NEXA_PERRY_BIN, "/tools/perry.exe");
+  assert.equal(call.forceRuntime, true);
+
+  for (const argv of [
+    [],
+    ["--manifest", "app.manifest.json"],
+    ["--manifest", "app.manifest.json", "--"],
+    ["--unknown", "app.manifest.json", "--", "main.ts"],
+  ]) {
+    assert.throws(
+      () => runPerryCompileCommand({ argv, compile() {} }),
+      /usage: perry-compile\.mjs/u,
+    );
+  }
 });
 
 test("a selected framework is cleaned, built without Perry cache, and verified", () => {
@@ -152,11 +241,7 @@ test("the Tier-1 Notes entry invokes its Solid application build", () => {
     }),
   });
 
-  assert.deepEqual(calls[0].args, [
-    "--filter",
-    "@nexa/example-reference-notes",
-    "solid:build",
-  ]);
+  assert.deepEqual(calls[0].args, ["--filter", "@nexa/example-reference-notes", "solid:build"]);
   assert.ok(
     removals.some(({ target }) => target.endsWith(path.join("reference-notes", "dist-solid"))),
   );
