@@ -7,6 +7,8 @@ import { mount, type WindowLifecycleEvent } from "@nexa/ui";
 import { NotesApp } from "./app";
 import { createNotesController, type NotesSnapshot } from "./state";
 
+declare const process: Readonly<{ cwd(): string }>;
+
 const OPEN_FILE = "nexa-ui-picker-probe-open.txt";
 const OPEN_BODY = "Opened through real OS picker: 你好, مرحبا, 😀\n";
 const SAVE_FILE = "nexa-ui-picker-probe-save.txt";
@@ -27,7 +29,7 @@ const controller = createNotesController({
     console.log(`${STAGE_PREFIX}${cancel ? "cancel" : "open"}`);
     return openFile({
       title: cancel ? CANCEL_TITLE : OPEN_TITLE,
-      defaultPath: OPEN_FILE,
+      defaultPath: `${process.cwd()}/${OPEN_FILE}`,
       filters: [{ name: "Text", extensions: ["txt", "md"] }],
     });
   },
@@ -35,7 +37,7 @@ const controller = createNotesController({
     console.log(`${STAGE_PREFIX}save`);
     return saveFile({
       title: SAVE_TITLE,
-      defaultPath: SAVE_FILE,
+      defaultPath: `${process.cwd()}/${SAVE_FILE}`,
       filters: [{ name: "Text", extensions: ["txt", "md"] }],
     });
   },

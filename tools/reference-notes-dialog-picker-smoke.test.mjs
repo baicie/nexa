@@ -8,6 +8,8 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
+import ts from "typescript";
+
 import {
   DIALOG_PICKER_CANCEL_TITLE,
   DIALOG_PICKER_OPEN_BODY,
@@ -217,6 +219,50 @@ test("rejects unsupported picker platforms before invoking Perry", () => {
       }),
     /only macOS and Windows/u,
   );
+});
+
+test("anchors picker dialog defaults to the process working directory", () => {
+  const sourceText = readFileSync(
+    new URL("../examples/reference-notes/dialog-picker-smoke.tsx", import.meta.url),
+    "utf8",
+  );
+  const source = ts.createSourceFile(
+    "dialog-picker-smoke.tsx",
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const defaultPaths = new Map();
+
+  function visit(node) {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      (node.expression.text === "openFile" || node.expression.text === "saveFile") &&
+      ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      const property = node.arguments[0].properties.find(
+        (candidate) =>
+          ts.isPropertyAssignment(candidate) && candidate.name.getText(source) === "defaultPath",
+      );
+      if (property) defaultPaths.set(node.expression.text, property.initializer);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  for (const [dialog, fileName] of [
+    ["openFile", "OPEN_FILE"],
+    ["saveFile", "SAVE_FILE"],
+  ]) {
+    const defaultPath = defaultPaths.get(dialog);
+    assert.ok(defaultPath, `${dialog} must declare defaultPath`);
+    const expression = defaultPath.getText(source);
+    assert.notEqual(expression, fileName, `${dialog} defaultPath must not be a bare filename`);
+    assert.match(expression, /(?:\bcwd|\bprocess\.cwd)\s*\(\s*\)/u);
+    assert.match(expression, new RegExp(`\\b${fileName}\\b`, "u"));
+  }
 });
 
 test("dispatches hosted dialog actions to fail-closed macOS and Windows drivers", () => {
