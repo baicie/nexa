@@ -79,6 +79,15 @@ public static class NexaDialogPickerNative {
 }
 "@
 
+$script:automationAvailable = $false
+try {
+  Add-Type -AssemblyName UIAutomationClient
+  Add-Type -AssemblyName UIAutomationTypes
+  $script:automationAvailable = $true
+} catch {
+  Write-Verbose "UI Automation is unavailable: $($_.Exception.Message)"
+}
+
 function Get-RemainingMessageTimeout([string] $Operation) {
   $remaining = $TimeoutMilliseconds - $stopwatch.ElapsedMilliseconds
   if ($remaining -le 0) {
@@ -137,6 +146,161 @@ function Find-DialogControl([IntPtr] $Dialog, [int] $ControlId, [string[]] $Expe
   return $script:foundControl
 }
 
+function Find-DescendantControl([IntPtr] $Root, [string[]] $ExpectedClasses) {
+  $script:foundDescendant = [IntPtr]::Zero
+  $callback = [NexaDialogPickerNative+EnumWindowProc] {
+    param([IntPtr] $handle, [IntPtr] $parameter)
+    if ($ExpectedClasses -ccontains (Get-WindowClass $handle)) {
+      $script:foundDescendant = $handle
+      return $false
+    }
+    return $true
+  }
+  [void] [NexaDialogPickerNative]::EnumChildWindows($Root, $callback, [IntPtr]::Zero)
+  return $script:foundDescendant
+}
+
+function Find-FileNameControl([IntPtr] $Dialog) {
+  $container = Find-DialogControl $Dialog 1148 @("ComboBoxEx32", "ComboBox", "Edit")
+  if ($container -eq [IntPtr]::Zero) {
+    return Find-DialogControl $Dialog 1152 "Edit"
+  }
+  if ((Get-WindowClass $container) -ceq "Edit") {
+    return $container
+  }
+  $edit = Find-DescendantControl $container "Edit"
+  if ($edit -ne [IntPtr]::Zero) {
+    return $edit
+  }
+  return $container
+}
+
+function Find-AutomationControl($Root, [string[]] $AutomationIds, $ExpectedControlTypes, $RequiredPattern) {
+  foreach ($automationId in $AutomationIds) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+      [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+      $automationId
+    )
+    $matches = $Root.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      $condition
+    )
+    foreach ($element in $matches) {
+      try {
+        if ($ExpectedControlTypes -notcontains $element.Current.ControlType) {
+          continue
+        }
+        $pattern = $null
+        if ($element.TryGetCurrentPattern($RequiredPattern, [ref] $pattern)) {
+          return [PSCustomObject] @{ Element = $element; Pattern = $pattern }
+        }
+      } catch {
+        continue
+      }
+    }
+  }
+  return $null
+}
+
+function Find-AutomationControlByType($Root, $ExpectedControlTypes, $RequiredPattern) {
+  $matches = $Root.FindAll(
+    [System.Windows.Automation.TreeScope]::Descendants,
+    [System.Windows.Automation.Condition]::TrueCondition
+  )
+  foreach ($element in $matches) {
+    try {
+      if ($ExpectedControlTypes -notcontains $element.Current.ControlType) {
+        continue
+      }
+      $pattern = $null
+      if ($element.TryGetCurrentPattern($RequiredPattern, [ref] $pattern)) {
+        return [PSCustomObject] @{ Element = $element; Pattern = $pattern }
+      }
+    } catch {
+      continue
+    }
+  }
+  return $null
+}
+
+function Find-FileNameAutomationControl([IntPtr] $Dialog) {
+  if (-not $script:automationAvailable) {
+    return $null
+  }
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
+  if ($null -eq $root) {
+    return $null
+  }
+  $valuePattern = [System.Windows.Automation.ValuePattern]::Pattern
+  $controlTypes = @(
+    [System.Windows.Automation.ControlType]::Edit,
+    [System.Windows.Automation.ControlType]::ComboBox
+  )
+  $direct = Find-AutomationControl $root @("1148", "1001") $controlTypes $valuePattern
+  if ($null -ne $direct) {
+    return $direct
+  }
+
+  $containerCondition = [System.Windows.Automation.PropertyCondition]::new(
+    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+    "1148"
+  )
+  $container = $root.FindFirst(
+    [System.Windows.Automation.TreeScope]::Descendants,
+    $containerCondition
+  )
+  if ($null -eq $container) {
+    return $null
+  }
+  return Find-AutomationControlByType $container @(
+    [System.Windows.Automation.ControlType]::Edit
+  ) $valuePattern
+}
+
+function Find-ButtonAutomationControl([IntPtr] $Dialog, [int] $ControlId) {
+  if (-not $script:automationAvailable) {
+    return $null
+  }
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
+  if ($null -eq $root) {
+    return $null
+  }
+  return Find-AutomationControl $root @("$ControlId") @(
+    [System.Windows.Automation.ControlType]::Button
+  ) ([System.Windows.Automation.InvokePattern]::Pattern)
+}
+
+function Get-DialogAutomationSummary([IntPtr] $Dialog) {
+  if (-not $script:automationAvailable) {
+    return "UIAutomation=unavailable"
+  }
+  try {
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
+    $matches = $root.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      [System.Windows.Automation.Condition]::TrueCondition
+    )
+    $summary = [System.Collections.Generic.List[string]]::new()
+    foreach ($element in $matches) {
+      if ($summary.Count -ge 48) {
+        break
+      }
+      try {
+        $automationId = $element.Current.AutomationId
+        $controlType = $element.Current.ControlType.ProgrammaticName
+        if (-not [string]::IsNullOrWhiteSpace($automationId)) {
+          $summary.Add("$automationId/$controlType")
+        }
+      } catch {
+        continue
+      }
+    }
+    return ($summary -join ",")
+  } catch {
+    return "UIAutomation=error:$($_.Exception.GetType().Name)"
+  }
+}
+
 $dialog = [IntPtr]::Zero
 while ($dialog -eq [IntPtr]::Zero -and $stopwatch.ElapsedMilliseconds -lt $TimeoutMilliseconds) {
   if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
@@ -175,62 +339,80 @@ if ($Action -eq "accept") {
   if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
     throw "selection parent directory does not exist: $parent"
   }
-  $fileNameControl = Find-DialogControl $dialog 1148 @("ComboBox", "Edit")
-  if ($fileNameControl -eq [IntPtr]::Zero) {
-    throw "real rfd picker did not expose the standard file-name control"
-  }
-  $setTextTimeout = Get-RemainingMessageTimeout "setting the selection path"
-  $setTextResult = [IntPtr]::Zero
-  $setTextStatus = [NexaDialogPickerNative]::SendMessageTimeoutString(
-    $fileNameControl,
-    0x000C,
-    [IntPtr]::Zero,
-    $SelectionPath,
-    0x0002,
-    $setTextTimeout,
-    [ref] $setTextResult
-  )
-  if ($setTextStatus -eq [IntPtr]::Zero) {
-    throw "real rfd picker file-name control did not accept WM_SETTEXT within the timeout"
-  }
-  $fileNameText = [System.Text.StringBuilder]::new([Math]::Max($SelectionPath.Length + 1, 1024))
-  $getTextTimeout = Get-RemainingMessageTimeout "reading back the selection path"
-  $getTextResult = [IntPtr]::Zero
-  $getTextStatus = [NexaDialogPickerNative]::SendMessageTimeoutBuilder(
-    $fileNameControl,
-    0x000D,
-    [IntPtr] $fileNameText.Capacity,
-    $fileNameText,
-    0x0002,
-    $getTextTimeout,
-    [ref] $getTextResult
-  )
-  if ($getTextStatus -eq [IntPtr]::Zero) {
-    throw "real rfd picker file-name control did not answer WM_GETTEXT within the timeout"
-  }
-  if ($fileNameText.ToString() -cne $SelectionPath) {
-    throw "real rfd picker did not retain the requested selection path"
+  $fileNameControl = Find-FileNameControl $dialog
+  if ($fileNameControl -ne [IntPtr]::Zero) {
+    $setTextTimeout = Get-RemainingMessageTimeout "setting the selection path"
+    $setTextResult = [IntPtr]::Zero
+    $setTextStatus = [NexaDialogPickerNative]::SendMessageTimeoutString(
+      $fileNameControl,
+      0x000C,
+      [IntPtr]::Zero,
+      $SelectionPath,
+      0x0002,
+      $setTextTimeout,
+      [ref] $setTextResult
+    )
+    if ($setTextStatus -eq [IntPtr]::Zero) {
+      throw "real rfd picker file-name control did not accept WM_SETTEXT within the timeout"
+    }
+    $fileNameText = [System.Text.StringBuilder]::new([Math]::Max($SelectionPath.Length + 1, 1024))
+    $getTextTimeout = Get-RemainingMessageTimeout "reading back the selection path"
+    $getTextResult = [IntPtr]::Zero
+    $getTextStatus = [NexaDialogPickerNative]::SendMessageTimeoutBuilder(
+      $fileNameControl,
+      0x000D,
+      [IntPtr] $fileNameText.Capacity,
+      $fileNameText,
+      0x0002,
+      $getTextTimeout,
+      [ref] $getTextResult
+    )
+    if ($getTextStatus -eq [IntPtr]::Zero) {
+      throw "real rfd picker file-name control did not answer WM_GETTEXT within the timeout"
+    }
+    if ($fileNameText.ToString() -cne $SelectionPath) {
+      throw "real rfd picker did not retain the requested selection path"
+    }
+  } else {
+    $fileNameAutomation = Find-FileNameAutomationControl $dialog
+    if ($null -eq $fileNameAutomation) {
+      $summary = Get-DialogAutomationSummary $dialog
+      throw "real rfd picker did not expose the standard file-name control ($summary)"
+    }
+    $fileNameAutomation.Pattern.SetValue($SelectionPath)
+    if ($fileNameAutomation.Pattern.Current.Value -cne $SelectionPath) {
+      throw "real rfd picker UI Automation control did not retain the requested selection path"
+    }
   }
   $button = Find-DialogControl $dialog 1 "Button"
 } else {
   $button = Find-DialogControl $dialog 2 "Button"
 }
+$buttonId = if ($Action -eq "accept") { 1 } else { 2 }
+$buttonAutomation = $null
 if ($button -eq [IntPtr]::Zero) {
+  $buttonAutomation = Find-ButtonAutomationControl $dialog $buttonId
+}
+if ($button -eq [IntPtr]::Zero -and $null -eq $buttonAutomation) {
   throw "real rfd picker did not expose the expected $Action button"
 }
-$messageResult = [IntPtr]::Zero
 $clickTimeout = Get-RemainingMessageTimeout "clicking the $Action button"
-$sendResult = [NexaDialogPickerNative]::SendMessageTimeoutPointer(
-  $button,
-  0x00F5,
-  [IntPtr]::Zero,
-  [IntPtr]::Zero,
-  0x0002,
-  $clickTimeout,
-  [ref] $messageResult
-)
-if ($sendResult -eq [IntPtr]::Zero) {
-  throw "real rfd picker $Action button did not accept BM_CLICK within the timeout"
+if ($button -ne [IntPtr]::Zero) {
+  $messageResult = [IntPtr]::Zero
+  $sendResult = [NexaDialogPickerNative]::SendMessageTimeoutPointer(
+    $button,
+    0x00F5,
+    [IntPtr]::Zero,
+    [IntPtr]::Zero,
+    0x0002,
+    $clickTimeout,
+    [ref] $messageResult
+  )
+  if ($sendResult -eq [IntPtr]::Zero) {
+    throw "real rfd picker $Action button did not accept BM_CLICK within the timeout"
+  }
+} else {
+  $buttonAutomation.Pattern.Invoke()
 }
 
 $remainingMilliseconds = $TimeoutMilliseconds - $stopwatch.ElapsedMilliseconds

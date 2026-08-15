@@ -345,7 +345,16 @@ test("the Windows driver budget covers Add-Type startup, discovery, and close", 
   );
   assert.match(source, /\$closeDeadline = \[Math\]::Min\(\$remainingMilliseconds, 5000\)/u);
   assert.match(source, /GetForegroundWindow\(\)/u);
-  assert.match(source, /Find-DialogControl \$dialog 1148 @\("ComboBox", "Edit"\)/u);
+  assert.match(source, /Add-Type -AssemblyName UIAutomationClient/u);
+  assert.match(source, /Add-Type -AssemblyName UIAutomationTypes/u);
+  assert.match(source, /Find-FileNameControl \$dialog/u);
+  assert.match(source, /@\("ComboBoxEx32", "ComboBox", "Edit"\)/u);
+  assert.match(source, /AutomationElement\]::FromHandle\(\$Dialog\)/u);
+  assert.match(source, /@\("1148", "1001"\)/u);
+  assert.match(source, /ValuePattern\]::Pattern/u);
+  assert.match(source, /\.SetValue\(\$SelectionPath\)/u);
+  assert.match(source, /InvokePattern\]::Pattern/u);
+  assert.match(source, /\.Invoke\(\)/u);
   assert.match(source, /Find-DialogControl \$dialog [12] "Button"/u);
   assert.match(source, /did not retain the requested selection path/u);
   assert.match(source, /file-name control did not accept WM_SETTEXT within the timeout/u);
