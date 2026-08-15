@@ -1140,11 +1140,16 @@ mod tests {
 
         let resolutions = drain(&mut runtime);
         assert_eq!(resolutions.len(), 2);
+        let mut by_awaiter = resolutions.into_iter().collect::<HashMap<_, _>>();
         assert_eq!(
-            resolutions[0],
-            (41, json!({ "ok": true, "value": "/tmp/selected.md" }))
+            by_awaiter.remove(&41),
+            Some(json!({ "ok": true, "value": "/tmp/selected.md" }))
         );
-        assert_eq!(resolutions[1], (42, json!({ "ok": true, "value": null })));
+        assert_eq!(
+            by_awaiter.remove(&42),
+            Some(json!({ "ok": true, "value": null }))
+        );
+        assert!(by_awaiter.is_empty());
     }
 
     #[test]
