@@ -1,6 +1,6 @@
 # Nexa UI Todo
 
-- 状态：Desktop Notes MVP 与无凭据 hosted 门禁已闭环（PR run `31902303937` 的 41/41 jobs 通过，覆盖 Windows UIA、双平台真实 picker/clean-runner、安全门禁、active 性能预算与 G6-05 unsigned input；clean-tag schema-v5 晋级、registry clean-user、真实签名/公证和最终发布仍待外部条件）
+- 状态：Desktop Notes MVP 的直接产品 hosted 门禁已闭环（PR run `31902303937` 的 41/41 jobs 通过，覆盖 Windows UIA、双平台真实 picker/clean-runner、安全门禁、active 性能预算与 G6-05 unsigned input；clean-tag schema-v5 晋级、registry clean-user、真实签名/公证和最终发布仍待外部条件）
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`docs/BASELINE.md`](./docs/BASELINE.md)
 - 路线图：[`docs/ROADMAP.md`](./docs/ROADMAP.md)

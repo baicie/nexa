@@ -7,7 +7,7 @@
     "phase": "none",
     "environment": "technical-preview-release",
     "allowedOperations": ["validate", "bootstrap-publication", "request-publication"],
-    "reason": "Hosted MVP, registry, performance, and signed staging evidence are not complete"
+    "reason": "Clean-tag promotion, release-bound evidence, registry clean-user, and signed staging evidence are not complete"
   },
   "source": {
     "requiredRef": "refs/tags/v0.1.0",
@@ -34,11 +34,11 @@
     },
     "security": {
       "status": "pending",
-      "reason": "Awaiting the hosted supply-chain workflow"
+      "reason": "Awaiting exact clean-tag supply-chain evidence on the release revision"
     },
     "performance": {
       "status": "pending",
-      "reason": "Awaiting reviewed active baselines on both platforms"
+      "reason": "Awaiting exact clean-tag active-baseline evidence on the release revision"
     },
     "consumer": {
       "status": "pending",
