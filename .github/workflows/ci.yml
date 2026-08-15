@@ -273,6 +273,16 @@ jobs:
     if: needs.changes.outputs.security == 'true'
     uses: ./.github/workflows/security.yml
 
+  performance:
+    name: Performance budgets
+    needs: changes
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'performance-capture') ||
+      contains(github.event.pull_request.labels.*.name, 'performance-required')
+    uses: ./.github/workflows/performance.yml
+    with:
+      require_active: ${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}
+
   result:
     name: result
     if: always()

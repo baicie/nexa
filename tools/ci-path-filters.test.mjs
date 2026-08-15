@@ -298,6 +298,19 @@ test("the required result check fails closed when change detection fails", () =>
   assert.match(workflow, /if \[\[ "\$CHANGES" != "success" \]\]; then/);
 });
 
+test("hosted performance capture is an explicit pull-request opt-in", () => {
+  const performance = ci.jobs.performance;
+  assert.equal(performance.needs, "changes");
+  assert.equal(performance.uses, "./.github/workflows/performance.yml");
+  assert.match(performance.if, /performance-capture/u);
+  assert.match(performance.if, /performance-required/u);
+  assert.equal(
+    performance.with.require_active,
+    "${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}",
+  );
+  assert.equal(ci.jobs.result.needs.includes("performance"), false);
+});
+
 test("the Docs route always runs for documentation changes and fails closed", () => {
   assert.equal(routes("tools/docs-contract.test.mjs", "docs"), true);
   assert.equal(ci.permissions.actions, "read");
