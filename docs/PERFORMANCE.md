@@ -5,10 +5,10 @@
 `tools/performance-budget.mjs`，独立 hosted 边界位于
 `.github/workflows/performance.yml`。
 
-当前状态是 **预算合同与 native collector 本地实现完成、hosted 基线待采集**。
-macOS 和 Windows 的所有 baseline 都显式为 `pending`，且不包含数值或 evidence。
-本地 AOT smoke 只证明探针、进程驱动和 RSS 读取链路可运行，不能替代 hosted
-原生证据，因此当前状态不能用于关闭 G6-07。
+当前状态是 **双平台 hosted baseline 已评审并激活**。macOS 与 Windows 的 12 个
+baseline 全部由同一 PR merge execution revision 的完整 raw report 支撑；配置校验会
+逐项回读报告并重新计算统计量。后续 workflow 必须以 `require_active` 运行并将新采样
+与这些基线比较，本地 AOT smoke 仍不能替代 hosted 原生证据。
 
 ## Reference Workload
 
@@ -203,18 +203,39 @@ candidate，不能用于 release gate。`status --require-active` 用于 rehears
 任何 workload、采样方法、runner image 或 metric 含义变化都必须先递增 schema
 或 workload ID，并重新建立 baseline。旧平台 baseline 不可跨边界复用。
 
+本次激活证据来自 GitHub Actions run `31895582357`，source branch HEAD 为
+`ecd1d9c90ecf5844223417ee118fd5292b556b4d`，PR merge execution revision 为
+`892e1cede80762f791564302c86b8afa42157575`。两份报告都记录 `failedRuns=0`、
+`droppedFrames=0`，样本数均为 `10/10/1/100/100/100`，且保留全部原始值：
+
+| Platform       |       cold start median | idle RSS median | artifact max |       tick p95 |    layout p95 |      paint p95 | Raw report                                                                       |
+| -------------- | ----------------------: | --------------: | -----------: | -------------: | ------------: | -------------: | -------------------------------------------------------------------------------- |
+| `darwin-arm64` |  `608.5209584999975 ms` |   `593264640 B` | `27159082 B` | `49.259417 ms` | `3.543917 ms` | `47.430083 ms` | `release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json` |
+| `win32-x64`    | `121.81270000000222 ms` |   `154607616 B` | `18527300 B` |   `12.3759 ms` |   `0.3558 ms` |   `11.6221 ms` | `release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json`    |
+
+对应 performance jobs `95038387701` / `95038387744` 的 build、capture、check、upload
+均成功。macOS artifact `9249896280` 的 GitHub digest 是
+`sha256:17032edfea57be564ead320963f90ccfa7e90ee21088440d9bd546022c77dc94`，
+raw JSON SHA-256 是 `afed702a8e53fb488516db84eb86bb25dbde4e82b5841d7435a4b498fa9e7680`；
+Windows artifact `9250044203` 的 GitHub digest 是
+`sha256:f657480ead9276d1f4aabf67fcc18b4c1173b32ec4402ff58835f7014b191671`，
+raw JSON SHA-256 是 `050efdbdacb8df13c2a5f04fc6c18633a704f7410f4718723993710357842dc3`。
+该 run 的无关 Windows picker proof 后处理失败不改变两个独立 performance jobs 或
+报告身份；G5 picker/package 仍须由后续全绿 run 单独闭环。
+
 ## Workflow Boundary
 
-`performance.yml` 通过手动触发或每周 schedule 运行，不接入当前 PR `ci.yml`。
-它固定 Node 22 和 Action SHA，在 `macos-15` / `windows-2022` 上先运行
+`performance.yml` 可通过手动触发、每周 schedule 或 reusable workflow 运行；PR
+只有显式添加 `performance-capture` 或 `performance-required` label 才由 `ci.yml`
+调用，避免普通变更承担双平台长任务。它固定 Node 22 和 Action SHA，在
+`macos-15` / `windows-2022` 上先运行
 `pnpm release:build` 物化 Native Host 输入，再构建 Notes candidate，拆开 native
-capture 与 budget check，并在 check 回归时仍上传完整 raw report。默认状态命令
-准确报告 pending；手动选择 `require_active` 后，未完成 baseline 会 fail closed。
+capture 与 budget check，并在 check 回归时仍上传完整 raw report。`require_active`
+或 `performance-required` 会在采集前验证两个平台没有 pending baseline。
 
 该 workflow 当前没有伪装成 native benchmark：它不会把编译成功、启动存活、
 startup smoke、测试 fixture 或 artifact byte count 填入 cold start、RSS、tick、
-layout、paint。正式 release rehearsal 必须等真实 hosted collector 和 active
-baseline 都进入同一流程后再依赖此门禁。
+layout、paint。release rehearsal 复用同一 workflow，并固定要求 active baseline。
 
 ## Local Implementation Evidence
 

@@ -63,28 +63,58 @@
       "runner": "macos-15",
       "baselines": {
         "coldStartMs": {
-          "status": "pending",
-          "reason": "Awaiting an isolated hosted macOS first-present capture"
+          "status": "active",
+          "value": 608.5209584999975,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         },
         "idleRssBytes": {
-          "status": "pending",
-          "reason": "Awaiting an isolated hosted macOS RSS capture"
+          "status": "active",
+          "value": 593264640,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         },
         "artifactBytes": {
-          "status": "pending",
-          "reason": "Awaiting the G6-01 clean consumer artifact"
+          "status": "active",
+          "value": 27159082,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         },
         "tickMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 49.259417,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         },
         "layoutMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 3.543917,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         },
         "paintMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 47.430083,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:44:41.832Z"
+          }
         }
       }
     },
@@ -92,28 +122,58 @@
       "runner": "windows-2022",
       "baselines": {
         "coldStartMs": {
-          "status": "pending",
-          "reason": "Awaiting an isolated hosted Windows first-present capture"
+          "status": "active",
+          "value": 121.81270000000222,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         },
         "idleRssBytes": {
-          "status": "pending",
-          "reason": "Awaiting an isolated hosted Windows RSS capture"
+          "status": "active",
+          "value": 154607616,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         },
         "artifactBytes": {
-          "status": "pending",
-          "reason": "Awaiting the G6-01 clean consumer artifact"
+          "status": "active",
+          "value": 18527300,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         },
         "tickMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 12.3759,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         },
         "layoutMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 0.3558,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         },
         "paintMs": {
-          "status": "pending",
-          "reason": "Awaiting hosted runtime frame metrics"
+          "status": "active",
+          "value": 11.6221,
+          "evidence": {
+            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
+            "commit": "892e1cede80762f791564302c86b8afa42157575",
+            "capturedAt": "2026-08-15T16:56:59.201Z"
+          }
         }
       }
     }

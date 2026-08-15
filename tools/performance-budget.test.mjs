@@ -26,6 +26,7 @@ const metricNames = [
 ];
 const temporaryDirectories = [];
 const runnerPath = fileURLToPath(new URL("./performance-budget.mjs", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -124,12 +125,17 @@ function report(overrides = {}) {
   };
 }
 
-test("the release config covers every G6-07 metric without invented baselines", () => {
+test("the release config covers every G6-07 metric with raw hosted evidence", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
   );
 
-  assert.doesNotThrow(() => validatePerformanceConfig(config));
+  assert.doesNotThrow(() =>
+    validatePerformanceConfig(config, {
+      verifyActiveEvidence: true,
+      evidenceRoot: repositoryRoot,
+    }),
+  );
   assert.deepEqual(Object.keys(config.metrics).sort(), [...metricNames].sort());
   assert.equal(config.metrics.artifactBytes.collection, "deterministic-artifact");
   for (const name of metricNames.filter((metricName) => metricName !== "artifactBytes")) {
@@ -138,9 +144,9 @@ test("the release config covers every G6-07 metric without invented baselines", 
   assert.deepEqual(Object.keys(config.platforms).sort(), ["darwin-arm64", "win32-x64"]);
   for (const platform of Object.values(config.platforms)) {
     for (const baseline of Object.values(platform.baselines)) {
-      assert.equal(baseline.status, "pending");
-      assert.equal("value" in baseline, false);
-      assert.equal("evidence" in baseline, false);
+      assert.equal(baseline.status, "active");
+      assert.equal(Number.isFinite(baseline.value), true);
+      assert.equal(baseline.evidence.commit, "892e1cede80762f791564302c86b8afa42157575");
     }
   }
 });
