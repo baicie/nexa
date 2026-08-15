@@ -351,6 +351,8 @@ test("the Windows driver budget covers Add-Type startup, discovery, and close", 
   assert.match(source, /@\("ComboBoxEx32", "ComboBox", "Edit"\)/u);
   assert.match(source, /AutomationElement\]::FromHandle\(\$Dialog\)/u);
   assert.match(source, /@\("1148", "1001"\)/u);
+  assert.match(source, /Find-AutomationControlInContainers/u);
+  assert.match(source, /@\("FileNameControlHost", "1001", "1148"\)/u);
   assert.match(source, /ValuePattern\]::Pattern/u);
   assert.match(source, /\.SetValue\(\$SelectionPath\)/u);
   assert.match(source, /InvokePattern\]::Pattern/u);

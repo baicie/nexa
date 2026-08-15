@@ -223,6 +223,31 @@ function Find-AutomationControlByType($Root, $ExpectedControlTypes, $RequiredPat
   return $null
 }
 
+function Find-AutomationControlInContainers(
+  $Root,
+  [string[]] $ContainerAutomationIds,
+  $ExpectedControlTypes,
+  $RequiredPattern
+) {
+  foreach ($containerAutomationId in $ContainerAutomationIds) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+      [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+      $containerAutomationId
+    )
+    $containers = $Root.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      $condition
+    )
+    foreach ($container in $containers) {
+      $nested = Find-AutomationControlByType $container $ExpectedControlTypes $RequiredPattern
+      if ($null -ne $nested) {
+        return $nested
+      }
+    }
+  }
+  return $null
+}
+
 function Find-FileNameAutomationControl([IntPtr] $Dialog) {
   if (-not $script:automationAvailable) {
     return $null
@@ -240,21 +265,7 @@ function Find-FileNameAutomationControl([IntPtr] $Dialog) {
   if ($null -ne $direct) {
     return $direct
   }
-
-  $containerCondition = [System.Windows.Automation.PropertyCondition]::new(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-    "1148"
-  )
-  $container = $root.FindFirst(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    $containerCondition
-  )
-  if ($null -eq $container) {
-    return $null
-  }
-  return Find-AutomationControlByType $container @(
-    [System.Windows.Automation.ControlType]::Edit
-  ) $valuePattern
+  return Find-AutomationControlInContainers $root @("FileNameControlHost", "1001", "1148") $controlTypes $valuePattern
 }
 
 function Find-ButtonAutomationControl([IntPtr] $Dialog, [int] $ControlId) {
@@ -265,9 +276,15 @@ function Find-ButtonAutomationControl([IntPtr] $Dialog, [int] $ControlId) {
   if ($null -eq $root) {
     return $null
   }
-  return Find-AutomationControl $root @("$ControlId") @(
+  $controlTypes = @(
     [System.Windows.Automation.ControlType]::Button
-  ) ([System.Windows.Automation.InvokePattern]::Pattern)
+  )
+  $invokePattern = [System.Windows.Automation.InvokePattern]::Pattern
+  $direct = Find-AutomationControl $root @("$ControlId") $controlTypes $invokePattern
+  if ($null -ne $direct) {
+    return $direct
+  }
+  return Find-AutomationControlInContainers $root @("$ControlId") $controlTypes $invokePattern
 }
 
 function Get-DialogAutomationSummary([IntPtr] $Dialog) {
