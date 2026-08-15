@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -97,6 +98,19 @@ test("Perry host dependencies bind the audited revision to its declared version"
 
   assert.match(read("packages/nui-host/Cargo.toml"), dependency);
   assert.match(read("packages/system-host/Cargo.toml"), dependency);
+});
+
+test("the pinned Perry runtime fixture retains its exact upstream MIT notice", () => {
+  const license = read("tools/fixtures/perry-runtime/0613785/LICENSE");
+  const attributes = read("tools/fixtures/perry-runtime/0613785/.gitattributes");
+
+  assert.match(license, /Copyright \(c\) 2026 Perry Contributors/u);
+  assert.equal(
+    createHash("sha256").update(license).digest("hex"),
+    "c871483477d7105432645affac5be5edbd92b41a6faedb4c692e0681e46ada09",
+  );
+  assert.match(attributes, /^exception\.rs text eol=lf$/mu);
+  assert.match(attributes, /^LICENSE text eol=lf$/mu);
 });
 
 test("Windows static closure enables only the Perry runtime features used by Preview apps", () => {

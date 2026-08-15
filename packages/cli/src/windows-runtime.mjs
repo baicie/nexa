@@ -11,13 +11,14 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
   writeSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { COMPATIBILITY } from "./constants.mjs";
+import { COMPATIBILITY, PERRY_SOURCE_REPOSITORY, PERRY_SOURCE_REVISION } from "./constants.mjs";
 import { resolveInstalledPackage } from "./doctor.mjs";
 
 const NUI_HOST = "@nexa/nui-host";
@@ -25,6 +26,18 @@ const SYSTEM_HOST = "@nexa/system-host";
 const HOST_NAMES = new Set(["nui-host", "system-host"]);
 const WINDOWS_SKIA_LIBRARIES = ["skia.lib", "skia-bindings.lib"];
 const CARGO_METADATA_BUFFER_LIMIT = 16 * 1024 * 1024;
+const PERRY_WINDOWS_LONGJMP_UPSTREAM_COMMIT = "4f397c7ae0b9349d3eddf32b873c5a753cffa3fd";
+const PERRY_WINDOWS_LONGJMP_TARGET = "crates/perry-runtime/src/exception.rs";
+const PERRY_WINDOWS_LONGJMP_BEFORE_SHA256 =
+  "10073a4f45bb1db32d989be5f9d31405fb8d2798ef42315b67e7ea5bd75b1b05";
+const PERRY_WINDOWS_LONGJMP_AFTER_SHA256 =
+  "0a7b0a0f676748a1dd1a166aed57d6e08f1e8b3016d9c51495062cbe48cdae43";
+const PERRY_WINDOWS_LONGJMP_ANCHOR = "    unsafe { longjmp(jb_ptr, 1) }\n";
+const PERRY_WINDOWS_LONGJMP_REPLACEMENT = `    #[cfg(windows)]
+    unsafe {
+        (jb_ptr as *mut u64).write(0);
+    }
+${PERRY_WINDOWS_LONGJMP_ANCHOR}`;
 const FORBIDDEN_SEGMENTS = new Set(["target", "node_modules", ".git"]);
 const PACKAGED_TEMPLATE_ROOT = path.resolve(
   fileURLToPath(new URL("./windows-static-closure/", import.meta.url)),
@@ -352,7 +365,8 @@ function mergeInstalledSources(nui, system, destination) {
 }
 
 function copyClosureTemplate(merged, templateRoot = TEMPLATE_ROOT) {
-  for (const file of ["Cargo.toml", "Cargo.lock", "src/lib.rs"]) {
+  const runtimePatch = "patches/perry-runtime-windows-longjmp.json";
+  for (const file of ["Cargo.toml", "Cargo.lock", "src/lib.rs", runtimePatch]) {
     regularFile(path.join(templateRoot, file), `reviewed closure template ${file}`);
   }
   const destination = path.join(merged, "packages/cli/src/windows-static-closure");
@@ -361,7 +375,12 @@ function copyClosureTemplate(merged, templateRoot = TEMPLATE_ROOT) {
     cpSync(path.join(templateRoot, file), path.join(destination, file));
   }
   cpSync(path.join(templateRoot, "src/lib.rs"), path.join(destination, "src/lib.rs"));
-  return path.join(destination, "Cargo.toml");
+  mkdirSync(path.join(destination, "patches"), { recursive: true });
+  cpSync(path.join(templateRoot, runtimePatch), path.join(destination, runtimePatch));
+  return {
+    manifestPath: path.join(destination, "Cargo.toml"),
+    runtimePatchPath: path.join(destination, runtimePatch),
+  };
 }
 
 function defaultRunner(command, args, options) {
@@ -376,6 +395,108 @@ function assertCommandSucceeded(result, stage) {
 function commandOutput(value) {
   if (Buffer.isBuffer(value)) return value.toString("utf8");
   return typeof value === "string" ? value : "";
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function readRuntimePatchContract(patchPath) {
+  const bytes = readFileSync(canonicalFile(patchPath, "reviewed Perry runtime patch"));
+  let contract;
+  try {
+    contract = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    fail("reviewed Perry runtime patch must be valid JSON");
+  }
+  const expectedKeys = [
+    "afterSha256",
+    "anchor",
+    "beforeSha256",
+    "replacement",
+    "schemaVersion",
+    "sourceRevision",
+    "target",
+    "upstreamCommit",
+  ];
+  const actualKeys =
+    contract !== null && typeof contract === "object" && !Array.isArray(contract)
+      ? Object.keys(contract).sort()
+      : [];
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index]) ||
+    contract.schemaVersion !== 1 ||
+    contract.sourceRevision !== PERRY_SOURCE_REVISION ||
+    contract.upstreamCommit !== PERRY_WINDOWS_LONGJMP_UPSTREAM_COMMIT ||
+    contract.target !== PERRY_WINDOWS_LONGJMP_TARGET ||
+    contract.beforeSha256 !== PERRY_WINDOWS_LONGJMP_BEFORE_SHA256 ||
+    contract.afterSha256 !== PERRY_WINDOWS_LONGJMP_AFTER_SHA256 ||
+    contract.anchor !== PERRY_WINDOWS_LONGJMP_ANCHOR ||
+    contract.replacement !== PERRY_WINDOWS_LONGJMP_REPLACEMENT
+  ) {
+    fail("reviewed Perry runtime patch contract is invalid");
+  }
+  return { contract, contractSha256: sha256(bytes) };
+}
+
+function patchPerryRuntime(metadata, cargoHome, patchPath) {
+  const runtimes = metadata.packages.filter(({ name }) => name === "perry-runtime");
+  if (runtimes.length !== 1) {
+    fail("merged closure Cargo graph must resolve exactly one Perry runtime");
+  }
+  const runtime = runtimes[0];
+  const expectedSource = `git+${PERRY_SOURCE_REPOSITORY}?rev=${PERRY_SOURCE_REVISION}#${PERRY_SOURCE_REVISION}`;
+  if (runtime.version !== COMPATIBILITY.perry || runtime.source !== expectedSource) {
+    fail("merged closure Perry runtime does not match the pinned version and revision");
+  }
+
+  const canonicalCargoHome = canonicalDirectory(cargoHome, "controlled Cargo home");
+  const runtimeManifest = canonicalFile(runtime.manifest_path, "Perry runtime Cargo manifest");
+  assertInside(canonicalCargoHome, runtimeManifest, "Perry runtime Cargo manifest");
+  const sourceRoot = canonicalDirectory(
+    path.resolve(path.dirname(runtimeManifest), "../.."),
+    "Perry source checkout",
+  );
+  assertInside(canonicalCargoHome, sourceRoot, "Perry source checkout");
+  if (
+    canonicalFile(
+      path.join(sourceRoot, "crates/perry-runtime/Cargo.toml"),
+      "Perry runtime Cargo manifest",
+    ) !== runtimeManifest
+  ) {
+    fail("Perry runtime manifest is outside the pinned source layout");
+  }
+
+  const { contract, contractSha256 } = readRuntimePatchContract(patchPath);
+  const runtimeSource = canonicalFile(
+    path.join(sourceRoot, contract.target),
+    "Perry runtime exception source",
+  );
+  assertInside(sourceRoot, runtimeSource, "Perry runtime exception source");
+  let bytes = readFileSync(runtimeSource);
+  let sourceSha256 = sha256(bytes);
+  if (sourceSha256 === contract.beforeSha256) {
+    const source = bytes.toString("utf8");
+    if (source.split(contract.anchor).length !== 2) {
+      fail("Perry runtime patch anchor must occur exactly once");
+    }
+    bytes = Buffer.from(source.replace(contract.anchor, contract.replacement), "utf8");
+    if (sha256(bytes) !== contract.afterSha256) {
+      fail("Perry runtime patch output does not match the reviewed hash");
+    }
+    writeFileSync(runtimeSource, bytes);
+    sourceSha256 = sha256(readFileSync(runtimeSource));
+  }
+  if (sourceSha256 !== contract.afterSha256) {
+    fail("Perry runtime source hash does not match the reviewed original or patch");
+  }
+  return {
+    sourceRevision: contract.sourceRevision,
+    upstreamCommit: contract.upstreamCommit,
+    contractSha256,
+    sourceSha256,
+  };
 }
 
 function validateMergedMetadata(metadataResult, merged, hostManifestPaths) {
@@ -405,6 +526,7 @@ function validateMergedMetadata(metadataResult, merged, hostManifestPaths) {
   const canonicalMerged = canonicalDirectory(merged, "merged source root");
   for (const manifest of actual)
     assertInside(canonicalMerged, manifest, "merged Host Cargo manifest");
+  return metadata;
 }
 
 function runtimeRoot(environment) {
@@ -624,16 +746,22 @@ export function prepareWindowsPerryRuntime({
   try {
     invocation = mkdtempSync(path.join(root, "invocation-"));
     const merged = mergeInstalledSources(nui, system, invocation);
-    const closureManifest = copyClosureTemplate(merged, templateRoot);
+    const closureTemplate = copyClosureTemplate(merged, templateRoot);
+    const closureManifest = closureTemplate.manifestPath;
     const hostManifestPaths = [
       path.join(merged, "packages/nui-host/Cargo.toml"),
       path.join(merged, "packages/system-host/Cargo.toml"),
     ];
     const target = path.join(root, "target");
+    const cargoHome = path.join(root, "cargo-home");
+    assertDirectoryPathHasNoLinks(root, cargoHome, "controlled Cargo home");
+    mkdirSync(cargoHome, { recursive: true });
+    canonicalDirectory(cargoHome, "controlled Cargo home");
     const cargoEnvironment = closureEnvironment(environment, {
       NEXA_APP_MANIFEST_PATH: manifestPath,
       ...(dialogFixturePath ? { NEXA_DIALOG_TEST_FIXTURE_PATH: dialogFixturePath } : {}),
       CARGO_PROFILE_RELEASE_PANIC: "unwind",
+      CARGO_HOME: cargoHome,
       PERRY_NO_AUTO_OPTIMIZE: "1",
       PERRY_NO_CACHE: "1",
       RUSTUP_TOOLCHAIN: WINDOWS_CLOSURE_RUST_TOOLCHAIN,
@@ -661,7 +789,12 @@ export function prepareWindowsPerryRuntime({
         maxBuffer: CARGO_METADATA_BUFFER_LIMIT,
       },
     );
-    validateMergedMetadata(metadataResult, merged, hostManifestPaths);
+    const metadata = validateMergedMetadata(metadataResult, merged, hostManifestPaths);
+    const perryRuntimePatch = patchPerryRuntime(
+      metadata,
+      cargoHome,
+      closureTemplate.runtimePatchPath,
+    );
     const result = runner(
       "cargo",
       [
@@ -703,6 +836,7 @@ export function prepareWindowsPerryRuntime({
         PERRY_NO_CACHE: "1",
         RUSTUP_TOOLCHAIN: WINDOWS_CLOSURE_RUST_TOOLCHAIN,
         CARGO_BUILD_TARGET: WINDOWS_CLOSURE_RUST_TARGET,
+        CARGO_HOME: cargoHome,
         NEXA_APP_MANIFEST_PATH: manifestPath,
         ...(dialogFixturePath ? { NEXA_DIALOG_TEST_FIXTURE_PATH: dialogFixturePath } : {}),
       }),
@@ -725,6 +859,7 @@ export function prepareWindowsPerryRuntime({
             .digest("hex"),
         })),
         mergedSourceSha256: treeDigest(merged),
+        perryRuntimePatch,
         installedHosts: [nui, system].map(({ packageDirectory, nativeRoot }) => ({
           packageDirectory,
           nativeRoot,

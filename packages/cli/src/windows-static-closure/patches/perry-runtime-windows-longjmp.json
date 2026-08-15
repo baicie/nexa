@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "06137858dc8c6f80975238377138f2f948d6ef88",
+  "upstreamCommit": "4f397c7ae0b9349d3eddf32b873c5a753cffa3fd",
+  "target": "crates/perry-runtime/src/exception.rs",
+  "beforeSha256": "10073a4f45bb1db32d989be5f9d31405fb8d2798ef42315b67e7ea5bd75b1b05",
+  "afterSha256": "0a7b0a0f676748a1dd1a166aed57d6e08f1e8b3016d9c51495062cbe48cdae43",
+  "anchor": "    unsafe { longjmp(jb_ptr, 1) }\n",
+  "replacement": "    #[cfg(windows)]\n    unsafe {\n        (jb_ptr as *mut u64).write(0);\n    }\n    unsafe { longjmp(jb_ptr, 1) }\n"
+}

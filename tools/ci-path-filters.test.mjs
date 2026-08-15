@@ -180,6 +180,10 @@ test("workflow, script, and root config changes route to their owners", () => {
     ["patches/perry/0001-windows-reject-duplicate-symbols.patch", ["perry", "package"]],
     ["packages/cli/src/windows-static-closure/Cargo.toml", ["perry", "package"]],
     ["packages/cli/src/windows-static-closure/Cargo.lock", ["perry", "package"]],
+    [
+      "packages/cli/src/windows-static-closure/patches/perry-runtime-windows-longjmp.json",
+      ["perry", "package"],
+    ],
     ["packages/cli/src/windows-static-closure/src/lib.rs", ["perry", "package"]],
     ["tools/perry-compile.mjs", ["perry", "package"]],
     ["tools/stage-windows-skia.mjs", ["perry", "package"]],

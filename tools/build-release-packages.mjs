@@ -186,6 +186,7 @@ function emitCli(entry, dist) {
   copyTree(path.join(packageRoot(entry), "src"), dist, {
     filter: (filePath) =>
       filePath.endsWith(".mjs") ||
+      filePath.endsWith(".json") ||
       filePath.endsWith(".toml") ||
       filePath.endsWith(".rs") ||
       path.basename(filePath) === "Cargo.lock",

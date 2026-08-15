@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -15,7 +16,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { COMPATIBILITY } from "../packages/cli/src/constants.mjs";
+import { COMPATIBILITY, PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 import {
   WINDOWS_CLOSURE_RUST_TOOLCHAIN,
   preparePerryRuntimeForCompile,
@@ -30,6 +31,44 @@ const sharedFiles = {
   "crates/nui-app-runtime/src/lib.rs": "pub const FIXTURE: bool = true;\n",
   "protocol/generated/protocol.rs": "pub const PROTOCOL: u32 = 1;\n",
 };
+
+const perrySource = `git+https://github.com/PerryTS/perry?rev=${PERRY_SOURCE_REVISION}#${PERRY_SOURCE_REVISION}`;
+const windowsLongjmpUpstreamCommit = "4f397c7ae0b9349d3eddf32b873c5a753cffa3fd";
+const windowsLongjmpBeforeSha256 =
+  "10073a4f45bb1db32d989be5f9d31405fb8d2798ef42315b67e7ea5bd75b1b05";
+const windowsLongjmpAfterSha256 =
+  "0a7b0a0f676748a1dd1a166aed57d6e08f1e8b3016d9c51495062cbe48cdae43";
+const windowsLongjmpAnchor = "    unsafe { longjmp(jb_ptr, 1) }\n";
+const windowsLongjmpReplacement = `    #[cfg(windows)]
+    unsafe {
+        (jb_ptr as *mut u64).write(0);
+    }
+${windowsLongjmpAnchor}`;
+const fixturePerryRuntimeOriginal = readFileSync(
+  new URL("./fixtures/perry-runtime/0613785/exception.rs", import.meta.url),
+  "utf8",
+);
+const fixturePerryRuntimePatched = fixturePerryRuntimeOriginal.replace(
+  windowsLongjmpAnchor,
+  windowsLongjmpReplacement,
+);
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function windowsLongjmpPatchContract() {
+  return {
+    schemaVersion: 1,
+    sourceRevision: PERRY_SOURCE_REVISION,
+    upstreamCommit: windowsLongjmpUpstreamCommit,
+    target: "crates/perry-runtime/src/exception.rs",
+    beforeSha256: sha256(fixturePerryRuntimeOriginal),
+    afterSha256: sha256(fixturePerryRuntimePatched),
+    anchor: windowsLongjmpAnchor,
+    replacement: windowsLongjmpReplacement,
+  };
+}
 
 function temporaryDirectory(t) {
   const directory = mkdtempSync(path.join(tmpdir(), "nexa-windows-runtime-test-"));
@@ -96,6 +135,10 @@ function closureTemplate(root) {
   );
   write(path.join(template, "Cargo.lock"), "version = 4\n");
   write(path.join(template, "src/lib.rs"), "extern crate perry_runtime;\n");
+  write(
+    path.join(template, "patches/perry-runtime-windows-longjmp.json"),
+    `${JSON.stringify(windowsLongjmpPatchContract(), null, 2)}\n`,
+  );
   return template;
 }
 
@@ -137,6 +180,16 @@ function successfulRunner(calls, closureBytes = Buffer.from("closure\0first-mani
   return (command, args, options) => {
     calls.push({ command, args, options });
     if (args[1] === "metadata") {
+      const perryRoot = path.join(
+        options.env.CARGO_HOME ?? options.cwd,
+        "git/checkouts/perry-fixture/0613785",
+      );
+      const perryRuntimeManifest = path.join(perryRoot, "crates/perry-runtime/Cargo.toml");
+      const exceptionSource = path.join(perryRoot, "crates/perry-runtime/src/exception.rs");
+      if (!existsSync(exceptionSource)) {
+        write(perryRuntimeManifest, '[package]\nname = "perry-runtime"\nversion = "0.5.1220"\n');
+        write(exceptionSource, fixturePerryRuntimeOriginal);
+      }
       return {
         status: 0,
         stdout: JSON.stringify({
@@ -148,6 +201,12 @@ function successfulRunner(calls, closureBytes = Buffer.from("closure\0first-mani
             {
               name: "perry-ext-nexa_system_host",
               manifest_path: path.join(options.cwd, "packages/system-host/Cargo.toml"),
+            },
+            {
+              name: "perry-runtime",
+              version: "0.5.1220",
+              source: perrySource,
+              manifest_path: perryRuntimeManifest,
             },
           ],
         }),
@@ -166,12 +225,36 @@ function successfulRunner(calls, closureBytes = Buffer.from("closure\0first-mani
   };
 }
 
+test("ships the exact reviewed Perry Windows longjmp patch contract", () => {
+  const contract = JSON.parse(
+    readFileSync(
+      new URL(
+        "../packages/cli/src/windows-static-closure/patches/perry-runtime-windows-longjmp.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+
+  assert.deepEqual(contract, {
+    schemaVersion: 1,
+    sourceRevision: PERRY_SOURCE_REVISION,
+    upstreamCommit: windowsLongjmpUpstreamCommit,
+    target: "crates/perry-runtime/src/exception.rs",
+    beforeSha256: windowsLongjmpBeforeSha256,
+    afterSha256: windowsLongjmpAfterSha256,
+    anchor: windowsLongjmpAnchor,
+    replacement: windowsLongjmpReplacement,
+  });
+});
+
 test("builds one installed-source closure for the current manifest and owns both Perry libraries", (t) => {
   const value = fixture(t);
   const calls = [];
   const environment = {
     ...value.environment,
     cargo_build_target: "wasm32-unknown-unknown",
+    cargo_home: "C:\\stale-cargo-home",
     link: "/DEBUG",
     rustup_toolchain: "1.88.0",
   };
@@ -198,6 +281,8 @@ test("builds one installed-source closure for the current manifest and owns both
   ]);
   assert.equal(calls[0].options.stdio, "pipe");
   assert.equal(calls[0].options.maxBuffer, 16 * 1024 * 1024);
+  assert.equal(calls[0].options.env.CARGO_HOME, path.join(prepared.root, "cargo-home"));
+  assert.equal("cargo_home" in calls[0].options.env, false);
   assert.deepEqual(calls[1].args.slice(0, 4), [
     `+${WINDOWS_CLOSURE_RUST_TOOLCHAIN}`,
     "build",
@@ -209,6 +294,7 @@ test("builds one installed-source closure for the current manifest and owns both
   assert.equal(calls[1].options.env.NEXA_DIALOG_TEST_FIXTURE_PATH, undefined);
   assert.equal(calls[1].options.env.PERRY_NO_AUTO_OPTIMIZE, "1");
   assert.equal(calls[1].options.env.CARGO_BUILD_TARGET, "x86_64-pc-windows-msvc");
+  assert.equal(calls[1].options.env.CARGO_HOME, path.join(prepared.root, "cargo-home"));
   assert.equal("cargo_build_target" in calls[1].options.env, false);
   assert.deepEqual(calls[1].args.slice(-2), ["--target", "x86_64-pc-windows-msvc"]);
   const keys = Object.keys(prepared.environment).map((name) => name.toUpperCase());
@@ -228,6 +314,7 @@ test("builds one installed-source closure for the current manifest and owns both
   assert.equal(prepared.environment.RUSTUP_TOOLCHAIN, WINDOWS_CLOSURE_RUST_TOOLCHAIN);
   assert.equal("rustup_toolchain" in prepared.environment, false);
   assert.equal("link" in prepared.environment, false);
+  assert.equal(prepared.environment.CARGO_HOME, path.join(prepared.root, "cargo-home"));
   const linkMatch = prepared.environment.LINK.match(/^\/LIBPATH:"([^"]+)" \/DEBUG$/u);
   assert.ok(linkMatch);
   const skiaDirectory = linkMatch[1];
@@ -253,6 +340,19 @@ test("builds one installed-source closure for the current manifest and owns both
   );
   assert.ok(prepared.provenance.windowsSkia.every(({ sha256 }) => /^[a-f0-9]{64}$/u.test(sha256)));
   assert.match(prepared.provenance.mergedSourceSha256, /^[a-f0-9]{64}$/u);
+  assert.deepEqual(prepared.provenance.perryRuntimePatch, {
+    sourceRevision: PERRY_SOURCE_REVISION,
+    upstreamCommit: windowsLongjmpUpstreamCommit,
+    contractSha256: sha256(
+      readFileSync(path.join(value.templateRoot, "patches/perry-runtime-windows-longjmp.json")),
+    ),
+    sourceSha256: sha256(fixturePerryRuntimePatched),
+  });
+  const patchedRuntime = path.join(
+    calls[0].options.env.CARGO_HOME,
+    "git/checkouts/perry-fixture/0613785/crates/perry-runtime/src/exception.rs",
+  );
+  assert.equal(readFileSync(patchedRuntime, "utf8"), fixturePerryRuntimePatched);
   assert.equal(prepared.provenance.installedHosts.length, 2);
   assert.ok(
     prepared.provenance.installedHosts.every(({ sourceSha256 }) =>
@@ -328,7 +428,7 @@ test("consecutive closure builds bind different manifests and only the explicit 
   assert.equal(readFileSync(second.closure).includes(readFileSync(value.manifestPath)), false);
 });
 
-test("persistent builds rebuild source trees, share only Cargo target, and isolate runtime output", (t) => {
+test("persistent builds rebuild source trees, share Cargo cache and target, and isolate runtime output", (t) => {
   const value = fixture(t);
   const persistentRoot = path.join(value.root, "persistent-runtime");
   const environment = {
@@ -379,7 +479,132 @@ test("persistent builds rebuild source trees, share only Cargo target, and isola
     readdirSync(persistentRoot)
       .filter((entry) => !entry.startsWith("invocation-"))
       .sort(),
-    [".build-lock", "target"],
+    [".build-lock", "cargo-home", "target"],
+  );
+});
+
+test("fails closed when the pinned Perry runtime source cannot be proven or patched", (t) => {
+  const value = fixture(t);
+
+  assert.throws(
+    () =>
+      prepareWindowsPerryRuntime({
+        projectDirectory: value.projectDirectory,
+        manifestPath: value.manifestPath,
+        environment: value.environment,
+        resolvePackage: value.resolvePackage,
+        runner(command, args, options) {
+          const result = successfulRunner([])(command, args, options);
+          if (args[1] === "metadata") {
+            const metadata = JSON.parse(result.stdout);
+            const runtime = metadata.packages.find(({ name }) => name === "perry-runtime");
+            write(
+              path.join(path.dirname(runtime.manifest_path), "src/exception.rs"),
+              "tampered runtime source\n",
+            );
+            result.stdout = JSON.stringify(metadata);
+          }
+          return result;
+        },
+        runtime: { platform: "win32", arch: "x64" },
+        templateRoot: value.templateRoot,
+      }),
+    /runtime source hash does not match/u,
+  );
+
+  const patchPath = path.join(value.templateRoot, "patches/perry-runtime-windows-longjmp.json");
+  const invalidContract = windowsLongjmpPatchContract();
+  invalidContract.beforeSha256 = "0".repeat(64);
+  write(patchPath, `${JSON.stringify(invalidContract, null, 2)}\n`);
+  assert.throws(
+    () =>
+      prepareWindowsPerryRuntime({
+        projectDirectory: value.projectDirectory,
+        manifestPath: value.manifestPath,
+        environment: value.environment,
+        resolvePackage: value.resolvePackage,
+        runner: successfulRunner([]),
+        runtime: { platform: "win32", arch: "x64" },
+        templateRoot: value.templateRoot,
+      }),
+    /reviewed Perry runtime patch contract is invalid/u,
+  );
+
+  rmSync(patchPath);
+  assert.throws(
+    () =>
+      prepareWindowsPerryRuntime({
+        projectDirectory: value.projectDirectory,
+        manifestPath: value.manifestPath,
+        environment: value.environment,
+        resolvePackage: value.resolvePackage,
+        runner: successfulRunner([]),
+        runtime: { platform: "win32", arch: "x64" },
+        templateRoot: value.templateRoot,
+      }),
+    /reviewed closure template patches[/\\]perry-runtime-windows-longjmp\.json does not exist/u,
+  );
+});
+
+test("fails closed when Cargo metadata resolves a different Perry revision", (t) => {
+  const value = fixture(t);
+
+  assert.throws(
+    () =>
+      prepareWindowsPerryRuntime({
+        projectDirectory: value.projectDirectory,
+        manifestPath: value.manifestPath,
+        environment: value.environment,
+        resolvePackage: value.resolvePackage,
+        runner(command, args, options) {
+          const result = successfulRunner([])(command, args, options);
+          if (args[1] === "metadata") {
+            const metadata = JSON.parse(result.stdout);
+            const runtime = metadata.packages.find(({ name }) => name === "perry-runtime");
+            runtime.source =
+              "git+https://github.com/PerryTS/perry?rev=0000000000000000000000000000000000000000#0000000000000000000000000000000000000000";
+            result.stdout = JSON.stringify(metadata);
+          }
+          return result;
+        },
+        runtime: { platform: "win32", arch: "x64" },
+        templateRoot: value.templateRoot,
+      }),
+    /Perry runtime does not match the pinned version and revision/u,
+  );
+});
+
+test("fails closed when the Perry runtime checkout escapes the controlled Cargo home", (t) => {
+  const value = fixture(t);
+  const externalRoot = path.join(value.root, "external-perry");
+  const externalManifest = path.join(externalRoot, "crates/perry-runtime/Cargo.toml");
+  write(externalManifest, '[package]\nname = "perry-runtime"\nversion = "0.5.1220"\n');
+  write(
+    path.join(externalRoot, "crates/perry-runtime/src/exception.rs"),
+    fixturePerryRuntimeOriginal,
+  );
+
+  assert.throws(
+    () =>
+      prepareWindowsPerryRuntime({
+        projectDirectory: value.projectDirectory,
+        manifestPath: value.manifestPath,
+        environment: value.environment,
+        resolvePackage: value.resolvePackage,
+        runner(command, args, options) {
+          const result = successfulRunner([])(command, args, options);
+          if (args[1] === "metadata") {
+            const metadata = JSON.parse(result.stdout);
+            const runtime = metadata.packages.find(({ name }) => name === "perry-runtime");
+            runtime.manifest_path = externalManifest;
+            result.stdout = JSON.stringify(metadata);
+          }
+          return result;
+        },
+        runtime: { platform: "win32", arch: "x64" },
+        templateRoot: value.templateRoot,
+      }),
+    /Perry runtime Cargo manifest escapes/u,
   );
 });
 
@@ -477,10 +702,10 @@ test("persistent metadata failure removes the invocation and partial source tree
     /merged closure cargo metadata failed with exit code 1/u,
   );
 
-  assert.deepEqual(readdirSync(persistentRoot), []);
+  assert.deepEqual(readdirSync(persistentRoot), ["cargo-home"]);
 });
 
-test("persistent build failure removes invocation output but preserves the shared Cargo target", (t) => {
+test("persistent build failure removes invocation output but preserves shared Cargo cache and target", (t) => {
   const value = fixture(t);
   const persistentRoot = path.join(value.root, "persistent-runtime");
 
@@ -508,7 +733,7 @@ test("persistent build failure removes invocation output but preserves the share
     /unified static closure build failed with exit code 1/u,
   );
 
-  assert.deepEqual(readdirSync(persistentRoot), ["target"]);
+  assert.deepEqual(readdirSync(persistentRoot).sort(), ["cargo-home", "target"]);
   assert.equal(existsSync(path.join(persistentRoot, "target/release/partial.lib")), true);
 });
 
@@ -759,7 +984,7 @@ test("fails closed when Cargo metadata resolves either Host outside the merged s
     /must resolve both Hosts from the owned merged source root/u,
   );
 
-  assert.deepEqual(readdirSync(persistentRoot), []);
+  assert.deepEqual(readdirSync(persistentRoot), ["cargo-home"]);
 });
 
 test("resolves the installed NUI Host Windows library directory from its manifest", async (t) => {

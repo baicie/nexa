@@ -15,7 +15,7 @@
 
 `packages/nui-host/Cargo.lock`、`packages/system-host/Cargo.lock` 与 `packages/cli/src/windows-static-closure/Cargo.lock` 都必须提交。它们是独立 staticlib crate/组合闭包的可重复依赖快照，不受根 `Cargo.lock` 覆盖；Windows 闭包模板随 CLI 发布，因此 security、Dependabot、SBOM 与实际 consumer 构建审计同一份权威源。该闭包只启用 Technical Preview 参考应用使用的 Perry `core`、Host Promise 所需 `async-runtime` 与协议校验所需 `regex-engine` feature，并由 hosted AOT/launch 门禁验证。
 
-Windows `nexa dev/build/package` 使用 Rust 1.95.0 从已安装 Host 的 vendored source 为当前应用重建统一闭包，并显式固定 `x86_64-pc-windows-msvc` Cargo target，避免用户级 `[build] target` 改变产物布局。CLI 校验 Cargo 本次产出的 `skia.lib` 与 `skia-bindings.lib`，再通过 MSVC `link.exe` 与 `lld-link` 都支持的 `LINK=/LIBPATH:...` 注入搜索目录；调用环境原本没有 `LIB` 时仍保持缺失，让 Perry 正常发现 MSVC CRT 与 Windows SDK，因此干净 consumer 不依赖仓库内 staging 工具。配置 `NEXA_WINDOWS_RUNTIME_ROOT` 时只在活锁持有期间复用共享 Cargo target；若发现死亡进程、空文件或截断元数据遗留锁，CLI 保留原锁字节并切换到本次调用独占的 `recovery-*` target，避免条件删除竞态。
+Windows `nexa dev/build/package` 使用 Rust 1.95.0 从已安装 Host 的 vendored source 为当前应用重建统一闭包，并显式固定 `x86_64-pc-windows-msvc` Cargo target，避免用户级 `[build] target` 改变产物布局。闭包构建使用 Nexa 独占的 Cargo home；CLI 只接受固定 Perry revision 中 `exception.rs` 的已知原始哈希或上游 `4f397c7ae0b9349d3eddf32b873c5a753cffa3fd` 回补后的哈希，并在编译前幂等修复 MSVC `_setjmp` 的 `Frame` 槽，其他内容一律失败。CLI 校验 Cargo 本次产出的 `skia.lib` 与 `skia-bindings.lib`，再通过 MSVC `link.exe` 与 `lld-link` 都支持的 `LINK=/LIBPATH:...` 注入搜索目录；调用环境原本没有 `LIB` 时仍保持缺失，让 Perry 正常发现 MSVC CRT 与 Windows SDK，因此干净 consumer 不依赖仓库内 staging 工具。配置 `NEXA_WINDOWS_RUNTIME_ROOT` 时只在活锁持有期间复用共享 Cargo source cache 与 target；若发现死亡进程、空文件或截断元数据遗留锁，CLI 保留原锁字节并切换到本次调用独占的 `recovery-*` cache 与 target，避免条件删除竞态。
 
 仓库 `.npmrc` 固定官方 npm registry。Perry CLI 依赖按平台分包，镜像缺少任一 optional package 都会产生“wrapper 已安装但 CLI 不可执行”的假安装。
 

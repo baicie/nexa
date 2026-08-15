@@ -80,6 +80,7 @@ test("release build emits importable ESM and self-contained Host source in isola
       const closureFiles = [
         "windows-static-closure/Cargo.toml",
         "windows-static-closure/Cargo.lock",
+        "windows-static-closure/patches/perry-runtime-windows-longjmp.json",
         "windows-static-closure/src/lib.rs",
       ];
       for (const required of closureFiles) {
