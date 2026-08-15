@@ -20,12 +20,14 @@ use nui_app_runtime::{
 };
 use nui_system_core::{
     clipboard_read_text, clipboard_write_text, internal_failure, invalid_argument,
-    permission_denied, AppManifest, CommandId, PermissionSource,
+    permission_denied, platform_failure, AppManifest, CommandId, DialogError, PermissionSource,
 };
 use perry_ffi::{alloc_string, read_string, JsPromise, JsString, Promise, StringHeader};
 use serde_json::{json, Value};
 
-use dialog::{parse_request, system_dialog_backend};
+use dialog::system_dialog_backend;
+#[cfg(test)]
+use dialog::parse_request_with_current_dir;
 use task_runtime::SystemTaskRuntime;
 
 fn permissions() -> &'static SystemHostPermissions {
@@ -157,10 +159,47 @@ fn dialog_request(
     default_path: String,
     filters_json: String,
 ) -> Result<nui_system_core::DialogRequest, nui_system_core::protocol::common::NexaError> {
-    parse_request(title, default_path, filters_json).map_err(|error| {
-        let message = error.to_string();
-        nui_system_core::invalid_data(operation, "dialog-request", &message)
-    })
+    dialog_request_result(
+        operation,
+        dialog::parse_request(title, default_path, filters_json),
+    )
+}
+
+#[cfg(test)]
+#[allow(clippy::result_large_err)]
+fn dialog_request_with_current_dir(
+    operation: &str,
+    title: String,
+    default_path: String,
+    filters_json: String,
+    current_dir: impl FnOnce() -> std::io::Result<PathBuf>,
+) -> Result<nui_system_core::DialogRequest, nui_system_core::protocol::common::NexaError> {
+    dialog_request_result(
+        operation,
+        parse_request_with_current_dir(title, default_path, filters_json, current_dir),
+    )
+}
+
+#[allow(clippy::result_large_err)]
+fn dialog_request_result(
+    operation: &str,
+    result: Result<nui_system_core::DialogRequest, DialogError>,
+) -> Result<nui_system_core::DialogRequest, nui_system_core::protocol::common::NexaError> {
+    result.map_err(|error| dialog_error_nexa_error(operation, error))
+}
+
+fn dialog_error_nexa_error(
+    operation: &str,
+    error: DialogError,
+) -> nui_system_core::protocol::common::NexaError {
+    match error {
+        DialogError::InvalidRequest(message) => {
+            nui_system_core::invalid_data(operation, "dialog-request", &message)
+        }
+        DialogError::PlatformFailure(message) => {
+            platform_failure(operation, std::env::consts::OS, None, message, None)
+        }
+    }
 }
 
 /// Install or replace the process-level event-loop wake callback. The
@@ -482,4 +521,44 @@ pub extern "C" fn js_nexa_cancel_task_v1(slot: u32, generation: u32) -> *mut Str
         })
     });
     alloc_string(&encoded).as_raw()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use nui_system_core::protocol::system::ErrorCode;
+
+    use super::dialog_request_with_current_dir;
+
+    #[test]
+    fn dialog_platform_failure_survives_the_ffi_error_boundary() {
+        let error = dialog_request_with_current_dir(
+            "openFileDialog",
+            String::new(),
+            "notes.txt".to_owned(),
+            "[]".to_owned(),
+            || Err(io::Error::new(io::ErrorKind::NotFound, "working directory removed")),
+        )
+        .expect_err("relative dialog paths must surface a platform failure");
+
+        assert_eq!(error.code, ErrorCode::PlatformFailure as u32);
+        assert_eq!(error.name, "PLATFORM_FAILURE");
+        assert!(error.message.contains("working directory removed"));
+    }
+
+    #[test]
+    fn dialog_invalid_request_remains_invalid_data_at_the_ffi_boundary() {
+        let error = dialog_request_with_current_dir(
+            "openFileDialog",
+            String::new(),
+            String::new(),
+            "{\"unexpected\":true}".to_owned(),
+            || panic!("invalid requests must not query the current directory"),
+        )
+        .expect_err("malformed filters must be rejected");
+
+        assert_eq!(error.code, ErrorCode::InvalidData as u32);
+        assert_eq!(error.name, "INVALID_DATA");
+    }
 }

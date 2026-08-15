@@ -20,7 +20,7 @@ pub(crate) fn parse_request(
     parse_request_with_current_dir(title, default_path, filters_json, std::env::current_dir)
 }
 
-fn parse_request_with_current_dir(
+pub(crate) fn parse_request_with_current_dir(
     title: String,
     default_path: String,
     filters_json: String,
@@ -45,10 +45,29 @@ fn parse_request_with_current_dir(
     Ok(request)
 }
 
+#[cfg(windows)]
+fn is_drive_relative(path: &Path) -> bool {
+    matches!(
+        path.components().next(),
+        Some(std::path::Component::Prefix(prefix))
+            if matches!(
+                prefix.kind(),
+                std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)
+            )
+    ) && !path.has_root()
+}
+
 fn resolve_default_path(
     path: Option<PathBuf>,
     current_dir: impl FnOnce() -> std::io::Result<PathBuf>,
 ) -> Result<Option<PathBuf>, DialogError> {
+    #[cfg(windows)]
+    if path.as_ref().is_some_and(|path| is_drive_relative(path)) {
+        return Err(DialogError::InvalidRequest(
+            "dialog default path must not be drive-relative".to_owned(),
+        ));
+    }
+
     match path {
         Some(path) if path.is_relative() => current_dir()
             .map(|directory| Some(directory.join(path)))
@@ -279,11 +298,18 @@ mod tests {
         }
     }
 
+    fn probe_workspace() -> PathBuf {
+        let workspace = std::env::temp_dir().join("nexa-ui-picker-probe-workspace");
+        assert!(workspace.is_absolute());
+        workspace
+    }
+
     #[test]
     fn parses_and_validates_filters() {
+        let absolute_path = std::env::temp_dir().join("nexa-ui-picker-probe-notes.md");
         let request = parse_request(
             "Open".to_owned(),
-            "/tmp/notes.md".to_owned(),
+            absolute_path.to_string_lossy().into_owned(),
             r#"[{"name":"Text","extensions":["txt","md"]}]"#.to_owned(),
         )
         .expect("dialog request");
@@ -293,33 +319,35 @@ mod tests {
 
     #[test]
     fn resolves_relative_default_path_against_process_working_directory() {
+        let workspace = probe_workspace();
         let request = parse_request_with_current_dir(
             "Save".to_owned(),
             "nexa-ui-picker-probe-save.txt".to_owned(),
             "[]".to_owned(),
-            || Ok(PathBuf::from("/probe-workspace")),
+            || Ok(workspace.clone()),
         )
         .expect("dialog request");
 
         assert_eq!(
             request.default_path,
-            Some(PathBuf::from("/probe-workspace/nexa-ui-picker-probe-save.txt"))
+            Some(workspace.join("nexa-ui-picker-probe-save.txt"))
         );
     }
 
     #[test]
     fn preserves_nested_relative_default_path_components() {
+        let workspace = probe_workspace();
         let request = parse_request_with_current_dir(
             String::new(),
             "fixtures/notes/open.txt".to_owned(),
             "[]".to_owned(),
-            || Ok(PathBuf::from("/probe-workspace")),
+            || Ok(workspace.clone()),
         )
         .expect("dialog request");
 
         assert_eq!(
             request.default_path,
-            Some(PathBuf::from("/probe-workspace/fixtures/notes/open.txt"))
+            Some(workspace.join("fixtures/notes/open.txt"))
         );
     }
 
@@ -363,6 +391,21 @@ mod tests {
         .expect_err("NUL in a default path must fail validation");
 
         assert!(matches!(error, DialogError::InvalidRequest(_)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_drive_relative_default_path_before_querying_current_directory() {
+        let error = parse_request_with_current_dir(
+            String::new(),
+            "C:notes.txt".to_owned(),
+            "[]".to_owned(),
+            || panic!("drive-relative paths must fail before current-directory lookup"),
+        )
+        .expect_err("drive-relative paths must be rejected");
+
+        assert!(matches!(error, DialogError::InvalidRequest(_)));
+        assert!(error.to_string().contains("drive-relative"));
     }
 
     #[test]
