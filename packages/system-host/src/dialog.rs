@@ -372,7 +372,12 @@ mod tests {
             String::new(),
             "notes.txt".to_owned(),
             "[]".to_owned(),
-            || Err(io::Error::new(io::ErrorKind::NotFound, "working directory removed")),
+            || {
+                Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "working directory removed",
+                ))
+            },
         )
         .expect_err("relative path must require a process working directory");
 

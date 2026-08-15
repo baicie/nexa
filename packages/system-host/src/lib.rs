@@ -25,9 +25,9 @@ use nui_system_core::{
 use perry_ffi::{alloc_string, read_string, JsPromise, JsString, Promise, StringHeader};
 use serde_json::{json, Value};
 
-use dialog::system_dialog_backend;
 #[cfg(test)]
 use dialog::parse_request_with_current_dir;
+use dialog::system_dialog_backend;
 use task_runtime::SystemTaskRuntime;
 
 fn permissions() -> &'static SystemHostPermissions {
@@ -538,7 +538,12 @@ mod tests {
             String::new(),
             "notes.txt".to_owned(),
             "[]".to_owned(),
-            || Err(io::Error::new(io::ErrorKind::NotFound, "working directory removed")),
+            || {
+                Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "working directory removed",
+                ))
+            },
         )
         .expect_err("relative dialog paths must surface a platform failure");
 
