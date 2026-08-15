@@ -221,7 +221,7 @@ test("rejects unsupported picker platforms before invoking Perry", () => {
   );
 });
 
-test("anchors picker dialog defaults to the process working directory", () => {
+test("keeps picker dialog defaults relative and independent of Node process globals", () => {
   const sourceText = readFileSync(
     new URL("../examples/reference-notes/dialog-picker-smoke.tsx", import.meta.url),
     "utf8",
@@ -233,9 +233,11 @@ test("anchors picker dialog defaults to the process working directory", () => {
     true,
     ts.ScriptKind.TSX,
   );
+  const processReferences = [];
   const defaultPaths = new Map();
 
   function visit(node) {
+    if (ts.isIdentifier(node) && node.text === "process") processReferences.push(node);
     if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
@@ -252,16 +254,20 @@ test("anchors picker dialog defaults to the process working directory", () => {
   }
 
   visit(source);
+
+  assert.equal(
+    processReferences.length,
+    0,
+    "Perry AOT picker probe must not reference the Node-only process global",
+  );
   for (const [dialog, fileName] of [
     ["openFile", "OPEN_FILE"],
     ["saveFile", "SAVE_FILE"],
   ]) {
     const defaultPath = defaultPaths.get(dialog);
     assert.ok(defaultPath, `${dialog} must declare defaultPath`);
-    const expression = defaultPath.getText(source);
-    assert.notEqual(expression, fileName, `${dialog} defaultPath must not be a bare filename`);
-    assert.match(expression, /(?:\bcwd|\bprocess\.cwd)\s*\(\s*\)/u);
-    assert.match(expression, new RegExp(`\\b${fileName}\\b`, "u"));
+    assert.ok(ts.isIdentifier(defaultPath), `${dialog} defaultPath must be an identifier`);
+    assert.equal(defaultPath.text, fileName);
   }
 });
 

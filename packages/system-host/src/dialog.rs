@@ -17,6 +17,15 @@ pub(crate) fn parse_request(
     default_path: String,
     filters_json: String,
 ) -> Result<DialogRequest, DialogError> {
+    parse_request_with_current_dir(title, default_path, filters_json, std::env::current_dir)
+}
+
+fn parse_request_with_current_dir(
+    title: String,
+    default_path: String,
+    filters_json: String,
+    current_dir: impl FnOnce() -> std::io::Result<PathBuf>,
+) -> Result<DialogRequest, DialogError> {
     let filters_value: Value = serde_json::from_str(&filters_json)
         .map_err(|error| DialogError::InvalidRequest(format!("filters JSON: {error}")))?;
     let filters = filters_value
@@ -26,13 +35,30 @@ pub(crate) fn parse_request(
         .map(parse_filter)
         .collect::<Result<Vec<_>, _>>()?;
 
-    let request = DialogRequest {
+    let mut request = DialogRequest {
         title: non_empty(title),
         default_path: non_empty(default_path).map(PathBuf::from),
         filters,
     };
     request.validate()?;
+    request.default_path = resolve_default_path(request.default_path, current_dir)?;
     Ok(request)
+}
+
+fn resolve_default_path(
+    path: Option<PathBuf>,
+    current_dir: impl FnOnce() -> std::io::Result<PathBuf>,
+) -> Result<Option<PathBuf>, DialogError> {
+    match path {
+        Some(path) if path.is_relative() => current_dir()
+            .map(|directory| Some(directory.join(path)))
+            .map_err(|error| {
+                DialogError::PlatformFailure(format!(
+                    "could not resolve relative default path against the current directory: {error}"
+                ))
+            }),
+        path => Ok(path),
+    }
 }
 
 fn parse_filter(value: &Value) -> Result<DialogFilter, DialogError> {
@@ -239,8 +265,11 @@ fn _path_is_absolute(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_request, FixtureDialogBackend};
-    use nui_system_core::{DialogBackend, DialogRequest};
+    use std::io;
+    use std::path::PathBuf;
+
+    use super::{parse_request, parse_request_with_current_dir, FixtureDialogBackend};
+    use nui_system_core::{DialogBackend, DialogError, DialogRequest};
 
     fn empty_request() -> DialogRequest {
         DialogRequest {
@@ -260,6 +289,80 @@ mod tests {
         .expect("dialog request");
         assert_eq!(request.title.as_deref(), Some("Open"));
         assert_eq!(request.filters[0].extensions, ["txt", "md"]);
+    }
+
+    #[test]
+    fn resolves_relative_default_path_against_process_working_directory() {
+        let request = parse_request_with_current_dir(
+            "Save".to_owned(),
+            "nexa-ui-picker-probe-save.txt".to_owned(),
+            "[]".to_owned(),
+            || Ok(PathBuf::from("/probe-workspace")),
+        )
+        .expect("dialog request");
+
+        assert_eq!(
+            request.default_path,
+            Some(PathBuf::from("/probe-workspace/nexa-ui-picker-probe-save.txt"))
+        );
+    }
+
+    #[test]
+    fn preserves_nested_relative_default_path_components() {
+        let request = parse_request_with_current_dir(
+            String::new(),
+            "fixtures/notes/open.txt".to_owned(),
+            "[]".to_owned(),
+            || Ok(PathBuf::from("/probe-workspace")),
+        )
+        .expect("dialog request");
+
+        assert_eq!(
+            request.default_path,
+            Some(PathBuf::from("/probe-workspace/fixtures/notes/open.txt"))
+        );
+    }
+
+    #[test]
+    fn preserves_absolute_default_path_without_querying_current_directory() {
+        let absolute_path = std::env::temp_dir().join("nexa-ui-picker-probe-open.txt");
+        assert!(absolute_path.is_absolute());
+        let request = parse_request_with_current_dir(
+            String::new(),
+            absolute_path.to_string_lossy().into_owned(),
+            "[]".to_owned(),
+            || panic!("absolute paths must not query the current directory"),
+        )
+        .expect("dialog request");
+
+        assert_eq!(request.default_path, Some(absolute_path));
+    }
+
+    #[test]
+    fn reports_current_directory_lookup_failure_for_relative_default_path() {
+        let error = parse_request_with_current_dir(
+            String::new(),
+            "notes.txt".to_owned(),
+            "[]".to_owned(),
+            || Err(io::Error::new(io::ErrorKind::NotFound, "working directory removed")),
+        )
+        .expect_err("relative path must require a process working directory");
+
+        assert!(matches!(error, DialogError::PlatformFailure(_)));
+        assert!(error.to_string().contains("working directory removed"));
+    }
+
+    #[test]
+    fn rejects_invalid_relative_default_path_before_querying_current_directory() {
+        let error = parse_request_with_current_dir(
+            String::new(),
+            "notes\0.txt".to_owned(),
+            "[]".to_owned(),
+            || panic!("invalid requests must not query the current directory"),
+        )
+        .expect_err("NUL in a default path must fail validation");
+
+        assert!(matches!(error, DialogError::InvalidRequest(_)));
     }
 
     #[test]
