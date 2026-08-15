@@ -71,7 +71,9 @@ function assertSnapshot(
     snapshot.operation !== "idle" ||
     snapshot.window !== "active"
   ) {
-    throw new Error(`Picker did not commit the expected ${expectedFile} Notes state`);
+    throw new Error(
+      `Picker did not commit the expected ${expectedFile} Notes state: ${JSON.stringify(snapshot)}`,
+    );
   }
 }
 

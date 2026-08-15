@@ -339,7 +339,7 @@ test("dispatches macOS open as an explicit file-selection stage", () => {
   ]);
 });
 
-test("the macOS driver navigates to the parent before selecting an open filename", () => {
+test("the macOS driver navigates to the parent and explicitly enters every filename", () => {
   const source = readFileSync(
     new URL("./dialog-picker-driver-macos.applescript", import.meta.url),
     "utf8",
@@ -348,14 +348,24 @@ test("the macOS driver navigates to the parent before selecting an open filename
   assert.match(source, /if actionName is "open" then/u);
   assert.match(source, /on parentPathFor\(inputPath\)/u);
   assert.match(source, /on baseNameFor\(inputPath\)/u);
-  assert.match(source, /set navigationTarget to my parentPathFor\(selectionPath\)/u);
-  assert.match(source, /set selectionName to my baseNameFor\(selectionPath\)/u);
+  assert.match(
+    source,
+    /if actionName is not "cancel" then\s+set navigationTarget to my parentPathFor\(selectionPath\)\s+set selectionName to my baseNameFor\(selectionPath\)/u,
+  );
   assert.match(source, /set selectedBaseName to \(item -1 of components\) as text/u);
   assert.match(source, /on ensureRegularFile\(inputPath\)/u);
   assert.match(source, /if not \(exists disk item inputPath\) then error/u);
   assert.doesNotMatch(source, /disk item fileItem/u);
   assert.match(source, /keystroke navigationTarget/u);
   assert.match(source, /keystroke \(selectionName as text\)/u);
+  assert.match(
+    source,
+    /if actionName is "accept" then\s+keystroke "a" using \{command down\}\s+end if\s+keystroke \(selectionName as text\)/u,
+  );
+  assert.doesNotMatch(
+    source,
+    /if actionName is "open" then\s+tell application "System Events"[\s\S]*?keystroke \(selectionName as text\)/u,
+  );
   assert.ok(
     source.indexOf("keystroke navigationTarget") <
       source.indexOf("keystroke (selectionName as text)"),
@@ -373,6 +383,15 @@ test("the macOS driver navigates to the parent before selecting an open filename
   assert.doesNotMatch(source, /entire contents/u);
   assert.doesNotMatch(source, /windows of targetProcess/u);
   assert.doesNotMatch(source, /sheets of /u);
+});
+
+test("the picker probe includes the actual Notes snapshot in assertion failures", () => {
+  const source = readFileSync(
+    new URL("../examples/reference-notes/dialog-picker-smoke.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /JSON\.stringify\(snapshot\)/u);
 });
 
 test("the Windows driver budget covers Add-Type startup, discovery, and close", () => {

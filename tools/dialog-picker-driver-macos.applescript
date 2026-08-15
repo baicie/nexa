@@ -71,10 +71,10 @@ on run argv
   set selectionName to ""
   if actionName is "open" then
     my ensureRegularFile(selectionPath)
+  end if
+  if actionName is not "cancel" then
     set navigationTarget to my parentPathFor(selectionPath)
     set selectionName to my baseNameFor(selectionPath)
-  else if actionName is "accept" then
-    set navigationTarget to my parentPathFor(selectionPath)
   end if
 
   my focusOwner(targetPid, timeoutSeconds)
@@ -102,15 +102,16 @@ on run argv
     end tell
     delay 0.6
     my focusOwner(targetPid, timeoutSeconds)
-    if actionName is "open" then
-      tell application "System Events"
-        with timeout of timeoutSeconds seconds
-          keystroke (selectionName as text)
-        end timeout
-      end tell
-      delay 0.4
-      my focusOwner(targetPid, timeoutSeconds)
-    end if
+    tell application "System Events"
+      with timeout of timeoutSeconds seconds
+        if actionName is "accept" then
+          keystroke "a" using {command down}
+        end if
+        keystroke (selectionName as text)
+      end timeout
+    end tell
+    delay 0.4
+    my focusOwner(targetPid, timeoutSeconds)
     tell application "System Events"
       with timeout of timeoutSeconds seconds
         key code 36
