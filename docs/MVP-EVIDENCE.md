@@ -27,11 +27,10 @@ status, output summary, digest, or revision invalidates the record.
 
 The generated record contains N-01 through N-11, the exact `HEAD` revision,
 the tag ref (or `WORKTREE` for a dirty checkout), and the capture timestamp.
-N-10 remains blocked until a Windows hosted UI Automation client completes
-through the production AccessKit/Dispatcher path. N-11 remains blocked until
-fresh macOS and Windows artifact downloads pass checksum and five-second clean
-launch checks. Those two cases deliberately have no local command or execution
-record.
+N-10 and N-11 deliberately have no local command or execution record. Even
+after their direct platform jobs have succeeded on a PR, they remain blocked in
+schema v5 until a clean release-tag run uploads and promotes the required
+accessibility and clean-package proofs.
 
 ## Hosted proof promotion
 
@@ -88,6 +87,44 @@ evidence. The inactive `signing.yml` path can select that exact producer run by
 `unsigned_run_id`; this bundle is not a schema v5 hosted proof, a signed
 artifact, or evidence that credentials were activated.
 
+## Direct hosted execution on PR #5
+
+GitHub Actions run `31902303937` completed 41 of 41 jobs successfully. GitHub's
+run metadata identifies the PR source head as
+`e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`; jobs that built reports and
+artifacts executed against the pull-request merge revision
+`991b28142783833c14be659125c4564d14219cc5`. These identities are related but
+not interchangeable.
+
+The direct platform evidence in that run includes:
+
+- native accessibility jobs `95054897228` (macOS) and `95054897192` (Windows);
+- package jobs `95054897243` (macOS) and `95054897272` (Windows), including
+  fixture-free picker save/open/cancel;
+- fresh download, validation, and launch jobs `95059000291` (macOS) and
+  `95059000304` (Windows);
+- unsigned signing-input assembly job `95059000309`; and
+- required aggregate job `95059146281`.
+
+The picker executable SHA-256 values were
+`f7cfab51cbaf4163bc82ae74854b07d5fcd8eb98219050fcb84e18e59c372172` on
+macOS and `e82079f1ee6b6afff7418b94a6299bb72835178f778918b036e80df8659e343a`
+on Windows. Platform package artifacts `9251605446` / `9251849187` have GitHub
+digests
+`sha256:483ab8a38b9debfa8b0dcbf3fb9562b1c1d37bc620b47b1c1e5d20d6b562bbaa`
+and
+`sha256:865954eae51ce7a8c2b93224bf8f2ac1d1ed05917649f31acac94c57482c2044`.
+The `unsigned-signing-input` artifact `9251864491` has GitHub digest
+`sha256:994c1ff87604f605130ebd5aa38718788157080c5a1176bb9231e51c8ef96abd`.
+
+This evidence closes the direct G3B-05, G5-03P/G5-04P, G5-09, and MVP-01
+platform gates. It does not promote N-10 or N-11: the run was a pull-request
+run, `collect_mvp_proof` was `false`, and the native accessibility and
+clean-package proof recording/upload steps were skipped. It also did not sign,
+notarize, publish, or promote any artifact. The generated
+`release/mvp-evidence.json` remains untouched pending the canonical clean-tag
+promotion.
+
 ## Current boundary
 
 The checked-in policy remains fail-closed while those external gates are
@@ -96,15 +133,17 @@ case is failed or blocked. Do not edit a generated record's revision or mark a
 blocked case as passed without retaining the corresponding hosted run and
 artifact links.
 
-The repository currently contains the producer configuration and deterministic
-contracts, not a successful hosted promotion record. Windows UI Automation,
-real macOS/Windows picker execution, and dual-platform clean artifact launch
-still require revision-bound hosted runs.
+The repository contains successful direct platform evidence, but not a
+successful clean-tag schema-v5 promotion record. N-10, N-11, and MVP-02
+therefore remain pending even though the corresponding UIA, picker, package,
+and clean-launch jobs passed in the PR run.
 
-The wider release gates are also still open: revision-bound hosted npm/Cargo
-advisory, license, and gitleaks scans; public-registry clean-user proof; active
-macOS/Windows performance baselines; real credential activation and
-dual-platform signed staging; clean-tag rehearsal; registry channel promotion;
-and the final seven-asset GitHub prerelease/publication record have not run
-successfully. Local contracts and the encoded signing or publication paths do
-not close G6-04P, G6-06P, G6-07P, G6-08P, or G6-09P.
+The same run closed the revision-bound hosted supply-chain gate, and its
+`performance-required` jobs passed the already-active macOS/Windows budgets.
+The wider release boundary remains open for public-registry clean-user proof,
+credential owners and protected Environment reviewers, real macOS/Windows
+signing and notarization/timestamping, clean-tag rehearsal, registry channel
+promotion, an independent approving review, and the final seven-asset GitHub
+prerelease/publication record. These conditions keep G6-06P, G6-08P, and
+G6-09P pending; direct PR jobs and candidate rehearsals cannot substitute for
+them.

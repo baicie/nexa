@@ -30,6 +30,9 @@ CI 对齐 ADR-004 的垂直切片策略：**主线串行、路径过滤、平台
 3. **平台范围**：MVP 只验收 **macOS + Windows**（ADR §6.1）；Linux 作可选，不阻塞合并。
 4. **不并行五条产品线**：Adapter / DevTools / 移动端不进 required checks。
 5. **失败即阻断**：`CI / result` 对所有匹配路径的 Rust、TypeScript、FFI、Perry、native、package、docs 与 security job 做 fail-closed 汇总。
+6. **无凭据签名预检**：每个 CI revision 都以 `operation: validate` 调用 `signing.yml`，不传 secrets；`CI / result` 对任何非成功结果 fail closed。
+7. **性能标签**：`performance-capture` 只采集报告且不阻断合并；`performance-required` 还要求 active baseline，并由 `CI / result` 等待和 fail-closed 汇总。
+8. **候选演练标签**：`release-rehearsal-required` 以 `candidate` 模式调用无凭据 rehearsal，并由 `CI / result` 等待和 fail-closed 汇总；该路径不会签名、公证、发布或推广版本。
 
 ## 发布证据与外部门禁
 
@@ -48,11 +51,11 @@ CI 对齐 ADR-004 的垂直切片策略：**主线串行、路径过滤、平台
 
 同一 matrix 还运行两组 deterministic Rust 场景：`g3a11_` 重放 CJK/Emoji composition、候选框、跨行 selection 与内存剪贴板编辑；`g3b05_` 使用共享 scenario，分层验证 AccessKit converter 的 role/name/action 映射和 Bridge Dispatcher 的 Focus、SetValue、Invoke。场景不读取真实剪贴板，也不使用屏幕坐标。
 
-同一份 `examples/semantic-e2e/scenario.json` 还驱动 `semantic-accessibility-smoke`：macOS 通过真实 NSAccessibility 对象，Windows 通过 UI Automation COM client，按 role/name 查找 Title、Body、Save，执行 Focus、SetValue、Invoke，并要求请求穿过生产 AccessKit Adapter 与 Dispatcher 后产生 `Saved: Meeting notes`。Windows UI Automation runtime job 已配置，但尚无 hosted-runner 成功记录。
+同一份 `examples/semantic-e2e/scenario.json` 还驱动 `semantic-accessibility-smoke`：macOS 通过真实 NSAccessibility 对象，Windows 通过 UI Automation COM client，按 role/name 查找 Title、Body、Save，执行 Focus、SetValue、Invoke，并要求请求穿过生产 AccessKit Adapter 与 Dispatcher 后产生 `Saved: Meeting notes`。PR run `31902303937` 的 macOS/Windows native jobs `95054897228` / `95054897192` 已在真实 hosted runner 通过这条平台 client 路径。
 
 `reference-notes-package.yml` 的 `package` matrix 在 macOS/Windows clean runner 上先执行通用 CLI 从 `new` 到真实 Perry AOT/link 的 create-to-package smoke，再运行真实 FS Promise、真实 Clipboard read/write/read Promise、构建期 fixture 驱动的 Dialog Task/Promise smoke，以及无 fixture 的真实 OS picker probe，最后重新执行正式 Notes 构建与打包。Clipboard runner 要求精确 round-trip/restore proof；real-picker probe 必须依序完成 save/open/cancel，并核对 stage、marker、版本化 controller proof 与真实磁盘 bytes；driver、超时、面板关闭等待或 cleanup 任一失败都阻断 artifact 上传。package job 会生成 canonical native runtime proof，绑定 revision/ref/run/target 以及 FS 与 picker Perry binary 的 size/SHA-256，并把 N-05/N-06 native FS 与 N-04/G5-04P real-picker 旅程写入固定语义；launch job 下载该 proof，clean-package hosted proof 再以内嵌 payload 和外层 size/SHA-256 绑定它。它将通用与 Notes distribution 分别封装并上传；独立 `signing_input` job 还把两个平台 archive 收敛为规范命名的 `unsigned-signing-input` custody bundle，生成并重新验证 G6-05 descriptor、`SHA256SUMS`、CycloneDX 1.6 SBOM 与 provenance。依赖它的 fresh `launch` matrix 只下载、解包、重新验证并直接启动两类 executable，不 checkout 仓库、不 setup/install 工具链，也不重新 build/package。通用实现是 `packages/cli/src/package.mjs`；Notes 的应用名称、权限与产物仍由独立的 `tools/reference-notes-package.mjs` 处理。CLI、picker probe 与 Notes 正式 build 都会大小写不敏感地清除测试 fixture/bypass 环境变量并拒绝带 fixture canary 的二进制；unsigned signing input、本机 Clipboard AOT、deterministic Dialog smoke 与 workflow 配置都不作为真实 hosted 签名或平台成功证据。
 
-该双平台 workflow matrix 已配置，但尚无 hosted-runner 成功记录，因此 G5-09/MVP-01 仍未关闭；Windows UI Automation runtime 和 macOS/Windows 真实 OS picker Promise 也仍缺平台成功证据。本机 macOS 的 Accessibility/TCC 未授权运行只证明 probe 准确 fail closed、子进程退出与临时目录清理，不构成 picker 成功。workflow 只生成并验证 unsigned artifact，不执行签名、公证或发布。
+PR run `31902303937` 已完成双平台 package 与 fresh launch：package jobs `95054897243` / `95054897272` 在真实图形会话通过 picker save/open/cancel，launch jobs `95059000291` / `95059000304` 从下载制品直接启动，因此 G5-09/MVP-01 与对应 hosted picker 门禁已关闭。该 run 的 PR source head 是 `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`，package/report/artifact 执行绑定 Actions merge revision `991b28142783833c14be659125c4564d14219cc5`。`collect_mvp_proof=false` 使 native/clean-package proof 上传被跳过，所以该结果不是 N-10/N-11 schema-v5 promotion。workflow 只生成并验证 unsigned artifact，不执行签名、公证或发布。
 
 ## 路径 → Job 映射
 
@@ -84,12 +87,18 @@ examples/reference-notes/** | packages/cli/** | CLI/package smoke tools + UI/Sys
 CI / result
 ```
 
+每个 PR/push 都会通过 reusable workflow 执行 credential-free signing preflight。该调用只运行静态 policy、reviewed executor binding、签名合同与 Action SHA 检查；平台签名 executor 继续由 literal `false` 跳过，调用方不传递任何 secrets。预检被取消、跳过或失败时，`CI / result` 一律失败。
+
+当 PR 带 `performance-required` 标签时，同一个 required check 还会等待并聚合双平台 performance workflow；`performance-capture` 标签只请求采集，不把采集失败升级为 required gate 失败。
+
+当 PR 带 `release-rehearsal-required` 标签时，`CI / result` 还会等待 credential-free candidate rehearsal，并要求 reusable workflow 成功。未带该标签时 rehearsal 跳过且不影响 required check；PR candidate 结果不替代 clean-tag staging 或签名、registry、发布证据。
+
 ## 当前仍未激活或不作为本地完成
 
 - Android / iOS matrix
 - macOS Developer ID 签名/公证与 Windows Authenticode 的凭据激活
 - npm train、应用 artifact 与最终 Technical Preview 的公开发布
-- registry clean-user、双平台 clean launch、Windows UI Automation 与真实 picker 的 hosted 成功记录
-- 双平台 active performance baseline 与完整 hosted staging rehearsal
+- clean-tag schema-v5 MVP evidence 与 registry clean-user 成功记录
+- clean-tag 的完整 hosted staging rehearsal
 - 与变更路径无关的每个示例都开真实窗口
 - GPU backend（gl/metal/vulkan）——Slice 0 使用 Skia CPU + softbuffer

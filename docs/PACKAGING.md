@@ -104,4 +104,4 @@ Windows 从分发目录启动：
 
 仓库 workflow 把 build/archive/upload 与 fresh download/validate/launch 分成两个 job。fresh job 不 checkout、安装工具链或重新构建，而是重新校验 manifest、metadata、target、version、assets 和 macOS plist 后启动 executable。
 
-Workflow 配置和本地 contract 只证明路径会 fail closed。只有绑定同一 commit 的 macOS/Windows hosted run、artifact digest 和 launch 成功记录，才能关闭 G5-09/MVP-01。
+Workflow 配置和本地 contract 只证明路径会 fail closed。run `31902303937` 已绑定 source revision `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`，在 macOS/Windows 完成 build/archive 与 fresh download/validate/launch，并记录 artifact digest，因而关闭 G5-09/MVP-01。该 PR run 不是 clean tag，不关闭 MVP-02、签名或发布门禁。

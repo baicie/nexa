@@ -224,16 +224,31 @@ function protectedEvidenceCommands() {
     .join("\n");
 }
 
+function protectedEvidenceStep(name) {
+  const workflow = parseYaml(
+    readFileSync(new URL("../.github/workflows/release-evidence.yml", import.meta.url), "utf8"),
+  );
+  const step = workflow.jobs.bundle.steps.find((candidate) => candidate.name === name);
+  assert.equal(typeof step?.run, "string", `missing run step: ${name}`);
+  return step.run;
+}
+
 test("protected evidence workflow semantically verifies MVP and rehearsal proofs", () => {
-  const commands = protectedEvidenceCommands();
+  const commands = protectedEvidenceStep("Fetch and bind every external gate run");
   assert.match(
     commands,
     /node tools\/mvp-evidence\.mjs verify "\$input_root\/proof\/mvp-evidence\.json"/u,
   );
-  assert.match(
-    commands,
-    /node tools\/release-rehearsal\.mjs enforce --decision "\$input_root\/proof\/rehearsal-decision\.json"/u,
-  );
+  const lines = commands.split("\n");
+  const enforceIndex = lines.indexOf("node tools/release-rehearsal.mjs enforce \\");
+  assert.notEqual(enforceIndex, -1);
+  assert.deepEqual(lines.slice(enforceIndex, enforceIndex + 5), [
+    "node tools/release-rehearsal.mjs enforce \\",
+    '  --decision "$input_root/proof/rehearsal-decision.json" \\',
+    "  --mode tag \\",
+    '  --ref "$GITHUB_REF" \\',
+    '  --revision "$GITHUB_SHA"',
+  ]);
 });
 
 test("protected evidence workflow semantically verifies the signed transport", () => {

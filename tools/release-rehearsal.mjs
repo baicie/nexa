@@ -337,8 +337,7 @@ export function validateSourceState({
   status,
 }) {
   validateRehearsalPolicy(policy);
-  const modePolicy = policy.modes[mode];
-  if (!modePolicy) fail(`unknown rehearsal mode: ${mode}`);
+  const modePolicy = rehearsalModePolicy(policy, mode);
   if (!isFullRevision(revision) || head !== revision) {
     fail(`checked-out revision ${head} does not match requested revision ${revision}`);
   }
@@ -353,7 +352,7 @@ export function validateSourceState({
 
 export function createRehearsalDecision({ policy, mode, ref, revision, gates }) {
   validateRehearsalPolicy(policy);
-  if (!policy.modes[mode]) fail(`unknown rehearsal mode: ${mode}`);
+  const modePolicy = rehearsalModePolicy(policy, mode);
   requireString(ref, "decision ref");
   if (!isFullRevision(revision)) fail("decision revision must be a full Git SHA");
   assertObject(gates, "gates");
@@ -373,7 +372,7 @@ export function createRehearsalDecision({ policy, mode, ref, revision, gates }) 
     revision,
     gates: Object.fromEntries(policy.requiredGates.map((gate) => [gate, gates[gate]])),
     outcome: passed ? "passed" : "rollback-required",
-    promotion: passed ? policy.modes[mode].promotion : "blocked",
+    promotion: passed ? modePolicy.promotion : "blocked",
     failedGates,
     rollback: passed
       ? null
@@ -383,6 +382,58 @@ export function createRehearsalDecision({ policy, mode, ref, revision, gates }) 
           forbiddenActions: [...policy.rollback.forbiddenActions],
         },
   };
+}
+
+export function enforceRehearsalDecision({
+  policy,
+  decision,
+  expectedMode,
+  expectedRef,
+  expectedRevision,
+}) {
+  validateRehearsalPolicy(policy);
+  assertObject(decision, "rehearsal decision");
+  if (decision.schemaVersion !== 1) fail("rehearsal decision schemaVersion must be 1");
+  const modePolicy = rehearsalModePolicy(policy, expectedMode, "expected rehearsal");
+  requireString(expectedRef, "expected decision ref");
+  if (!isFullRevision(expectedRevision)) {
+    fail("expected decision revision must be a full Git SHA");
+  }
+  if (decision.mode !== expectedMode) {
+    fail(`rehearsal decision must use mode ${expectedMode}`);
+  }
+  if (decision.ref !== expectedRef) {
+    fail(`rehearsal decision must use ref ${expectedRef}`);
+  }
+  if (decision.revision !== expectedRevision) {
+    fail(`rehearsal decision revision must be ${expectedRevision}`);
+  }
+
+  assertObject(decision.gates, "rehearsal decision gates");
+  for (const gate of policy.requiredGates) {
+    if (decision.gates[gate] !== "success") {
+      fail(`rehearsal decision gate ${gate} must be success`);
+    }
+  }
+  const expectedGates = [...policy.requiredGates].sort(compareStrings);
+  const actualGates = Object.keys(decision.gates).sort(compareStrings);
+  if (JSON.stringify(actualGates) !== JSON.stringify(expectedGates)) {
+    fail("rehearsal decision gates must match the required gate inventory");
+  }
+  if (decision.outcome !== "passed") {
+    fail(`promotion is blocked by rehearsal outcome ${decision.outcome ?? "unknown"}`);
+  }
+  if (!Array.isArray(decision.failedGates) || decision.failedGates.length !== 0) {
+    fail("rehearsal decision failedGates must be an empty array");
+  }
+  const expectedPromotion = modePolicy.promotion;
+  if (decision.promotion !== expectedPromotion) {
+    fail(`rehearsal decision promotion must be ${expectedPromotion}`);
+  }
+  if (decision.rollback !== null) {
+    fail("a passed rehearsal decision must not contain rollback instructions");
+  }
+  return decision;
 }
 
 export function releaseWorkflowPlan(policy = loadRehearsalPolicy()) {
@@ -418,6 +469,13 @@ export function loadRehearsalPolicy(policyPath = defaultPolicyPath) {
   return validateRehearsalPolicy(readJson(policyPath, "rehearsal policy"));
 }
 
+function rehearsalModePolicy(policy, mode, label = "rehearsal") {
+  if (typeof mode !== "string" || !Object.hasOwn(policy.modes, mode)) {
+    fail(`unknown ${label} mode: ${String(mode)}`);
+  }
+  return policy.modes[mode];
+}
+
 function parseRef(ref) {
   requireString(ref, "source ref");
   for (const [prefix, refType] of [
@@ -445,7 +503,7 @@ export function assertRepositorySource({ mode, ref, revision, cwd = root }) {
     head: git(["rev-parse", "HEAD"], cwd),
     status: git(["status", "--porcelain", "--untracked-files=all"], cwd),
   });
-  if (policy.modes[mode].requireVersionTag) {
+  if (rehearsalModePolicy(policy, mode).requireVersionTag) {
     const tagCommit = git(["rev-parse", `${refName}^{commit}`], cwd);
     if (tagCommit !== revision)
       fail(`tag ${refName} does not resolve to requested revision ${revision}`);
@@ -530,11 +588,11 @@ function validateConsumerResult(result) {
 }
 
 function validateBundleIdentity({ mode, ref, revision, platform, descriptor, policy }) {
-  if (!policy.modes[mode]) fail(`unknown rehearsal mode: ${mode}`);
+  const modePolicy = rehearsalModePolicy(policy, mode);
   requireString(ref, "rehearsal ref");
   if (!isFullRevision(revision)) fail("rehearsal revision must be a full Git SHA");
   expectedTarget(platform);
-  if (policy.modes[mode].requireVersionTag && ref !== `refs/tags/v${releaseVersion.npmTrain}`) {
+  if (modePolicy.requireVersionTag && ref !== `refs/tags/v${releaseVersion.npmTrain}`) {
     fail(`${mode} rehearsal requires ref refs/tags/v${releaseVersion.npmTrain}`);
   }
   if (descriptor.schemaVersion !== 1 || descriptor.source?.revision !== revision) {
@@ -546,7 +604,7 @@ function validateBundleIdentity({ mode, ref, revision, platform, descriptor, pol
   ) {
     fail("release descriptor identity does not match the release train");
   }
-  if (policy.modes[mode].requireCleanSource && descriptor.source?.dirty !== false) {
+  if (modePolicy.requireCleanSource && descriptor.source?.dirty !== false) {
     fail(`${mode} rehearsal requires a clean release descriptor`);
   }
 }
@@ -1060,7 +1118,7 @@ function usage() {
     "  node tools/release-rehearsal.mjs launch --mode MODE --ref REF --revision SHA --platform PLATFORM --bundle DIR --extract NEW_DIR [--report FILE]",
     "  node tools/release-rehearsal.mjs rollback --mode MODE --ref REF --revision SHA --platform PLATFORM --bundle DIR --output NEW_DIR --last-known-good VERSION [--report FILE]",
     "  node tools/release-rehearsal.mjs decision --mode MODE --ref REF --revision SHA --output FILE --gate-<name> STATUS ...",
-    "  node tools/release-rehearsal.mjs enforce --decision FILE",
+    "  node tools/release-rehearsal.mjs enforce --decision FILE --mode MODE --ref REF --revision SHA",
   ].join("\n");
 }
 
@@ -1230,11 +1288,15 @@ async function main() {
     return;
   }
   if (command === "enforce") {
-    const values = parseOptions(arguments_, ["--decision"]);
+    const values = parseOptions(arguments_, ["--decision", "--mode", "--ref", "--revision"]);
     const decision = readJson(path.resolve(values["--decision"]), "rehearsal decision");
-    if (decision.outcome !== "passed" || decision.failedGates?.length !== 0) {
-      fail(`promotion is blocked by rehearsal outcome ${decision.outcome ?? "unknown"}`);
-    }
+    enforceRehearsalDecision({
+      policy: loadRehearsalPolicy(),
+      decision,
+      expectedMode: values["--mode"],
+      expectedRef: values["--ref"],
+      expectedRevision: values["--revision"],
+    });
     console.log("release rehearsal decision passed; owner review is still required");
     return;
   }

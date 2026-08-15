@@ -1,6 +1,6 @@
 # Nexa UI 路线图
 
-- 状态：Desktop Notes MVP / Technical Preview 本地收口中（Runtime、Notes、CLI、九包公开发布清单、唯一 Tier-1 Solid、SBOM、reviewed signing executor 与 candidate rehearsal 已有本地证据；Windows UIA、双平台真实 picker/clean-runner、registry、签名凭据/hosted staging 和性能 active baseline 仍待完成）
+- 状态：Desktop Notes MVP 的直接平台验收已完成（PR run `31902303937` 关闭 Windows UIA、双平台真实 picker/clean-runner、供应链和 active 性能门禁）；Technical Preview 仍等待 clean-tag MVP promotion、registry clean-user、真实签名/公证、发布演练与独立审批
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 当前目标：[`Desktop Notes MVP`](./MVP.md)
@@ -297,7 +297,7 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 
 **G4-06 证据（2026-08-07）**：ADR-013 冻结 `OpenFileDialog`/`SaveFileDialog` 的 typed Task 合同。新增 `system.DialogOpen`/`system.DialogSave` deny-all permissions、严格 filters JSON parser、`nui-system-core::DialogBackend` 注入边界和 `rfd::FileDialog` native backend；selected path 以 `ok/value` 返回，用户取消为 `value: null`，显式 cancel/owner invalidation 终止结果交付并丢弃迟到结果。当前 `rfd` native backend 只提供 `Option<PathBuf>`，没有真实 `PLATFORM_FAILURE` 分支；worker 不使用 cancellation token，不能主动关闭已显示的 picker。协议 manifest/schema/generated artifacts、`pnpm test:protocol` `36/36`、`@nexa/dialog` TS contract `4/4`、System Core permission contract `6/6`、System Host Rust `19/19`（含 dialog parser/task tests）、offline strict Clippy 和 Cargo check 均通过。下一切片为 G4-07 Clipboard Task/Error 迁移。
 
-**G4-07 证据（2026-08-07，2026-08-10 trusted launcher 补充）**：ADR-014 将 Clipboard 迁移到与 FS/Dialog 相同的 typed Task/Error 链路。`SystemTaskRuntime` 新增注入式 `ClipboardBackend` worker，v1 FFI start symbols 返回严格 `HandleRef` envelope，`@nexa/clipboard` 只使用 v1 symbols并暴露单次 `result` Promise 与幂等 `cancel()`；旧 sentinel symbols 仅保留兼容导出。`ClipboardError` 映射为带 `CLIPBOARD_UNAVAILABLE`/`CLIPBOARD_OPERATION` 的 `PLATFORM_FAILURE`，manifest denial、cancel 和 owner fence 不被吞并。Core injected backend `2/2`、System Host Rust `22/22`（20 unit + 2 integration）、Clipboard TS contract `4/4`、package typecheck、offline strict Clippy 与 native-library Cargo check 通过。Notes trusted launcher 新增真实 read/write/read Promise fixture、精确 round-trip/restore proof 与 fail-closed runner；runner `7/7`、本机 Perry AOT/link 通过，双平台 package matrix 已强制执行。当前未在本机执行真实剪贴板 round-trip，也没有 hosted runtime 成功记录；这些实现证据不替代平台成功证据。G4-08 close-race 证据已追加如下。
+**G4-07 证据（2026-08-07，2026-08-16 hosted 补充）**：ADR-014 将 Clipboard 迁移到与 FS/Dialog 相同的 typed Task/Error 链路。`SystemTaskRuntime` 新增注入式 `ClipboardBackend` worker，v1 FFI start symbols 返回严格 `HandleRef` envelope，`@nexa/clipboard` 只使用 v1 symbols并暴露单次 `result` Promise 与幂等 `cancel()`；旧 sentinel symbols 仅保留兼容导出。Core injected backend `2/2`、System Host Rust `22/22`、Clipboard TS contract `4/4` 和 runner `7/7` 通过。run `31902303937` 的 macOS/Windows package jobs 实际执行 read/write/read Promise 与 round-trip/restore proof，关闭 hosted runtime 缺口。G4-08 close-race 证据已追加如下。
 
 **G4-08 证据（2026-08-07）**：`TaskRuntime` 暴露 shared System ledger 的外部句柄生命周期入口，供 Subscription/NativeResource 与 Task 共用 owner/generation/tombstone 规则。新增 close-race 集成测试：窗口 owner 失效时三类句柄均变为 `Invalidated`，awaiter 与 worker cancellation 同时被清理；worker 在 owner fence 之后发布的 completion 在 `SystemCompletion` 被丢弃，不产生 Framework resolution。Application Runtime 与 System Host focused tests 均通过，下一切片为 G5-01 参考 Notes PRD。
 
@@ -324,9 +324,9 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 - `doctor` 能报告 Perry/ABI/platform 版本错配；
 - Notes 在 macOS/Windows runner 生成可安装或可分发产物。
 
-**G5-01..04 当前证据（2026-08-08，2026-08-09 picker 加固）**：Notes controller 15/15 覆盖 dirty、save dialog cancel、open/save、错误、foreground exclusion、revision snapshot、suspend/resume、pending read/write close 与 late completion。实际 Notes TSX 树 E2E 4/4 暴露 Open、Save、Title、Body、Status 五个稳定语义节点并执行 Focus/SetValue/Invoke，同时验证 busy 时 role/name 不漂移、幂等生命周期、pending write CloseRequested、dirty 状态下 typed `PERMISSION_DENIED` 和完整诊断对象。真实 FS Promise smoke 已完成受信 manifest、native worker、UTF-8 磁盘 round-trip、Perry continuation 与非 dirty 状态证明；Dialog runtime smoke 7/7 使用构建期注入 backend，在真实 Perry/native Host 中完成 save/open/cancel 与精确状态证明。无 fixture real-picker probe 已完成约 26 MB arm64 AOT/link、stage/proof/disk/cleanup 合同 24/24；Windows 使用 suspended probe/Job Object/真实 PID handoff，POSIX 在 close 后做 PGID 最终强杀，未确认终止会有界失败并保留目录。本机因 macOS Accessibility 未授权准确 fail closed，不是 picker 成功。G5-03 仍等待 Windows UI Automation runtime，G5-04 仍等待 macOS/Windows 真实 `rfd` picker selection/cancel Promise 成功记录。
+**G5-01..04 当前证据（2026-08-08，2026-08-16 hosted 补充）**：Notes controller 15/15 和实际 Notes TSX E2E 4/4 覆盖 open/save/cancel、typed error、稳定语义 action、suspend/resume、pending close 与 late completion；FS 与构建期注入 Dialog 的 deterministic runtime smoke 保持通过。run `31902303937` 的 Windows native job `95054897192` 完成 UI Automation runtime，macOS/Windows package jobs `95054897243` / `95054897272` 完成无 fixture `rfd` picker save/open/cancel。probe SHA-256 分别为 `f7cfab51cbaf4163bc82ae74854b07d5fcd8eb98219050fcb84e18e59c372172` / `e82079f1ee6b6afff7418b94a6299bb72835178f778918b036e80df8659e343a`，因此 G5-03/G5-04 已关闭。
 
-**MVP-01 当前证据（2026-08-08，2026-08-11 runtime proof 补充）**：trusted build wrapper 合同 5/5，主 Notes AOT/startup smoke 通过，且正式构建清除 Dialog fixture 环境变量并拒绝受污染二进制；内部 packager 合同 6/6，并要求 sidecar manifest 与二进制内嵌 manifest bytes 完全一致。本地 macOS `.app` 已实际生成、校验和启动。`reference-notes-package.yml` 的 `package` matrix 执行 CLI create-to-package、FS、构建期注入 Dialog Promise、无 fixture real picker、unsigned Notes package 与 archive/upload；它生成 revision/ref/run/target-bound runtime proof，记录 FS/picker Perry binary 的 size/SHA-256 及 N-04/N-05/N-06/G5-04P 固定旅程。独立 fresh `launch` matrix 只 download/validate/launch，要求两类 executable 存活 5 秒，并把 runtime proof 的 canonical payload 与外层 digest 纳入 clean-package proof。CI route/fail-closed 合同 22/22。该 workflow 尚无双平台 hosted-runner 成功记录，配置完成不等于 MVP-01 已通过。
+**MVP-01 当前证据（2026-08-16）**：PR head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` 触发 run `31902303937`，Actions 在 merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成 macOS/Windows package jobs `95054897243` / `95054897272` 和 fresh download/validate/launch jobs `95059000291` / `95059000304`。平台 package artifact IDs `9251605446` / `9251849187` 的 GitHub digests 为 `sha256:483ab8a38b9debfa8b0dcbf3fb9562b1c1d37bc620b47b1c1e5d20d6b562bbaa` / `sha256:865954eae51ce7a8c2b93224bf8f2ac1d1ed05917649f31acac94c57482c2044`。这些直接平台 jobs 关闭 G5-09/MVP-01；`collect_mvp_proof=false` 跳过了 proof 上传，因此 MVP-02/N-10/N-11 仍必须走 clean-tag schema-v5 promotion。
 
 **G5-05 证据（2026-08-08）**：`@nexa/ui` 提供 Window-scoped `Theme`、`createTheme`/`defaultTheme`/`rgba`、semantic token 与 typed numeric `Style`/`TextStyle`。Text/Card/Button/Input/TextArea 从同一 Theme 派生真实 Host style，组件显式 style 可覆盖且不经过 CSS parser；交互态复用 G3A-10 的 native additive resolver。UI 8/8、Theme Host trace 2/2、strict typecheck/format、System Host build-input 3/3 与 Notes Perry AOT/startup 通过。
 
@@ -336,13 +336,13 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 
 **G5-08 证据（2026-08-08）**：通用实现位于 `packages/cli/src/package.mjs`，`nexa package` 总是先运行受信 `nexa build`，为 `darwin/arm64`、`darwin/x64`、`win32/x64` 生成固定 unsigned layout。binary、manifest 与可选 assets 使用 regular-file identity 复核；assets 限制 4096 文件、64 MiB/文件、256 MiB 总量。packager 在 project root 构建 staging，并排他占位精确 destination；macOS 完整 `.app` 单次移入，Windows 逐项移入并以 `nexa-build.json` 最后提交，可捕获失败按 reservation identity 回滚。初始 8-case RED 在 G5-08 复审阶段扩展为 package 合同 19/19 GREEN、CLI 聚合 53/53，CI path/fail-closed 21/21；真实 create-to-package Perry AOT/link smoke 与 `npm pack ./packages/cli --dry-run --json` 均通过。Notes 专用 `tools/reference-notes-package.mjs` 保持独立。
 
-**G5-09 本地证据（2026-08-08，2026-08-11 runtime proof 补充）**：create-to-package smoke 增加 CI 专用 `--artifact-output <path>`，以同一 parent 的临时工程完成验证后排他移动到不存在的 destination；默认模式仍清理临时目录。package 合同 23/23、CLI 聚合 57/57、根聚合 268/268 与 workflow/route fail-closed 合同 22/22 通过。`reference-notes-package.yml` 已拆为双平台 build/archive/upload 与 fresh download/validate/launch 两个 job；build 强制 real-picker probe并持久化绑定两个 probe binary 与固定旅程的 native runtime proof，launch 仅下载、解包、复核 manifest/metadata/target/version/assets、runtime proof 和 macOS plist，再分别启动通用与 Notes executable 5 秒。真实 macOS artifact 导出、tar 往返、executable mode 与启动已本地验证；本机 picker 只取得 Accessibility 未授权 fail-closed，macOS/Windows hosted picker 与 artifact/launch 成功记录仍缺失。
+**G5-09 证据（2026-08-08，2026-08-16 hosted 补充）**：create-to-package package 合同 23/23、CLI 聚合 57/57 与 workflow/route fail-closed 合同 22/22 通过；`reference-notes-package.yml` 已拆为双平台 build/archive/upload 与 fresh download/validate/launch。run `31902303937` 在两个平台实际完成这两阶段并通过两类 executable 的 5 秒启动，关闭 G5-09。
 
 **G5-10 本地文档证据（2026-08-10）**：Quickstart、Public API Index、Packaging Guide、Compatibility/Known Limitations 与 G6 发布文档均从索引公开。`tools/docs-contract.test.mjs` 自动检查 Markdown 本地链接、生成项目命令、公开 API、工具链/target 真值，以及 unpublished/hosted fail-closed 边界，已进入根测试与 Docs workflow。九包 tarball consumer 已完成安装、typecheck、Node ESM import、doctor、Perry AOT、Host 链接、package 与 evidence verify；但尚无授权/public registry 的 external clean-user create-to-package 记录，因此 G5-10 主项保持未完成。
 
-**G5-11 本地证据（2026-08-10）**：ADR-004 的优先顺序已落实为 Solid 是唯一 Tier-1 外部 Adapter。`@nexa/adapter-solid` 已进入九包公开 release train；`node --test tools/release-packages.test.mjs` 约束其 publishable manifest、`dist`/types/JSX exports 和九包依赖闭包，`node --test tools/solid-notes-e2e.test.mjs` 实际挂载 Solid Notes 核心切片并覆盖 Focus/SetValue/Invoke、保存状态、lifecycle suspend/resume 与 dispose 后订阅释放。`pnpm test:perry` 现为五入口 matrix，额外以 `solid-main.tsx -> reference-notes-solid` 执行可运行的 Solid Notes AOT。该本地证据关闭 G5-11，不代表 registry publish、签名、真实 picker 或 hosted 平台成功。
+**G5-11 本地证据（2026-08-10）**：ADR-004 的优先顺序已落实为 Solid 是唯一 Tier-1 外部 Adapter。`@nexa/adapter-solid` 已进入九包公开 release train；`node --test tools/release-packages.test.mjs` 约束其 publishable manifest、`dist`/types/JSX exports 和九包依赖闭包，`node --test tools/solid-notes-e2e.test.mjs` 实际挂载 Solid Notes 核心切片并覆盖 Focus/SetValue/Invoke、保存状态、lifecycle suspend/resume 与 dispose 后订阅释放。`pnpm test:perry` 现为五入口 matrix，额外以 `solid-main.tsx -> reference-notes-solid` 执行可运行的 Solid Notes AOT。该本地证据关闭 G5-11，但本身不代表 registry publish 或签名。
 
-以上仍不改变未完成项：G3B-05/G5-03 缺 Windows runner UI Automation runtime；G5-04 缺 macOS/Windows 真实 OS picker Promise 成功记录；G5-09/MVP-01 缺双平台 hosted runner artifact 与启动成功记录。构建期 fixture 和本机 Accessibility 未授权 fail-closed 都不冒充 picker 成功，workflow matrix 已配置也不冒充 hosted-runner 成功证据。
+以上平台缺口已由 run `31902303937` 的直接 jobs 关闭。该 PR run 不是 clean tag，且 native/clean-package proof 上传被跳过；因此 MVP-02 和 schema-v5 N-10/N-11 仍待 clean `refs/tags/v*` promotion，不能由这些直接 job 状态代替。
 
 ### Desktop Notes MVP Gate
 
@@ -383,11 +383,11 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 - [x] G6-01：9 个 npm 候选包的公开/private 边界、真实 `dist` exports、Host Perry 条件导出与 native source closure 已冻结；`@nexa/adapter-solid` 的 manifest、dist/types/JSX exports、Solid Notes E2E 与 `solid-main.tsx` AOT 已通过，九包本地 clean consumer 完成安装、typecheck、Node ESM import、doctor、Perry AOT、双 Host archive 链接与 package。隔离发布构建已验证生成 `.js/.d.ts` 的相对 specifier 显式带 `.js`，且 workspace test 不依赖 `dist`。
 - [x] G6-02：Changesets、CHANGELOG 与 npm/Rust/Protocol/Host ABI/Perry 独立版本策略已有 deterministic rehearsal。
 - [x] G6-03：MIT/Apache 双许可、CONTRIBUTING、SECURITY 与 CODEOWNERS 已纳入合同。
-- [ ] G6-04：本地安全策略与 workflow 已实现，四份 lockfile 的 `cargo audit --deny warnings` 和四个 manifest 的 `cargo-deny 0.20.2` 已通过；仍缺绑定 revision 的 hosted npm registry audit、Cargo advisory/deny 与 secret-scan 成功记录。
+- [x] G6-04：run `31902303937` 的 10 个 hosted security jobs 通过 npm registry audit、四份 Cargo lock advisory、四份 deny、license/Action SHA policy 和 secret scan。
 - [x] G6-05：checksum、CycloneDX 1.6 dependency graph 和 SLSA provenance 的生成/离线 fresh verify 合同已覆盖当前 9 个 npm 根、2 个 Cargo Host 根与 Windows unified static closure 根。
 - [ ] G6-06：policy/runbook 与 SHA-256-bound reviewed executor 已在本地实现并通过 fake-tool contracts；execution/credential activation 仍 disabled，owner/protected Environment/真实凭据未配置，双平台 hosted staging evidence pending。
-- [ ] G6-07：G6-07A 六项预算和 hosted boundary 已实现；G6-07B native probe、collector、artifact identity 校验和双平台 workflow 已在本地完成；macOS/Windows hosted raw report、评审和 active baseline 仍全部 pending。
-- [ ] G6-08：本地 candidate 已完成 fresh verify、5 秒 native launch 与隔离篡改 rollback；双平台 hosted tag staging 仍被 G6-04/06/07 前置条件阻断。
+- [x] G6-07：run `31895582357` 的双平台 raw reports 已评审并激活 12 个 baseline；run `31902303937` 的 jobs `95054917085` / `95054917056` 又在 `performance-required` 模式下通过 active-budget 无回归检查。
+- [ ] G6-08：本地 candidate 已完成 fresh verify、5 秒 native launch 与隔离篡改 rollback；双平台 clean-tag hosted staging 仍被 G6-06 签名前置条件和外部审批阻断。
 - [ ] G6-09：首次 registry 循环已在本地拆成 one-time bootstrap staging 与 registry-gated final promotion；final-only 七资产 GitHub Release draft/reconcile/attest/npm 后公开/publication-record 合同已实现。真实 registry publication、双平台 signed artifact、GitHub Release 和 12 条最终成功标准仍未闭环。
 
 Solid Tier-1 本地合同为 `node --test tools/solid-notes-e2e.test.mjs`、`node --test tools/release-packages.test.mjs`、`pnpm test:perry solid-notes` 与 `node tools/build-release-packages.mjs --check`；它们分别验证 Notes 核心交互、九包发布边界、可执行 `solid-main.tsx` AOT 和发布 manifest。`node tools/release-consumer.mjs --output <new-temp-directory>` 已完成九包安装、Node 原生 ESM import、双 Host archive 链接、`.app` package 与离线 evidence verify。G6-06 本地合同为 `node tools/signing-policy.mjs validate`、`node tools/signing-executor.mjs validate` 与 `node --test tools/signing-policy.test.mjs tools/signing-executor.test.mjs`；staging readiness 当前必须失败，且本地合同不替代 owner、protected Environment、真实凭据或双平台 hosted signed staging。Node ESM import 是本机 Node `v24.16.0` 的本地 tarball 证据，不替代 Node 22 hosted、registry、凭据、性能或签名/公证证据。
@@ -396,13 +396,13 @@ Solid Tier-1 本地合同为 `node --test tools/solid-notes-e2e.test.mjs`、`nod
 
 **G6-09A 本地发布门禁证据（2026-08-11）**：`release/readiness-policy.json` 现显式区分 `bootstrap` 与 `final`。bootstrap 只允许 `0.1.0`，只可缺少 registry gate，并只写 revision 专属 staging dist-tag；final 必须具备全部八个 gate，禁止创建缺失的 npm version，只可在九包 registry integrity 与本地 immutable tarball 全部一致后推广 `technical-preview`。`release-evidence.yml` 产出 phase-bound artifact，`registry-evidence.yml` 可分别验证 staging/final channel，`release.yml` 以 `bootstrap-publication` / `request-publication` 分离两次受保护操作。final-only 路径还准备并 attestation 精确七个公开 GitHub Release 资产，以 exact tag/full SHA/version-bound notes 创建或核对 draft prerelease，fresh-download 核对已有/最终远端 bytes且不 `--clobber`，待 npm 九包 channel 二次观测收敛后才公开，并生成绑定 Release/run/assets/npm integrity 的 publication record；bootstrap 不创建 Release。合同覆盖错 phase、错版本、registry pending、缺包、非前缀 partial、摘要替换、remote asset 漂移、npm 未收敛与 final `--resume`，但没有运行任何 hosted workflow、registry mutation 或 GitHub Release mutation，因此 G6-09 保持未完成。
 
-**G6-04 本地供应链补充（2026-08-11，2026-08-13 Windows 闭包补充）**：真实 `cargo audit --deny warnings` 发现根 workspace 与 UI Host 的 `winit` 默认 feature 通过 `wayland-csd-adwaita -> sctk-adwaita -> ab_glyph -> owned_ttf_parser -> ttf-parser` 命中 `RUSTSEC-2026-0192`。workspace 现禁用 `winit` 默认 feature，并显式保留 `rwh_06`、Wayland、Wayland 动态加载、X11 和 `wayland-csd-adwaita-notitle`；这保留 Linux 窗口后端与 CSD，同时移除只服务标题文字的废弃字体解析链。Windows unified static closure 只启用参考应用需要的 Perry `core`、Host Promise 所需 `async-runtime` 与协议校验所需 `regex-engine` feature，独立 lock 纳入 audit、deny 和 Dependabot。四份 lockfile 的 `cargo audit 0.22.2` 与四个 manifest 的 `cargo-deny 0.20.2` advisories/bans/licenses/sources 均在本地通过。期间还以 RED→GREEN 合同修正 `security.yml` 的 `cargo deny` 全局 `--config` 参数位置；这些本地结果不替代 hosted npm/gitleaks/Cargo revision-bound 证据。
+**G6-04 供应链补充（2026-08-11，2026-08-16 hosted 补充）**：本地 audit 发现并移除了 `RUSTSEC-2026-0192` 废弃字体解析链，Windows unified static closure 的独立 lock 已纳入 audit、deny 和 Dependabot。run `31902303937` 在受信 runner 上完成 npm audit、四份 `cargo audit`、四份 `cargo deny` 和 gitleaks，因此 G6-04/G6-04P 已关闭。
 
-**G6-04 npm audit 补充（2026-08-12）**：完整 `pnpm audit` 曾发现 `svelte@4.2.20` 的 6 个 moderate SSR/XSS advisory；`@nexa/compiler-svelte` 与 Svelte 示例已共同升级至 `^5.55.7`，当前锁定 `5.56.8`。重新安装并执行 `pnpm audit --audit-level=high` 与完整 audit 均无已知漏洞；该本地结果仍不替代绑定 release revision 的 hosted npm audit 记录。
+**G6-04 npm audit 补充（2026-08-12，2026-08-16 hosted 补充）**：完整 `pnpm audit` 曾发现 `svelte@4.2.20` 的 6 个 moderate SSR/XSS advisory；`@nexa/compiler-svelte` 与 Svelte 示例已共同升级至 `^5.55.7`，当前锁定 `5.56.8`。本地复核无已知漏洞，run `31902303937` 的 policy/npm audit job `95054897276` 又在 hosted registry 边界成功执行。
 
-**G6 外部 readiness 聚合预检（2026-08-11）**：新增 `pnpm release:preflight` / `tools/release-preflight.mjs`，复用 canonical release、signing 与 performance validator，在不写 policy/evidence、不访问 registry 或凭据的前提下输出 schema v1。当前 final 报告绑定实际本地 HEAD，准确阻断脏 `refs/heads/mvp` 与所需 `refs/tags/v0.1.0` 的差异，列出 8 个 release gate、N-01..N-12 缺失映射、签名 staging/release blockers 和双平台各 6 个 pending baseline；bootstrap 合同只排除 registry。退出 `0/1/2` 分别代表 ready/blocked/contract error，当前 `1` 不是发布成功证据。
+**G6 外部 readiness 聚合预检（2026-08-11）**：`pnpm release:preflight` / `tools/release-preflight.mjs` 复用 canonical release、signing 与 performance validator，在不写 policy/evidence、不访问 registry 或凭据的前提下输出 schema v1。它要求 clean `refs/tags/v0.1.0`、phase-bound external gates 与受保护签名/发布证据；当前分支即使已通过平台、安全和性能 job，仍必须因签名、clean-tag rehearsal、registry 和 publication 门禁退出 blocked。
 
-**G6 外部状态复核（2026-08-12）**：只读 `gh workflow list --all` 与 `gh run list` 显示远端默认分支目前只登记旧版 CI、Docs、Native smoke、Rust、TypeScript 和 Dependabot workflows；本地新增的 `mvp-evidence.yml`、`reference-notes-package.yml`、`performance.yml`、`security.yml` 及发布/签名 workflows 尚未在远端默认分支注册。最近 hosted 成功运行绑定的是历史 revision `35912970...` 或更早 revision，不是当前 `f3bb8a0...`；因此不能把本地 workflow 文件或历史 run 计入当前 revision-bound hosted evidence，G3B-05、MVP-01、G5-09、G6-04P/G6-06P/G6-07P/G6-08P/G6-09P 继续保持外部 pending。
+**G6 hosted 状态复核（2026-08-16）**：PR run `31902303937` 共 41/41 jobs 成功，source head 为 `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`，Actions merge execution revision 为 `991b28142783833c14be659125c4564d14219cc5`。它关闭 G3B-05、G5-03P/G5-04P、G5-09/MVP-01、G6-04P 和 G6-07P 的直接 hosted 门禁，`CI / result` job `95059146281` 成功。该 run 不是 clean tag，且 `collect_mvp_proof=false`，所以 N-10/N-11/MVP-02 以及 G6-06P/G6-08P/G6-09P 仍保持 pending；它没有激活凭据、签名/公证、发布 registry 或创建 GitHub Release。
 
 ## 5. 并行执行建议
 
@@ -486,20 +486,18 @@ G3A-06 收口验证：Text 86/86、Platform 22/22、Bridge 108/108、Perry Host 
 
 **G3B-05 deterministic harness evidence（2026-08-06）**：Minimal TSX `examples/semantic-e2e`、Node 合同和 Bridge harness 共用版本化 `scenario.json`，以 role/name 定位 Title、Body、Save，不含像素坐标。AccessKit converter harness 检查 role/name/action 映射；Bridge harness 使用 scenario 查询结果，在后续 PlatformEvents tick 完成 Focus、SetValue 与 Invoke。native-smoke 的 macOS/Windows matrix 已配置运行同一组 `g3b05_` deterministic tests。验证：Platform `37/37`、Bridge `127/127`、workspace Node `96/96`、23-project matrix、22-project typecheck 与目标 formatting/lint/Clippy 通过。
 
-**G3B-05 native client smoke 进展（2026-08-06）**：新增 `semantic-accessibility-smoke`，以小型原生 fixture 证明平台 client action 经 production Adapter、winit user event 与 Runtime Dispatcher 落地；它和 Minimal TSX/Bridge deterministic harness 是分层证据，不把两条路径伪装成一次端到端运行。macOS 本机的进程内 NSAccessibility 对象 client 已连续运行通过 Focus、SetValue、Invoke、焦点/value/Status 回读，native crate `2/2`。Windows UI Automation COM client 已实现 control-type/name 查询、SetFocus、ValuePattern、InvokePattern 与回读，并通过 `x86_64-pc-windows-msvc` 严格 Clippy。required 双平台 workflow 已配置，但尚无 Windows GitHub runner runtime 成功证据，因此 G3B-05 保持未完成。
-
-G3B-05 剩余平台门禁：必须在 GitHub Windows runner 实际执行 `cargo run -p semantic-accessibility-smoke --release` 并保留成功记录；当前仅有客户端实现和交叉编译/Clippy 证据，尚无 runner runtime 成功。macOS 当前证据不覆盖跨进程 `AXUIElement`/TCC 兼容矩阵，该事项继续作为平台兼容风险跟踪。
+**G3B-05 native client smoke 证据（2026-08-06，2026-08-16 hosted 补充）**：`semantic-accessibility-smoke` 以小型原生 fixture 证明平台 client action 经 production Adapter、winit user event 与 Runtime Dispatcher 落地；它和 Minimal TSX/Bridge deterministic harness 是分层证据，不把两条路径伪装成一次端到端运行。run `31902303937` 的 macOS/Windows native jobs `95054897228` / `95054897192` 均在真实 hosted runner 通过，关闭 G3B-05。macOS 当前证据不覆盖跨进程 `AXUIElement`/TCC 兼容矩阵，该事项继续作为平台兼容风险跟踪。
 
 ### Checkpoint D：G3/G4 完成
 
-- [ ] IME、A11y、FS/Dialog 在参考应用闭环
+- [x] IME、A11y、FS/Dialog 在参考应用闭环
 - [x] close/cancel/resume 生命周期自动化通过
 - [x] 冻结 Preview 公共 API 候选
 
 ### Checkpoint E：Desktop Notes MVP 完成
 
-- [ ] Notes 编辑/A11y/文件/恢复/关闭旅程通过
-- [ ] unsigned macOS/Windows 产物在 clean runner 启动
+- [x] Notes 编辑/A11y/文件/恢复/关闭旅程通过
+- [x] unsigned macOS/Windows 产物在 clean runner 启动
 - [x] MVP 文档、已知限制和当前证据一致
 
 ### Checkpoint F：G5/G6 Technical Preview 完成

@@ -44,6 +44,16 @@ function routes(path, filter) {
   return filters[filter].some((pattern) => matchesGlob(path, pattern));
 }
 
+test("label-gated required workflows rerun the aggregator when labels change", () => {
+  assert.deepEqual(ci.on.pull_request.types, [
+    "opened",
+    "synchronize",
+    "reopened",
+    "labeled",
+    "unlabeled",
+  ]);
+});
+
 test("workspace-owned hosted toolchain caches cannot dirty release evidence", () => {
   assert.match(gitignore, /^\/\.perry-source\/$/mu);
   assert.match(gitignore, /^\/\.nexa-windows-runtime\/$/mu);
@@ -293,12 +303,27 @@ test("the required result check fails closed when change detection fails", () =>
     "native-smoke",
     "reference-notes-package",
     "security",
+    "signing-preflight",
+    "performance",
+    "release-rehearsal",
   ]);
   assert.match(workflow, /^\s+CHANGES: \$\{\{ needs\.changes\.result \}\}$/m);
   assert.match(workflow, /if \[\[ "\$CHANGES" != "success" \]\]; then/);
 });
 
-test("hosted performance capture is an explicit pull-request opt-in", () => {
+test("credential-free signing preflight runs for every CI revision and fails closed", () => {
+  const signingPreflight = ci.jobs["signing-preflight"];
+  assert.equal(signingPreflight.needs, "changes");
+  assert.equal(signingPreflight.if, undefined);
+  assert.equal(signingPreflight.uses, "./.github/workflows/signing.yml");
+  assert.deepEqual(signingPreflight.with, { operation: "validate" });
+  assert.equal(signingPreflight.secrets, undefined);
+  assert.equal(ci.jobs.result.needs.includes("signing-preflight"), true);
+  assert.match(workflow, /^\s+SIGNING_PREFLIGHT: \$\{\{ needs\.signing-preflight\.result \}\}$/m);
+  assert.match(workflow, /if \[\[ "\$SIGNING_PREFLIGHT" != "success" \]\]; then/);
+});
+
+test("hosted performance capture is opt-in and only required captures gate merging", () => {
   const performance = ci.jobs.performance;
   assert.equal(performance.needs, "changes");
   assert.equal(performance.uses, "./.github/workflows/performance.yml");
@@ -308,7 +333,38 @@ test("hosted performance capture is an explicit pull-request opt-in", () => {
     performance.with.require_active,
     "${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}",
   );
-  assert.equal(ci.jobs.result.needs.includes("performance"), false);
+  assert.equal(ci.jobs.result.needs.includes("performance"), true);
+  assert.match(workflow, /^\s+PERFORMANCE_STATUS: \$\{\{ needs\.performance\.result \}\}$/m);
+  assert.match(
+    workflow,
+    /^\s+PERFORMANCE_REQUIRED: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'performance-required'\) \}\}$/m,
+  );
+  assert.match(
+    workflow,
+    /if \[\[ "\$PERFORMANCE_REQUIRED" == "true" && "\$PERFORMANCE_STATUS" != "success" \]\]; then/,
+  );
+});
+
+test("candidate release rehearsal is credential-free and gates only labeled pull requests", () => {
+  const rehearsal = ci.jobs["release-rehearsal"];
+  assert.equal(rehearsal.needs, "changes");
+  assert.equal(
+    rehearsal.if,
+    "contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')",
+  );
+  assert.equal(rehearsal.uses, "./.github/workflows/release-rehearsal.yml");
+  assert.equal(rehearsal.with.mode, "candidate");
+  assert.equal(rehearsal.secrets, undefined);
+  assert.equal(ci.jobs.result.needs.includes("release-rehearsal"), true);
+  assert.match(workflow, /^\s+REHEARSAL_STATUS: \$\{\{ needs\.release-rehearsal\.result \}\}$/m);
+  assert.match(
+    workflow,
+    /^\s+REHEARSAL_REQUIRED: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'release-rehearsal-required'\) \}\}$/m,
+  );
+  assert.match(
+    workflow,
+    /if \[\[ "\$REHEARSAL_REQUIRED" == "true" && "\$REHEARSAL_STATUS" != "success" \]\]; then/,
+  );
 });
 
 test("the Docs route always runs for documentation changes and fails closed", () => {

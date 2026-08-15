@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      artifact_suffix:
+        description: "Static suffix that keeps reports unique across nested reusable calls"
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       require_active:
@@ -237,6 +242,6 @@ jobs:
         if: ${{ always() && steps.capture.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: performance-report-${{ matrix.platform }}
+          name: performance-report-${{ matrix.platform }}${{ inputs.artifact_suffix }}
           path: ${{ runner.temp }}/nexa-performance-${{ matrix.platform }}.json
           if-no-files-found: error

@@ -82,6 +82,7 @@ jobs:
     uses: ./.github/workflows/performance.yml
     with:
       require_active: true
+      artifact_suffix: -rehearsal
 
   consumer:
     name: Build unsigned candidate (${{ matrix.platform }})
@@ -428,3 +429,6 @@ jobs:
         run: >-
           node tools/release-rehearsal.mjs enforce
           --decision "${{ runner.temp }}/rehearsal-decision.json"
+          --mode "$REHEARSAL_MODE"
+          --ref "$GITHUB_REF"
+          --revision "$GITHUB_SHA"

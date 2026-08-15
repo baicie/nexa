@@ -18,6 +18,7 @@ import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 import { generateEvidence } from "./release-evidence.mjs";
 import {
   createRehearsalDecision,
+  enforceRehearsalDecision,
   launchDownloadedCandidate,
   prepareCandidateBundle,
   rehearseRollback,
@@ -241,6 +242,53 @@ test("candidate mode permits local changes but still binds the checked-out revis
   );
 });
 
+test("prototype-inherited names are rejected as unknown rehearsal modes", () => {
+  const gates = Object.fromEntries(policy.requiredGates.map((gate) => [gate, "success"]));
+  const source = {
+    mode: "__proto__",
+    policy,
+    version: "0.1.0",
+    refType: "branch",
+    refName: "feature/rehearsal",
+    revision,
+    head: revision,
+    status: "",
+  };
+
+  assert.throws(() => validateSourceState(source), /unknown rehearsal mode/u);
+  assert.throws(
+    () =>
+      createRehearsalDecision({
+        policy,
+        mode: "__proto__",
+        ref: "refs/heads/feature/rehearsal",
+        revision,
+        gates,
+      }),
+    /unknown rehearsal mode/u,
+  );
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        policy,
+        decision: {
+          schemaVersion: 1,
+          mode: "__proto__",
+          ref: "refs/heads/feature/rehearsal",
+          revision,
+          gates,
+          outcome: "passed",
+          failedGates: [],
+          rollback: null,
+        },
+        expectedMode: "__proto__",
+        expectedRef: "refs/heads/feature/rehearsal",
+        expectedRevision: revision,
+      }),
+    /unknown expected rehearsal mode/u,
+  );
+});
+
 test("decision records rollback for every incomplete or failed gate", () => {
   const passingGates = Object.fromEntries(policy.requiredGates.map((gate) => [gate, "success"]));
   const passed = createRehearsalDecision({
@@ -268,6 +316,65 @@ test("decision records rollback for every incomplete or failed gate", () => {
     assert.ok(failed.rollback.actions.includes("keep-last-known-good-current"));
     assert.ok(failed.rollback.actions.includes("use-new-version-for-next-candidate"));
   }
+});
+
+test("release enforcement accepts only the exact successful tag rehearsal", () => {
+  const gates = Object.fromEntries(policy.requiredGates.map((gate) => [gate, "success"]));
+  const decision = createRehearsalDecision({
+    policy,
+    mode: "tag",
+    ref: "refs/tags/v0.1.0",
+    revision,
+    gates,
+  });
+  const expected = {
+    policy,
+    expectedMode: "tag",
+    expectedRef: "refs/tags/v0.1.0",
+    expectedRevision: revision,
+  };
+
+  assert.equal(enforceRehearsalDecision({ ...expected, decision }), decision);
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        ...expected,
+        decision: { ...decision, mode: "candidate", promotion: "candidate-only" },
+      }),
+    /mode tag/u,
+  );
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        ...expected,
+        decision: { ...decision, ref: "refs/tags/v0.1.1" },
+      }),
+    /ref refs\/tags\/v0\.1\.0/u,
+  );
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        ...expected,
+        decision: { ...decision, revision: "f".repeat(40) },
+      }),
+    /revision/u,
+  );
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        ...expected,
+        decision: { ...decision, promotion: "candidate-only" },
+      }),
+    /promotion.*owner-review-required/u,
+  );
+  assert.throws(
+    () =>
+      enforceRehearsalDecision({
+        ...expected,
+        decision: { ...decision, gates: { ...decision.gates, launch: "skipped" } },
+      }),
+    /gate launch.*success/u,
+  );
 });
 
 test("workflow plan preserves the tag-to-rollback order and forbidden execution boundary", () => {
@@ -449,6 +556,10 @@ test("isolated workflow and runbook encode fresh jobs, rollback, and no release 
   assert.match(workflow, /release-rehearsal\.mjs verify/u);
   assert.match(workflow, /release-rehearsal\.mjs launch/u);
   assert.match(workflow, /release-rehearsal\.mjs rollback/u);
+  assert.match(
+    workflow,
+    /release-rehearsal\.mjs enforce[\s\S]*--decision "\$\{\{ runner\.temp \}\}\/rehearsal-decision\.json"[\s\S]*--mode "\$REHEARSAL_MODE"[\s\S]*--ref "\$GITHUB_REF"[\s\S]*--revision "\$GITHUB_SHA"/u,
+  );
   assert.doesNotMatch(
     workflow,
     /npm publish|pnpm publish|gh workflow run|codesign|notarytool|signtool/iu,
@@ -456,6 +567,25 @@ test("isolated workflow and runbook encode fresh jobs, rollback, and no release 
   assert.match(runbook, /tag.*artifact.*fresh download.*integrity.*launch.*rollback/isu);
   assert.match(runbook, /none-first-preview/u);
   assert.match(runbook, /does not publish|不发布/iu);
+});
+
+test("nested rehearsal performance reports use a run-unique artifact suffix", () => {
+  const rehearsal = parseYaml(
+    readFileSync(new URL("../.github/workflows/release-rehearsal.yml", import.meta.url), "utf8"),
+  );
+  const performance = parseYaml(
+    readFileSync(new URL("../.github/workflows/performance.yml", import.meta.url), "utf8"),
+  );
+  const upload = performance.jobs["hosted-boundary"].steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+
+  assert.equal(performance.on.workflow_call.inputs.artifact_suffix.default, "");
+  assert.equal(rehearsal.jobs.performance.with.artifact_suffix, "-rehearsal");
+  assert.equal(
+    upload.with.name,
+    "performance-report-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
+  );
 });
 
 test("rehearsal consumer builds with the pinned native toolchain and clean installed Hosts", () => {
@@ -467,10 +597,7 @@ test("rehearsal consumer builds with the pinned native toolchain and clean insta
   assert.equal(job.env.PERRY_WORKSPACE_ROOT, "${{ github.workspace }}/.perry-source");
   assert.equal(job.env.PERRY_RUNTIME_DIR, "${{ github.workspace }}/.perry-source/target/release");
   assert.equal(job.env.PERRY_LIB_DIR, "${{ github.workspace }}/.perry-source/target/release");
-  assert.equal(
-    job.env.NEXA_WINDOWS_RUNTIME_ROOT,
-    "${{ github.workspace }}/.nexa-windows-runtime",
-  );
+  assert.equal(job.env.NEXA_WINDOWS_RUNTIME_ROOT, "${{ github.workspace }}/.nexa-windows-runtime");
 
   const checkout = job.steps.find((step) => step.with?.repository === "PerryTS/perry");
   assert.equal(checkout.with.ref, PERRY_SOURCE_REVISION);

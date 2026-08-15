@@ -223,6 +223,50 @@ test("signing workflow preserves hard gates while encoding the complete producer
   assert.equal(releaseUpload.with["if-no-files-found"], "error");
 });
 
+test("signing workflow exposes platform credentials only to the signing execution step", () => {
+  const workflow = parseYaml(
+    readFileSync(new URL("../.github/workflows/signing.yml", import.meta.url), "utf8"),
+  );
+  const contracts = [
+    {
+      jobName: "macos-executor",
+      executeStep: "Execute macOS signing and export immutable custody",
+      credentials: {
+        NEXA_MACOS_CERTIFICATE_P12: "${{ secrets.NEXA_MACOS_CERTIFICATE_P12 }}",
+        NEXA_MACOS_CERTIFICATE_PASSWORD: "${{ secrets.NEXA_MACOS_CERTIFICATE_PASSWORD }}",
+        NEXA_APPLE_NOTARY_KEY_P8: "${{ secrets.NEXA_APPLE_NOTARY_KEY_P8 }}",
+        NEXA_MACOS_SIGNING_IDENTITY: "${{ vars.NEXA_MACOS_SIGNING_IDENTITY }}",
+        NEXA_APPLE_TEAM_ID: "${{ vars.NEXA_APPLE_TEAM_ID }}",
+        NEXA_APPLE_NOTARY_KEY_ID: "${{ vars.NEXA_APPLE_NOTARY_KEY_ID }}",
+        NEXA_APPLE_NOTARY_ISSUER_ID: "${{ vars.NEXA_APPLE_NOTARY_ISSUER_ID }}",
+      },
+    },
+    {
+      jobName: "windows-executor",
+      executeStep: "Execute Windows signing and export immutable custody",
+      credentials: {
+        NEXA_WINDOWS_CERTIFICATE_PFX: "${{ secrets.NEXA_WINDOWS_CERTIFICATE_PFX }}",
+        NEXA_WINDOWS_CERTIFICATE_PASSWORD: "${{ secrets.NEXA_WINDOWS_CERTIFICATE_PASSWORD }}",
+        NEXA_WINDOWS_CERTIFICATE_THUMBPRINT: "${{ vars.NEXA_WINDOWS_CERTIFICATE_THUMBPRINT }}",
+        NEXA_WINDOWS_RFC3161_TIMESTAMP_URL: "${{ vars.NEXA_WINDOWS_RFC3161_TIMESTAMP_URL }}",
+      },
+    },
+  ];
+
+  for (const { jobName, executeStep, credentials } of contracts) {
+    const job = workflow.jobs[jobName];
+    assert.deepEqual(job.env, {
+      UNSIGNED_RUN_ID: "${{ inputs.unsigned_run_id }}",
+    });
+    const execution = job.steps.find(({ name }) => name === executeStep);
+    assert.deepEqual(execution.env, credentials);
+    for (const step of job.steps) {
+      if (step === execution) continue;
+      assert.doesNotMatch(JSON.stringify(step), /\$\{\{\s*(?:secrets|vars)\./u);
+    }
+  }
+});
+
 test("reference Notes packaging uploads one canonical dual-platform unsigned signing input", () => {
   const workflow = parseYaml(
     readFileSync(

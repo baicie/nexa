@@ -126,7 +126,11 @@ jobs:
           cp "$RUNNER_TEMP/external-proof/rehearsal/rehearsal-decision.json" "$input_root/proof/rehearsal-decision.json"
           cp "$RUNNER_TEMP/external-proof/signing/signed-release-artifacts.manifest.json" "$input_root/proof/signed-release-artifacts.manifest.json"
           node tools/mvp-evidence.mjs verify "$input_root/proof/mvp-evidence.json"
-          node tools/release-rehearsal.mjs enforce --decision "$input_root/proof/rehearsal-decision.json"
+          node tools/release-rehearsal.mjs enforce \
+            --decision "$input_root/proof/rehearsal-decision.json" \
+            --mode tag \
+            --ref "$GITHUB_REF" \
+            --revision "$GITHUB_SHA"
           node tools/publish-release.mjs verify-signed \
             --signed-artifacts "$RUNNER_TEMP/external-proof/signing" \
             --revision "$GITHUB_SHA" \

@@ -1,6 +1,6 @@
 # Desktop Notes MVP
 
-- 状态：实施中（窗口生命周期、真实 FS Promise、构建期注入的 native Dialog Promise、无 fixture real-picker fail-closed probe、Technical Preview CLI `new`/`dev`/`build`/`package`/`doctor`、真实 create-to-package 与本地 macOS package 已有证据；Windows UIA、真实 OS picker 成功与双平台 clean-runner 尚未完成）
+- 状态：Desktop Notes MVP 直接产品门禁已完成（PR run `31902303937` 在 macOS/Windows 通过 UIA/NSAccessibility、真实 OS picker、FS/Clipboard 与 fresh clean-runner 启动）；MVP-02 的 clean-tag schema-v5 N-10/N-11 晋级仍待执行
 - 决策：[`ADR-010`](./decisions/ADR-010-desktop-notes-mvp-scope.md)
 - 详细架构：[`PROJECT-DESIGN.md`](./PROJECT-DESIGN.md)
 - 路线图：[`ROADMAP.md`](./ROADMAP.md)
@@ -111,25 +111,25 @@ flowchart LR
 
 G3B 和 G4 在协议合同冻结后可以并行；G5 应用集成必须按垂直旅程推进，不能先堆完整控件库或 CLI。
 
-G3B-05 的 deterministic harness 已用 `examples/semantic-e2e/scenario.json` 贯通无坐标 role/name 查询、AccessKit converter 与 Bridge Dispatcher。新增 `semantic-accessibility-smoke` 通过 production `accesskit_winit::Adapter`、winit user event 和 `Dispatcher<AccessibilityActionRequest>` 落地 action；macOS 本机的进程内 NSAccessibility 对象 client 已连续通过 Focus、SetValue、Invoke、焦点回读与 Status 校验。Windows UI Automation COM client 已实现，并通过 `x86_64-pc-windows-msvc` 严格 Clippy，但尚无 GitHub Windows runner runtime 成功证据。因此 G3B-05/G3B 仍未完成；M3 还独立依赖 G4-01..04。
+G3B-05 的 deterministic harness 使用 `examples/semantic-e2e/scenario.json` 贯通无坐标 role/name 查询、AccessKit converter 与 Bridge Dispatcher。`semantic-accessibility-smoke` 通过 production `accesskit_winit::Adapter`、winit user event 和 `Dispatcher<AccessibilityActionRequest>` 落地 action。run `31902303937` 的 macOS/Windows native jobs `95054897228` / `95054897192` 均完成真实平台 accessibility client smoke，因此 G3B-05/G3B 已完成；macOS 当前层仍不覆盖跨进程 `AXUIElement`/TCC 兼容矩阵。
 
-G4-01 已完成：System Runtime 使用统一 kind-aware `HandleIdentityRegistry` 分配 Task/NativeResource/后续 Subscription identity，保留 runtime tombstone 与 owner terminal fence，并以硬预算约束累计 identity/owner。close/cancel 与内部 finish-close 分离，late completion 按原因计数；3,125 条 state-model 操作序列、kind 数值碰撞、owner/cancel 顺序、generation reuse/retirement 均通过。M3 仍依赖 G4-02..04，且 G3B-05 的 Windows runner runtime 证据仍缺失。
+G4-01 已完成：System Runtime 使用统一 kind-aware `HandleIdentityRegistry` 分配 Task/NativeResource/后续 Subscription identity，保留 runtime tombstone 与 owner terminal fence，并以硬预算约束累计 identity/owner。close/cancel 与内部 finish-close 分离，late completion 按原因计数；3,125 条 state-model 操作序列、kind 数值碰撞、owner/cancel 顺序、generation reuse/retirement 均通过。
 
 G4-02 已完成：固定大小 bounded worker pool 保证阻塞工作不进入 UI 线程，worker result 只经 Dispatcher `System` queue 并在 `SystemCompletion` phase settle。cancel control event 不等待 worker，owner invalidation/runtime drop 会协作取消；completion/cancel 两种竞态顺序、cancel 后 panic 诊断、并发 sequence/FIFO、queue saturation 与 late drop 均有回归覆盖，失败提交不会泄漏 identity/owner budget。Runtime `49/49`、Rustfmt 与严格 Clippy 通过。
 
-G4-03 已完成：System Core 与 Host 使用 manifest-backed `CommandResult/NexaError`，denied/cancelled/not-found/invalid/platform/internal 保持不同 numeric code，并保留 platform code、permission source、owner/task context 与 nested cause。Rust FFI codec 和 TS decoder 对 envelope、primitive context、uint32、known metadata、sentinel 与 panic fallback 均有 contract test；Rust core `9/9`、Host `6/6`、TS `4/4` 通过。Clipboard 的实际 Task/Error 迁移随后在 G4-07 完成。M3 仍依赖 G4-04，G3B-05 的 Windows runner runtime 证据仍缺失。
+G4-03 已完成：System Core 与 Host 使用 manifest-backed `CommandResult/NexaError`，denied/cancelled/not-found/invalid/platform/internal 保持不同 numeric code，并保留 platform code、permission source、owner/task context 与 nested cause。Rust FFI codec 和 TS decoder 对 envelope、primitive context、uint32、known metadata、sentinel 与 panic fallback 均有 contract test；Rust core `9/9`、Host `6/6`、TS `4/4` 通过。Clipboard 的实际 Task/Error 迁移随后在 G4-07 完成。
 
 G4-04 已完成：严格 app manifest v1、双加载入口、deny-all PermissionSet、穷尽 command permission mapping 和 Rust-only one-shot Host install 均已落地；未安装或重复安装不能扩大能力。
 
 G4-05 已完成：`@nexa/fs` 提供 typed `Task<T>`、UTF-8 read/write、atomic replace、cancel 和结构化错误映射。worker completion 通过 winit wakeup 进入 `SystemCompletion`，Promise resolve 后由 `FrameworkMicrotasks/perry_poll()` 执行 continuation；owner close/reset 建立 terminal fence 并丢弃迟到结果。System Core `9/9`、System Host `15/15`、Application Runtime `51/51`、winit `39/39`、Bridge `128/128` 与 FS/System TS `12/12` 通过。G5 trusted launcher 的真实 FS Promise smoke 也已用内嵌 manifest 启动 Perry 进程，完成多语种 UTF-8 磁盘 round-trip、SystemCompletion、continuation 与 bytes 复核。Dialog 的 deterministic 自动证据由同一真实 Perry/native Task/Promise 链和构建期注入 backend 提供。当前 `rfd` native backend 只能返回 selected path 或 `None` cancel，没有真实 `PLATFORM_FAILURE` 返回分支；Dialog worker 不使用 cancellation token，Task cancel/owner invalidation 只终止结果交付并丢弃迟到 completion，不能主动关闭已经显示的系统 picker。
 
-G4-07 已完成：`@nexa/clipboard` 迁移到 typed `Task<T>`，读取/写入均走 bounded worker、`SystemCompletion` 和 `nexa_result_json_v1`；失败不再折叠为空字符串或布尔值。注入式 backend 测试覆盖 UTF-8 round-trip、平台错误、幂等 cancel 和迟到 owner fence，旧 sentinel 仅保留兼容 ABI。Core `2/2`、System Host `22/22`（20 unit + 2 integration）与 Clipboard TS `4/4` 通过。G5 trusted launcher 现已接入真实 read/write/read Promise fixture：Notes build 验证 Clipboard permission marker，runner `7/7` 严格校验 round-trip/restore proof，本机 Perry AOT/link 通过，macOS/Windows package matrix 强制执行；尚无绑定当前 commit 的 hosted runtime 成功记录，因此不能写成真实平台 Clipboard 成功证据。
+G4-07 已完成：`@nexa/clipboard` 迁移到 typed `Task<T>`，读取/写入均走 bounded worker、`SystemCompletion` 和 `nexa_result_json_v1`；失败不再折叠为空字符串或布尔值。注入式 backend 测试覆盖 UTF-8 round-trip、平台错误、幂等 cancel 和迟到 owner fence，旧 sentinel 仅保留兼容 ABI。Core `2/2`、System Host `22/22`（20 unit + 2 integration）与 Clipboard TS `4/4` 通过。G5 trusted launcher 的 read/write/read Promise fixture 由 runner `7/7` 校验 round-trip/restore proof，并在 run `31902303937` 的 macOS/Windows package jobs 通过真实 hosted runtime 执行。
 
-G5/MVP 当前证据（2026-08-08，2026-08-09 picker 加固）：Notes controller 15/15 与实际 TSX E2E 4/4 覆盖编辑、五个稳定语义节点的 Focus/SetValue/Invoke、保存 busy 状态、typed `PERMISSION_DENIED` 的可见状态与诊断保真、suspend/resume、pending write 时 CloseRequested 和迟到 completion。版本化 WindowLifecycle 已贯通协议、Bridge、Host 与应用，并固定 close callback 在 owner fence 前执行。真实 FS smoke 已通过 Notes controller 完成保存、native UTF-8 磁盘 round-trip 与 `dirty == false` 状态证明；Dialog runtime smoke 7/7 通过真实 Perry/native Host 完成 save/open/cancel 和精确状态证明，选择结果来自构建期注入 backend。无 fixture real-picker probe 依次要求 save/open/cancel、精确 controller snapshot 与磁盘 bytes，runner/driver 合同 24/24；Windows 使用 suspended probe/Job Object/真实 PID handoff，POSIX 在 close 后做 PGID 最终强杀，未确认终止有界失败并保留目录。本地 arm64 Mach-O AOT/link 成功，但实际运行因 macOS Accessibility 未授权按预期 fail closed，因此不算真实 picker 成功。CLI `new`/`dev`/`build`/`package`/`doctor` 当前聚合 57/57；通用 package 合同 23/23 与真实 create-to-package Perry AOT/link smoke 已通过，产出约 25.3 MB binary 和 `dist/smoke-app-macos-arm64/smoke-app.app`，并验证 plist、manifest、metadata、assets、fixture canary 与开发路径隔离。Notes build wrapper 5/5、专用 packager 6/6，正式构建清除 Dialog fixture 环境变量并拒绝受污染二进制，主 Notes AOT/startup 与本地 macOS `.app` 启动均通过。`reference-notes-package.yml` 已拆为 macOS/Windows build/archive/upload 与独立 fresh download/validate/launch 两个阶段，后者不 checkout、安装工具链或重新构建，并分别执行通用与 Notes 5 秒存活检查；macOS/Windows real-picker 成功和双平台 hosted artifact/launch 记录仍缺失，workflow 配置本身不等于 hosted-runner 成功证据。
+G5/MVP 当前证据（2026-08-16 hosted 补充）：Notes controller 15/15 与实际 TSX E2E 4/4 覆盖编辑、五个稳定语义节点的 Focus/SetValue/Invoke、保存 busy 状态、typed `PERMISSION_DENIED`、suspend/resume、pending write 时 CloseRequested 和迟到 completion。真实 FS 与构建期注入 Dialog 的确定性合同保持通过。PR head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` 触发的 run `31902303937` 在 Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成 Windows UIA、macOS/Windows 无 fixture picker save/open/cancel、FS/Clipboard、package 完整性和 fresh clean-runner 启动。package jobs 为 `95054897243` / `95054897272`，launch jobs 为 `95059000291` / `95059000304`；picker binary SHA-256 为 `f7cfab51cbaf4163bc82ae74854b07d5fcd8eb98219050fcb84e18e59c372172` / `e82079f1ee6b6afff7418b94a6299bb72835178f778918b036e80df8659e343a`。该 run 关闭 G5-03/G5-04/G5-09 与 MVP-01 的直接平台验收，但因 proof 上传跳过而不是 N-10/N-11 schema-v5 promotion。
 
 G5-05 当前证据（2026-08-08）：基础 Window-scoped Theme、typed semantic token、numeric `Style`/`TextStyle` 与 Button/Input/TextArea Host trace 已完成；显式组件 style 最终覆盖，交互态继续复用统一 native resolver，不存在 CSS parser。UI 8/8、Theme trace 2/2 与真实 Notes Perry AOT/startup 通过。
 
-本轮本地收口门禁（2026-08-10）：九包 native tarball consumer 已完成安装、typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify；Tier-1 `@nexa/adapter-solid` 还通过公开 manifest/exports 合同、Solid Notes 核心 E2E 以及 `solid-main.tsx` 的 Perry AOT 入口。Solid 路径属于 Technical Preview，不改变 Minimal TSX 是 Desktop Notes MVP 唯一必需产品路径的决定。新增 Clipboard runner `7/7` 与本机 AOT/link 也通过，但未执行本地真实剪贴板 round-trip。这些本地结果不构成 Windows UIA、真实 OS Clipboard/picker、Node 22 hosted 或双平台 clean-runner 证据。
+本地收口门禁（2026-08-10）中的九包 native tarball consumer、Tier-1 `@nexa/adapter-solid` 核心 E2E/AOT 与 Clipboard runner 仍是确定性合同证据，它们单独不构成平台成功证据；相应 hosted 缺口已由 run `31902303937` 的直接 jobs 关闭。Solid 路径属于 Technical Preview，不改变 Minimal TSX 是 Desktop Notes MVP 唯一必需产品路径。
 
 ## 7. 验证命令
 
@@ -170,13 +170,15 @@ pnpm --filter @nexa/example-reference-notes smoke:picker
 
 ## 8. MVP Definition of Done
 
-- [ ] G2 退出门禁修复并在当前 commit 重跑全部相关验证（本地工作树已全量通过，仍需绑定最终 revision/required CI）。
-- [ ] Notes 的编辑、A11y、open/save、cancel、suspend/resume、close 旅程全部有自动证据（deterministic 与 macOS 本地证据已通过，仍缺 Windows UIA runtime 和双平台真实 picker）。
+- [x] G2 退出门禁修复并在 source revision `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` 的 required CI 重跑全部相关验证。
+- [x] Notes 的编辑、A11y、open/save、cancel、suspend/resume、close 旅程全部有 deterministic 和双平台 hosted 自动证据。
 - [x] deterministic 测试使用注入 backend；real-picker probe 只使用 runner 自建临时目录，不修改开发者文件或剪贴板。
-- [ ] macOS/Windows unsigned artifact 在 clean runner 启动。
+- [x] macOS/Windows unsigned artifact 在 clean runner 启动。
 - [x] 公开合同、ADR、Roadmap、Todo、已知限制与实现一致。
 - [x] 所有新增错误路径、清理路径和迟到事件均有回归测试。
-- [ ] 不需要 Node、Rust、仓库源码或全局 Perry 才能运行产物。
+- [x] 不需要 Node、Rust、仓库源码或全局 Perry 才能运行产物。
+
+此 Definition of Done 记录直接产品验收。`release/mvp-evidence.json` 的 N-10/N-11 只能在 clean `refs/tags/v*` 上由 `mvp-evidence.yml` 消费已上传的双平台 proof 晋级；run `31902303937` 设置 `collect_mvp_proof=false`，所以 MVP-02 仍保持未完成。
 
 ## 9. 开放决策
 

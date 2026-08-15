@@ -731,3 +731,14 @@ test("protected release consumes external evidence and signed artifacts without 
   );
   assert.doesNotMatch(publishCommands, /pnpm release:build/u);
 });
+
+test("release workflow grants OIDC write access only to the protected publish job", () => {
+  const workflow = parseYaml(
+    readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  for (const [jobName, job] of Object.entries(workflow.jobs)) {
+    assert.equal(job.permissions?.["id-token"], jobName === "publish" ? "write" : undefined);
+  }
+  assert.equal(workflow.jobs.publish.environment, "technical-preview-release");
+});

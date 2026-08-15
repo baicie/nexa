@@ -83,13 +83,6 @@ jobs:
       actions: read
       contents: read
     env:
-      NEXA_MACOS_CERTIFICATE_P12: ${{ secrets.NEXA_MACOS_CERTIFICATE_P12 }}
-      NEXA_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_MACOS_CERTIFICATE_PASSWORD }}
-      NEXA_APPLE_NOTARY_KEY_P8: ${{ secrets.NEXA_APPLE_NOTARY_KEY_P8 }}
-      NEXA_MACOS_SIGNING_IDENTITY: ${{ vars.NEXA_MACOS_SIGNING_IDENTITY }}
-      NEXA_APPLE_TEAM_ID: ${{ vars.NEXA_APPLE_TEAM_ID }}
-      NEXA_APPLE_NOTARY_KEY_ID: ${{ vars.NEXA_APPLE_NOTARY_KEY_ID }}
-      NEXA_APPLE_NOTARY_ISSUER_ID: ${{ vars.NEXA_APPLE_NOTARY_ISSUER_ID }}
       UNSIGNED_RUN_ID: ${{ inputs.unsigned_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -125,6 +118,14 @@ jobs:
         run: node tools/unsigned-signing-input.mjs verify --bundle "$RUNNER_TEMP/nexa-signing-input" --revision "$GITHUB_SHA"
       - name: Execute macOS signing and export immutable custody
         shell: bash
+        env:
+          NEXA_MACOS_CERTIFICATE_P12: ${{ secrets.NEXA_MACOS_CERTIFICATE_P12 }}
+          NEXA_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_MACOS_CERTIFICATE_PASSWORD }}
+          NEXA_APPLE_NOTARY_KEY_P8: ${{ secrets.NEXA_APPLE_NOTARY_KEY_P8 }}
+          NEXA_MACOS_SIGNING_IDENTITY: ${{ vars.NEXA_MACOS_SIGNING_IDENTITY }}
+          NEXA_APPLE_TEAM_ID: ${{ vars.NEXA_APPLE_TEAM_ID }}
+          NEXA_APPLE_NOTARY_KEY_ID: ${{ vars.NEXA_APPLE_NOTARY_KEY_ID }}
+          NEXA_APPLE_NOTARY_ISSUER_ID: ${{ vars.NEXA_APPLE_NOTARY_ISSUER_ID }}
         run: |
           set -euo pipefail
           version="$(node -p "require('./release/version.json').npmTrain")"
@@ -167,10 +168,6 @@ jobs:
       actions: read
       contents: read
     env:
-      NEXA_WINDOWS_CERTIFICATE_PFX: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PFX }}
-      NEXA_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PASSWORD }}
-      NEXA_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.NEXA_WINDOWS_CERTIFICATE_THUMBPRINT }}
-      NEXA_WINDOWS_RFC3161_TIMESTAMP_URL: ${{ vars.NEXA_WINDOWS_RFC3161_TIMESTAMP_URL }}
       UNSIGNED_RUN_ID: ${{ inputs.unsigned_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -201,6 +198,11 @@ jobs:
         run: node tools/unsigned-signing-input.mjs verify --bundle (Join-Path $env:RUNNER_TEMP 'nexa-signing-input') --revision $env:GITHUB_SHA
       - name: Execute Windows signing and export immutable custody
         shell: pwsh
+        env:
+          NEXA_WINDOWS_CERTIFICATE_PFX: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PFX }}
+          NEXA_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.NEXA_WINDOWS_CERTIFICATE_PASSWORD }}
+          NEXA_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.NEXA_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          NEXA_WINDOWS_RFC3161_TIMESTAMP_URL: ${{ vars.NEXA_WINDOWS_RFC3161_TIMESTAMP_URL }}
         run: |
           $bundle = Join-Path $env:RUNNER_TEMP 'nexa-signing-input'
           $version = (Get-Content -Raw release/version.json | ConvertFrom-Json).npmTrain

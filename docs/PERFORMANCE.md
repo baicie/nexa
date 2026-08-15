@@ -33,7 +33,7 @@ macOS 数值复制到 Windows，或把开发机数值提交为 hosted baseline�
 
 Native probe 已接入真实 Notes Host/Perry AOT 进程，并已在本机完成 first-present、
 无输入 redraw、5 秒 settle 和 RSS smoke；本机不能生成合格的 hosted native report。
-hosted 缺口必须通过真实 first-present/RSS/FrameMetrics 集成关闭，不能用
+该 hosted 缺口已由真实 first-present/RSS/FrameMetrics 集成关闭；任何后续重建仍不能用
 `Date.now()` 循环、sleep 时长、测试 clock 或 fixture 常量补值。
 
 ## Native Event And Collector Contract
@@ -221,7 +221,30 @@ Windows artifact `9250044203` 的 GitHub digest 是
 `sha256:f657480ead9276d1f4aabf67fcc18b4c1173b32ec4402ff58835f7014b191671`，
 raw JSON SHA-256 是 `050efdbdacb8df13c2a5f04fc6c18633a704f7410f4718723993710357842dc3`。
 该 run 的无关 Windows picker proof 后处理失败不改变两个独立 performance jobs 或
-报告身份；G5 picker/package 仍须由后续全绿 run 单独闭环。
+报告身份；G5 picker/package 随后已由全绿 run `31902303937` 单独闭环。
+
+## Active Baseline Regression Evidence
+
+PR run `31902303937` 以 `performance-required` 重新采集两平台完整报告并对
+已激活 baseline 执行回归检查。GitHub run metadata 的 source head 为
+`e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`；报告和 artifacts 实际绑定
+Actions merge execution revision
+`991b28142783833c14be659125c4564d14219cc5`。两者不得混用。
+
+- macOS job `95054917085` 成功；artifact `9251609127` GitHub digest 为
+  `sha256:c30fe9ca3c10db17244f3154d9bd3597b568aff2cb44590cb1c74e9a61117654`，
+  raw JSON SHA-256 为
+  `19cf2e01ede6ef3b12da2e6ad748b261ce46f2a478c55b7d21abac7049684d99`。
+- Windows job `95054917056` 成功；artifact `9251738405` GitHub digest 为
+  `sha256:11877dd46e9a2bf964690156a31a30a4f394795284981aa302d2075badd82d4b`，
+  raw JSON SHA-256 为
+  `7f8d4598578a31796ef0fe44fe376de8c857a293b7bdbd0d0204ef23b088f8d9`。
+- 同一 run 的 `CI / result` job `95059146281` 成功；本次 workflow 变更进一步将
+  `performance-required` 显式加入 aggregator 的 `needs` 与 fail-closed 判断。
+
+两个 budget check 均未发现超过 active 阈值的回归。本次记录是对现有 baseline
+的复核，不改写原始 activation provenance，也不是签名、clean-tag rehearsal
+或发布证据。
 
 ## Workflow Boundary
 

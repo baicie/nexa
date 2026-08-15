@@ -1,9 +1,9 @@
 # Nexa UI 项目详细设计
 
-- 状态：Desktop Notes MVP / Technical Preview 本地收口中（Runtime、Notes、CLI、九包公开发布清单、Solid Tier-1 Notes 核心 E2E、SBOM 与 candidate rehearsal 已有本地证据；Windows UIA、双平台真实 picker/clean-runner、registry、性能基线和签名仍待完成）
+- 状态：Desktop Notes MVP 直接平台验收已完成（PR run `31902303937` 通过 UIA/NSAccessibility、双平台真实 picker/clean-runner、供应链与 active 性能门禁）；Technical Preview 仍等待 clean-tag promotion、registry clean-user、真实签名/公证、发布演练与独立审批
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
-- 日期：2026-08-11
+- 日期：2026-08-16
 - 关联决策：ADR-004、ADR-005、ADR-006、ADR-007、ADR-008、ADR-009、ADR-010、ADR-011、ADR-012、ADR-013、ADR-014、ADR-015
 - 当前目标：[`MVP.md`](./MVP.md)
 - 配套计划：[`ROADMAP.md`](./ROADMAP.md)、[`../TODO.md`](../TODO.md)、[`REFERENCE-APP.md`](./REFERENCE-APP.md)
@@ -68,20 +68,20 @@
 
 G0 验证结果见[`BASELINE.md`](./BASELINE.md)：Rust workspace 通过 23 个单元测试，TypeScript workspace 通过 29 个测试；完整 format、lint、typecheck、build、两个 FFI crate、Minimal TSX smoke、8 路框架 AOT 与两平台 offscreen native smoke 均通过。
 
-### 3.2 尚未闭环的产品事实
+### 3.2 已闭环实现与剩余发布边界
 
-| 缺口         | 当前事实                                                                                                                                                                                                                    | 设计影响                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Protocol     | Protocol v1 manifest、generated types、handshake 与错误码已落地                                                                                                                                                             | 后续命令只能按 manifest/ADR 追加                                           |
-| Handle       | 稳定 v1 使用双 `u32`/string envelope；packed u64 只保留 legacy compatibility                                                                                                                                                | 新 API 禁止把 packed handle 传为 JS number                                 |
-| Commit       | Host mutation 进入 pending batch，在 commit 边界原子应用并返回 receipt                                                                                                                                                      | Scheduler/Dispatcher 继续消费统一 receipt                                  |
-| Callback     | Native 事件入 Dispatcher；owner/generation registry 负责 replacement、stale、reset                                                                                                                                          | React 已迁移到统一 microtask/tick 调度                                     |
-| Text         | 索引、font/fallback、shaping、paragraph、系统字体、Host/Taffy measure 与 GlyphRun/Skia 执行已落地                                                                                                                           | G2B-09 完成多语言 visual golden/fuzz 集                                    |
-| Input        | G3A 已完成共享编辑模型、选择、键盘、IME composition、候选框与多行滚动                                                                                                                                                       | G5 Notes 直接复用已冻结输入合同                                            |
-| A11y         | G3B-01..04、共享 harness 与 macOS 本机 NSAccessibility smoke 已通过；Windows client 已通过目标 Clippy                                                                                                                       | G3B-05 仍需 Windows runner runtime 证明 UIA -> Adapter -> Dispatcher       |
-| Render       | Display List、资源分层、Surface 恢复与 frame metrics 已落地；dirty region 仍未完成                                                                                                                                          | 增量绘制只在 profile 证据支持后推进                                        |
-| System       | FS、Dialog 与 Clipboard 已接入 Task/Promise/权限合同；真实 FS、注入式 Dialog Promise 与 real-picker fail-closed probe 已贯通 Notes                                                                                          | 仍需 macOS/Windows 真实 picker Promise 成功证据                            |
-| Distribution | 9 个 npm 候选包已移除 `private`，Solid 的 dist/JSX exports、Notes 核心 E2E 与 `solid-main.tsx` Perry AOT 已通过；九包 tarball clean-consumer、通用 CLI package、本地 macOS `.app` 与完整性证据已通过；尚未 registry publish | 仍需双平台 hosted-runner、active 性能基线、签名/公证和外部 clean-user 记录 |
+| 缺口         | 当前事实                                                                                                                         | 设计影响                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Protocol     | Protocol v1 manifest、generated types、handshake 与错误码已落地                                                                  | 后续命令只能按 manifest/ADR 追加                                             |
+| Handle       | 稳定 v1 使用双 `u32`/string envelope；packed u64 只保留 legacy compatibility                                                     | 新 API 禁止把 packed handle 传为 JS number                                   |
+| Commit       | Host mutation 进入 pending batch，在 commit 边界原子应用并返回 receipt                                                           | Scheduler/Dispatcher 继续消费统一 receipt                                    |
+| Callback     | Native 事件入 Dispatcher；owner/generation registry 负责 replacement、stale、reset                                               | React 已迁移到统一 microtask/tick 调度                                       |
+| Text         | 索引、font/fallback、shaping、paragraph、系统字体、Host/Taffy measure 与 GlyphRun/Skia 执行已落地                                | G2B-09 完成多语言 visual golden/fuzz 集                                      |
+| Input        | G3A 已完成共享编辑模型、选择、键盘、IME composition、候选框与多行滚动                                                            | G5 Notes 直接复用已冻结输入合同                                              |
+| A11y         | G3B-01..05 的共享 harness、macOS NSAccessibility 与 Windows UI Automation 已在 hosted runner 通过                                | 跨进程 macOS `AXUIElement`/TCC 矩阵作为后续兼容风险跟踪                      |
+| Render       | Display List、资源分层、Surface 恢复与 frame metrics 已落地；dirty region 仍未完成                                               | 增量绘制只在 profile 证据支持后推进                                          |
+| System       | FS、Dialog 与 Clipboard 已接入 Task/Promise/权限合同；真实 FS/Clipboard 与双平台无 fixture picker 已在 hosted runner 通过        | `rfd` 仍无可观察的真实 `PLATFORM_FAILURE` 返回分支，cancel 不主动关闭 picker |
+| Distribution | 9 个 npm 候选包、Solid Tier-1、双平台 unsigned package/fresh launch、G6-05 完整性与 active 性能预算已通过；尚未 registry publish | 仍需 clean-tag proof 晋级、外部 clean-user、签名/公证和最终发布              |
 
 ### 3.3 产品范围判断
 
@@ -411,7 +411,7 @@ G3B-02..04 以及 G3B-05 的 deterministic harness 已固定以下平台组合�
 - `examples/semantic-e2e/scenario.json` 是 Node 合同与 Bridge harness 的共享数据源，以 role/name 查询 Title、Body、Save；macOS/Windows native-smoke matrix 运行无屏幕坐标的 converter/Dispatcher deterministic harness。
 - `semantic-accessibility-smoke` 复用同一 scenario，在小型原生 fixture 中通过 production `accesskit_winit::Adapter`、winit user event 与 `Dispatcher<AccessibilityActionRequest>` 落地 action。它与 Minimal TSX/Bridge harness 组成分层证据，不宣称一次运行覆盖 Perry callback、`HostWindowApp` 与 TSX 组件路径。
 - macOS 本机已由进程内 NSAccessibility 对象 client 以 role/name 查询并执行 Focus、SetValue、Invoke，同时回读焦点、value 与 Status；该层验证 provider/action 路径，不覆盖跨进程 `AXUIElement`/TCC 兼容矩阵。
-- Windows UI Automation COM client 已实现 control-type/name 查询、SetFocus、ValuePattern、InvokePattern 与焦点/value/status 回读，并通过 `x86_64-pc-windows-msvc` 严格 Clippy。G3B-05 的剩余门禁是 GitHub Windows runner 实际执行成功；此前不宣称 G3B 完成。
+- Windows UI Automation COM client 已实现 control-type/name 查询、SetFocus、ValuePattern、InvokePattern 与焦点/value/status 回读；run `31902303937` 的 job `95054897192` 在 GitHub Windows runner 实际执行成功，关闭 G3B-05。
 
 ### 6.9 Display List、资源与 Surface
 
@@ -460,11 +460,11 @@ G4-07 证据（2026-08-07）：Core injected backend `2/2`、System Host Rust `2
 
 G4-08 已完成窗口关闭资源清理集成证据：`TaskRuntime` 通过 shared System ledger 提供 Subscription/NativeResource 的 owner-scoped identity 入口；owner terminal fence 会同时使 Task、Subscription、NativeResource 进入 `Invalidated` tombstone，取消 worker token，并在 `SystemCompletion` 丢弃迟到结果。Application Runtime close-race 测试与 System Host 注入式 awaiter 测试覆盖同一 owner 的三类句柄、awaiter 清理、generation 状态验证和迟到 completion 不进入框架；下一切片为 G5-01 参考 Notes PRD。
 
-G5 Notes 当前集成证据（2026-08-08，2026-08-09 picker 加固）：controller 15/15 覆盖 dirty、save dialog cancel、open/save、错误、foreground exclusion、revision snapshot、suspend/resume、pending read/write close 与 late completion；实际 Notes TSX 树 E2E 4/4 显式暴露 Open、Save、Title、Body、Status 五个稳定语义节点并执行 Focus/SetValue/Invoke，验证 busy 时 role/name 不漂移、幂等窗口生命周期转发、pending write CloseRequested，以及 dirty 状态不遮蔽 typed `PERMISSION_DENIED`。`WindowLifecycle` 以 `Ready/Suspended/Resumed/CloseRequested` 贯通版本化协议、严格 TS decoder、Perry FFI、Bridge、Host 与 Notes；surface loss 会进入 Suspended，下一次 surface ready 进入 Resumed，CloseRequested callback 在 owner fence/session close 前且在 Host mutex 外执行一次。真实 FS Promise smoke 已完成 UTF-8 磁盘 round-trip，并验证 Notes controller 到达 `savedRevision == revision`、`dirty == false` 的已保存状态；Dialog runtime smoke 7/7 以构建期注入 backend 穿过真实 Perry/native Host，完成 save/open/cancel 和精确 controller snapshot。无 fixture real-picker probe 已完成 AOT/link、fixture canary 排除、save/open/cancel 顺序与 fail-closed runner 合同 24/24；Windows 使用 suspended probe/Job Object/真实 PID handoff，POSIX 在 close 后做 PGID 最终强杀，未确认终止有界失败并保留目录，仍需 macOS/Windows 平台成功证据。
+G5 Notes 当前集成证据（2026-08-08，2026-08-16 hosted 补充）：controller 15/15 与实际 Notes TSX E2E 4/4 覆盖 open/save/cancel、语义 action、typed error、suspend/resume、pending close 与 late completion；FS 与构建期注入 Dialog 的 deterministic runtime smoke 保持通过。run `31902303937` 的 macOS/Windows package jobs `95054897243` / `95054897272` 在真实图形会话完成无 fixture picker save/open/cancel，probe SHA-256 分别为 `f7cfab51cbaf4163bc82ae74854b07d5fcd8eb98219050fcb84e18e59c372172` / `e82079f1ee6b6afff7418b94a6299bb72835178f778918b036e80df8659e343a`。
 
 G5-05 已冻结基础 Style/Theme 公共面：`@nexa/ui` 公开 typed semantic tokens、numeric `Style`/`TextStyle`、`createTheme`/`defaultTheme`/`rgba`，由根 Window 局部传递到 Text/Card/Button/Input/TextArea；组件显式 style 最终覆盖，协议不接受 CSS string 或 selector。所有交互组件继续共用 Core 的 hovered/pressed/focused/disabled additive resolver，Theme 只配置稳定 base style。UI 8/8、Host property trace 2/2、Notes Perry AOT/startup 与既有 Core/Renderer visual contracts 通过。
 
-交付证据（2026-08-08）：构建包装器合同 5/5，主 Notes AOT/startup smoke 通过，生产 child process 会清除 Dialog fixture 环境变量且二进制 fixture marker 必须不存在；Notes 专用 packager 合同 6/6，拒绝内嵌 manifest 与 sidecar bytes 漂移、fixture 污染和覆盖既有 artifact，本地 macOS `.app` 已实际生成、验证并启动。通用 `packages/cli/src/package.mjs` 当前通过 package 合同 23/23、CLI 聚合 57/57、根聚合 268/268 与真实 create-to-package Perry AOT/link smoke。双平台 `reference-notes-package.yml` 已拆为 build/archive/upload 与 fresh download/validate/launch 两个 job，build matrix 还强制运行无 fixture real-picker probe；CI route/fail-closed 合同 21/21。尚无 macOS/Windows real-picker 或双平台 hosted artifact/launch 成功记录，因此 G3B-05、G5-03、G5-04、G5-09 与 MVP-01 仍未关闭。
+交付证据（2026-08-16 hosted 补充）：本地 build/package/create-to-package 合同保持通过。PR head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` 触发的 run `31902303937` 在 Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成 macOS/Windows build/archive jobs `95054897243` / `95054897272` 和 fresh download/validate/launch jobs `95059000291` / `95059000304`。该直接证据关闭 G3B-05、G5-03、G5-04、G5-09 与 MVP-01；由于 `collect_mvp_proof=false`，它不关闭 clean-tag schema-v5 N-10/N-11 或 MVP-02。
 
 公开 API 始终类型化，例如 `@nexa/fs`、`@nexa/dialog`，不公开字符串 `invoke`。
 
@@ -669,7 +669,7 @@ G5-09 不再增加打包格式，而是为 G5-08 的通用 distribution 建立�
 - 清除 Nexa/Perry fixture/bypass 环境变量后直接启动通用与 Notes executable，各要求至少存活 5 秒；按捕获的 PID 清理并在提前退出时输出日志。
 - workflow YAML/route 合同只能证明矩阵和 fail-closed 结构已配置。只有绑定当前 commit 的 macOS/Windows hosted build、upload、download、validate、launch 全绿记录才能关闭 G5-09/MVP-01。
 
-本地实现证据（2026-08-08，2026-08-11 runtime proof 加固）：CI 专用 artifact 导出、同 parent 临时工程、默认清理、拒绝覆盖和失败清理均有合同覆盖；通用 artifact 已在本地完成真实 Perry AOT/link、导出、`tar.gz` 往返、executable mode 复核与启动。无 fixture real-picker probe 已生成约 26 MB arm64 Mach-O，runner/driver 合同 24/24；本机 Accessibility 未授权路径准确非零退出，这只证明 fail closed。package 合同 23/23、CLI 聚合 57/57、workflow/route 合同 22/22；native runtime proof 与 MVP schema v5 聚焦合同覆盖 custody、N-04/N-05/N-06 语义和 digest tamper。workflow 的两阶段结构已经配置并重新校验 asset/runtime-proof bytes，但在获得同一 commit 的 macOS/Windows real-picker 与 artifact/launch hosted 成功记录前，G5-09 与 MVP-01 继续保持未完成。
+实现与 hosted 证据（2026-08-08，2026-08-16 补充）：CI 专用 artifact 导出、同 parent 临时工程、默认清理、拒绝覆盖和失败清理均有合同覆盖，package 合同 23/23、CLI 聚合 57/57、workflow/route 合同 22/22。run `31902303937` 的双平台 package 与 fresh-launch jobs 全绿；package artifacts `9251605446` / `9251849187` 的 GitHub digests 分别为 `sha256:483ab8a38b9debfa8b0dcbf3fb9562b1c1d37bc620b47b1c1e5d20d6b562bbaa` / `sha256:865954eae51ce7a8c2b93224bf8f2ac1d1ed05917649f31acac94c57482c2044`。G5-09 与 MVP-01 已关闭，proof 晋级边界见 [`MVP-EVIDENCE.md`](./MVP-EVIDENCE.md)。
 
 ### 6.17 G5-10 文档与可复现合同
 
@@ -791,9 +791,9 @@ pnpm --filter @nexa/cli smoke:package
 (cd examples/reference-notes && node ../../packages/cli/src/bin.mjs doctor --json)
 ```
 
-G0 基线命令的准确版本、runner 和 run 链接见[`BASELINE.md`](./BASELINE.md)。G5 CLI create-to-package 已在本地真实 Perry AOT/link 通过并接入 macOS/Windows required matrix；该 matrix 的 hosted-runner 成功记录仍是未完成门禁。`pnpm test:perry` 证明 clean compile/link，不单独证明运行时 parity。
+G0 基线命令的准确版本、runner 和 run 链接见[`BASELINE.md`](./BASELINE.md)。G5 CLI create-to-package 已在本地真实 Perry AOT/link 通过，并由 run `31902303937` 的 macOS/Windows required matrix 完成 hosted 验证。`pnpm test:perry` 证明 clean compile/link，不单独证明运行时 parity。
 
-2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix（四个 Counter Adapter 加 `solid-main.tsx` Notes）、Minimal TSX 实际运行、Notes 主程序/FS/Dialog smoke 和 macOS native smoke 均通过。Solid Tier-1 路径另外通过 `node --test tools/solid-notes-e2e.test.mjs` 与 `node --test tools/release-packages.test.mjs`：前者实际挂载 Notes 核心树并覆盖语义编辑、保存与 dispose，后者冻结九包公开/private、Solid dist/types/JSX exports 与依赖闭包。`node tools/release-consumer.mjs --output <new-temp-directory>` 已完成九包 tarball 安装、typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。Clipboard trusted launcher runner `7/7` 与本机 Perry AOT/link 通过，真实 read/write/read Promise 已接入双平台 package workflow；本轮没有执行本机真实剪贴板 round-trip，也没有 hosted runtime 成功记录。性能合同新增 active baseline report regular-file/path/identity/statistic 绑定、冻结 `3/10/100` 采样策略、严格 CLI option parser 与 collection/termination 双错误传播回归；本机 Native 连续采集仍只作为 integration smoke。本机使用 Node `v24.16.0`；这些结果不替代 Node 22、Windows、registry 或其他 hosted-runner 证据。
+2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix、Minimal TSX/Notes/FS/Dialog 与 Solid Tier-1 核心路径均通过；九包 tarball consumer 完成 typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。这些本地结果仍不替代 registry clean-user 或签名/发布证据；Windows、Clipboard/picker、clean launch 与 active performance 的直接 hosted 门禁已于 2026-08-16 由 run `31902303937` 另行关闭。
 
 ### 10.2 计划新增的聚合命令
 
@@ -867,9 +867,11 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - final 先创建或核对 draft prerelease，fresh-download 已有远端 bytes 后只上传缺失且摘要一致的资产，禁止 `--clobber`，随后再次 fresh-download 验证 exact allowlist。只有 npm 九包 `technical-preview` 二次观测完全收敛后才公开 draft，并保存绑定 Release ID/URL、release/signing run、七资产摘要与九包 integrity 的 publication record；该 record 是 workflow artifact，不是第八个公开资产。
 - `release/readiness-policy.json` 的 checked-in execution 保持 `disabled/none`；只有 protected `release-evidence.yml` 组装的 phase-bound 外部证据 bundle 能变为 `enabled/bootstrap` 或 `enabled/final`。bootstrap bundle 在 final evaluator 下必须同时因 phase mismatch 与 registry pending 被拒绝。
 
+2026-08-16 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、active performance 与 G6-05 unsigned input jobs。该 PR run 不是 clean tag，也没有激活凭据或发布权限；因此它不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
+
 ## 14. 性能与可观测性
 
-当前不虚构数值目标。第一阶段增加以下计数和 trace span，参考应用跑出基线后再锁预算：
+六项数值基线与回归阈值已在 `release/performance-budgets.json` 激活，完整来源、样本和复核方法见 [`PERFORMANCE.md`](./PERFORMANCE.md)。参考应用持续记录以下计数和 trace span：
 
 - startup 到 first present；
 - 每 tick 的 mutation 数、layout 节点数、semantic diff 数、display command 数；
@@ -878,7 +880,7 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - image/paragraph cache hit ratio；
 - idle memory、二进制体积和冷启动时间。
 
-G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A 已交付六项预算 schema、校验器、artifact bytes 测量和 hosted capture 边界。G6-07B 负责把这些真实记录接入 Notes 原生进程和 hosted collector；macOS/Windows 的 raw report、评审与 active baseline 继续属于 G6-07P，发布门禁保持 fail closed。
+G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 已评审并激活 12 个 baseline，run `31902303937` 的 active-budget 复核无回归，关闭 G6-07P。
 
 ### 14.1 G6-07B 原生性能采集设计
 
@@ -893,7 +895,7 @@ Notes/Perry process
   -> Node collector monotonic timestamp + platform RSS reader
   -> complete six-metric raw report
   -> performance-budget validator
-  -> candidate artifact (baseline 仍 pending)
+  -> candidate artifact + active baseline regression check
 ```
 
 原生探针合同：
@@ -919,7 +921,7 @@ collector 合同：
 
 collector 模块的可测试边界固定为 `parseNativePerformanceEvent`（严格解析 prefix/schema/raw record）、`frameMetricSamples`（仅从完整 presented duration 派生三项样本）、`assertHostedRunner`（核对 hosted/OS/arch/image）、`readResidentSetBytes`（可注入 subprocess）和 `createPerformanceReport`（聚合 measured runs 并绑定 artifact identity）。真实 CLI 只负责参数解析、子进程生命周期与调用这些边界，测试不得依赖真实窗口或伪造计时常量来证明 hosted 采集成功。
 
-G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。G6-07 只有在 G6-07P 的两平台 hosted 报告经人工评审并激活 baseline 后才能完成。
+G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。G6-07P 的两平台 hosted 报告、人工评审、baseline activation 与后续 required 复核已分别由 runs `31895582357` / `31902303937` 完成。
 
 Technical Preview 发布门禁必须有可复现的 macOS/Windows 基线与回归阈值。
 
@@ -976,11 +978,12 @@ surface 冻结，不再作为候选决策：
 4. Minimal TSX 是文档主路径，Solid 是唯一 Tier-1 外部 Adapter，Notes 是本地文件型参考应用。
 5. 本 Preview 不发布独立 Rust crate，也不包含 installer、自动更新、路由、菜单或多窗口产品 surface。
 
-仍需外部环境或责任人批准的事项只有：
+仍需外部执行或责任人批准的事项只有：
 
-1. `release/performance-budgets.json` 已冻结六项采样和回归规则，但 macOS/Windows 的数值 baseline 必须由受信 hosted capture、评审和 activation 产生。
-2. npm promotion、macOS/Windows 签名、公证与事故响应的受保护 Environment、真实凭据和责任人仍按 G6-06P/G6-09P 保持未分配。
-3. 路由、多窗口、菜单及更高层应用生命周期最终归属 `@nexa/app` 还是外部框架，属于 Technical Preview 后的独立 ADR，不阻塞当前 surface。
+1. MVP schema-v5 N-10/N-11 和 G6-08P 必须在 clean `refs/tags/v*` 上生成平台 proof、promotion 与 rehearsal 证据；PR candidate run 不可替代。
+2. npm promotion、macOS/Windows 签名、公证与事故响应的受保护 Environment、真实凭据、责任人和独立批准仍按 G6-06P/G6-09P 保持未分配。
+3. 外部 clean user 仍需在 staging/public registry 上完成九包 install/doctor/typecheck/build/package，随后才可 final channel promotion 与 GitHub Release publication。
+4. 路由、多窗口、菜单及更高层应用生命周期最终归属 `@nexa/app` 还是外部框架，属于 Technical Preview 后的独立 ADR，不阻塞当前 surface。
 
-这些待批准项不会重新打开 G0-G5 或已完成的 G6 本地实现项；它们只阻断对应的
-hosted performance、signing、registry promotion 和最终发布证据。
+这些待执行/批准项不会重新打开 G0-G5 或已完成的 G6-04/G6-07；它们只阻断对应的
+clean-tag promotion/rehearsal、signing、registry promotion 和最终发布证据。

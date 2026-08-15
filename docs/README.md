@@ -11,7 +11,7 @@
 - [Release Integrity](./RELEASE-INTEGRITY.md)：artifact digest、CycloneDX SBOM、provenance 与 fresh-consumer 校验合同。
 - [Supply Chain](./SUPPLY-CHAIN.md)：Action SHA、依赖图、许可证、advisory 与 secret scan 边界。
 - [Signing](./SIGNING.md)：policy-only 签名边界、readiness 前置条件与尚未配置的凭据/executor。
-- [Performance](./PERFORMANCE.md)：性能预算 schema、pending baseline 与 hosted capture 边界。
+- [Performance](./PERFORMANCE.md)：性能预算 schema、active baseline、hosted capture 与回归门禁。
 - [Release Rehearsal](./RELEASE-REHEARSAL.md)：unsigned staging 候选、fresh verify/launch、回滚和禁止发布约束。
 - [Compatibility And Known Limitations](./COMPATIBILITY.md)：工具链、平台、框架支持等级与未关闭门禁。
 - [项目详细设计](./PROJECT-DESIGN.md)：目标、现状、目标架构、核心合同、测试与成功标准。
@@ -22,7 +22,7 @@
 
 项目设计、路线图与 Todo 已进入 **MVP 实施**。候选依赖、公开 API、协议 major 和发布动作仍须通过对应 ADR 或负责人评审。
 
-G5-08 通用 `nexa package` 已由 `packages/cli/src/package.mjs` 交付；Notes 专用 `tools/reference-notes-package.mjs` 保持独立。G5-11 已将 `@nexa/adapter-solid` 选为唯一 Tier-1 外部 Adapter：Solid Notes 核心切片的语义交互、保存和 dispose 由本地 E2E 覆盖，并进入九包公开 release train。G5-09 的 build/upload 与 fresh download/launch 两阶段 workflow 及无 fixture real-picker probe 已配置并有本地合同；本机 macOS 只取得 Accessibility 未授权时的准确 fail-closed/cleanup 证据。G5-09/MVP-01 的 macOS/Windows hosted artifact/launch、Windows UI Automation runtime 与双平台真实 OS picker 成功仍未完成。已配置 workflow 不代表已有 hosted-runner 成功记录，也不代表签名或发布已经交付。
+G5-08 通用 `nexa package` 已由 `packages/cli/src/package.mjs` 交付；Notes 专用 `tools/reference-notes-package.mjs` 保持独立。G5-11 已将 `@nexa/adapter-solid` 选为唯一 Tier-1 外部 Adapter并进入九包公开 release train。PR run `31902303937` 已在 macOS/Windows 关闭 Windows UI Automation、真实 picker、FS/Clipboard、双平台 package/fresh launch、供应链与 active 性能直接门禁。该 run 不是 clean tag，未上传 N-10/N-11 promotion proof，也没有激活签名凭据或执行 registry/GitHub Release 发布；MVP-02、external clean-user、signed staging 与最终发布仍待外部条件。
 
 ## 架构决策
 

@@ -3,7 +3,7 @@
 - 产品阶段：Desktop Notes MVP
 - 主路径：Minimal TSX
 - 平台：macOS、Windows
-- 状态：G5-01 与 G5-02 已完成；窗口生命周期、真实 FS Promise、构建期注入的 native Dialog Promise、real-picker fail-closed probe、实际 TSX 树与本地 macOS package 已有证据。Windows UIA runtime、双平台真实 picker 成功与 clean-runner 交付仍待完成
+- 状态：G5-01..09 中的 Notes 直接产品路径已完成；run `31902303937` 在 macOS/Windows 通过 UIA/NSAccessibility、FS/Clipboard、真实 picker 与 fresh clean-runner 交付。MVP-02 的 clean-tag N-10/N-11 proof promotion 仍待执行
 
 ## 1. 用户问题
 
@@ -49,7 +49,7 @@ Notes 不是独立产品方向，而是 Nexa UI 的 north-star 验收应用。�
 2. Tab/Shift+Tab 按稳定顺序移动焦点。
 3. Invoke 保存与 SetValue/Focus action 经 Dispatcher 返回组件，不同步重入框架。
 
-共享 deterministic harness 与 native semantic reference fixture 已验证 role/name 和 Dispatcher 合同；实际 Notes TSX 树显式提供 `Button/打开`、`Button/保存`、`TextInput/标题`、`TextInput/正文`、`Text/当前状态` 五个稳定节点，并经语义路径执行 Focus、SetValue、Invoke。busy/状态变化只更新 value/disabled，不改变 role/name。macOS 本机的进程内 NSAccessibility 对象 smoke 已连续通过，但 Windows UI Automation runner runtime 仍待验证；因此这些本地合同证据仍不足以关闭 G3B-05、G5-03 或 Journey E。
+共享 deterministic harness 与 native semantic reference fixture 已验证 role/name 和 Dispatcher 合同；实际 Notes TSX 树显式提供 `Button/打开`、`Button/保存`、`TextInput/标题`、`TextInput/正文`、`Text/当前状态` 五个稳定节点，并经语义路径执行 Focus、SetValue、Invoke。busy/状态变化只更新 value/disabled，不改变 role/name。run `31902303937` 的 macOS/Windows native jobs `95054897228` / `95054897192` 均完成真实平台 accessibility client smoke，关闭 G3B-05、G5-03 与 Journey E。
 
 ## 3. 信息架构
 
@@ -164,9 +164,9 @@ WindowState
 - 根 Window 自动承载 `defaultTheme`，也可用 `createTheme` 传入局部 semantic token override；Text/Card/Button/Input/TextArea 将 typed numeric style 写入真实 Host，组件 `style`/`labelStyle`/`textStyle` 可做最终覆盖。Theme Host trace 2/2 与 UI 8/8 通过，不存在 CSS string 或 selector 路径。
 - `tools/reference-notes-build.test.mjs` 5/5 证明构建包装器传入受信 manifest、验证完整应用 startup marker、在漏嵌权限时 fail closed，并从所有生产 child process 清除 Dialog fixture 环境变量、拒绝受污染二进制。真实 `pnpm --filter @nexa/example-reference-notes build` 已完成 Perry AOT/link；主二进制实际启动并在观察窗口内保持运行。
 - `pnpm --filter @nexa/example-reference-notes smoke:fs` 已用受信内嵌 manifest 启动 Perry 进程，在临时目录写入并读回多语种 UTF-8，经过 native worker、SystemCompletion 和 Promise continuation 后再由 Node runner 复核磁盘 bytes。
-- `pnpm --filter @nexa/example-reference-notes smoke:clipboard` 使用同一受信内嵌 manifest，在 `Ready` 后经 native worker、SystemCompletion 与 Perry Promise 执行 read/write/read，并在原文本可读时恢复；runner `7/7` 要求精确 round-trip/restore proof。本机仅完成 Perry AOT/link，双平台 workflow 已接入但尚无 hosted runtime 成功记录。
+- `pnpm --filter @nexa/example-reference-notes smoke:clipboard` 使用同一受信内嵌 manifest，在 `Ready` 后经 native worker、SystemCompletion 与 Perry Promise 执行 read/write/read，并在原文本可读时恢复；runner `7/7` 要求精确 round-trip/restore proof。run `31902303937` 的 macOS/Windows package jobs `95054897243` / `95054897272` 完成真实 hosted runtime 执行。
 - `pnpm --filter @nexa/example-reference-notes smoke:dialog` 以构建期注入 backend 启动真实 Perry/native System Host，完成 save 选择与写入、open 选择与读回、第二次 open 的 `null` cancel，并核对三个精确 controller snapshot；runner 正反合同 7/7。它证明 Dialog transport/Promise/controller 链路，不代表真实 OS picker。
-- `pnpm --filter @nexa/example-reference-notes smoke:picker` 编译无 fixture 的独立 probe，二进制必须不含 fixture canary 并输出 SHA-256；runner 按 save/open/cancel 顺序驱动真实 OS picker，再验证磁盘 bytes 与版本化 controller snapshot。runner/driver 合同 24/24，覆盖总超时、Windows foreground/control/有界 `WM_GETTEXT` readback、suspended probe/kill-on-close Job Object/真实 PID handoff、POSIX PGID 最终强杀、TERM-to-KILL 升级、强杀确认期限、close 后清理与 setup/cleanup 双错误；未确认终止时保留现场目录。macOS AppleScript 语法编译通过；本机 arm64 AOT/link 后因 Accessibility 未授权准确失败。该结果证明 fail-closed，不是 picker 成功。
-- Notes 专用 `tools/reference-notes-package.mjs` 合同 6/6，要求 sidecar manifest 与二进制内嵌 manifest bytes 完全一致并拒绝 fixture 污染；本地 macOS `.app` 已生成、验证和启动。生成项目另由通用 `packages/cli/src/package.mjs` 服务，package 合同 23/23、CLI 聚合 57/57、根聚合 268/268 与真实 create-to-package smoke 已通过；两套 packager 保持独立，不共享 Notes 权限、名称或 helper。双平台 workflow 已拆为 build/upload 与 fresh download/launch 两阶段，launch 重新验证产物且不使用开发工具链，但尚无 hosted runner 成功记录。
+- `pnpm --filter @nexa/example-reference-notes smoke:picker` 编译无 fixture 的独立 probe，二进制必须不含 fixture canary；runner 按 save/open/cancel 顺序驱动真实 OS picker，再验证磁盘 bytes 与版本化 controller snapshot。runner/driver 合同 24/24；本机 Accessibility 未授权路径仍准确 fail closed。run `31902303937` 的双平台 package jobs 完成真实 save/open/cancel，probe SHA-256 为 `f7cfab51cbaf4163bc82ae74854b07d5fcd8eb98219050fcb84e18e59c372172` / `e82079f1ee6b6afff7418b94a6299bb72835178f778918b036e80df8659e343a`。
+- Notes 专用 `tools/reference-notes-package.mjs` 合同 6/6，通用 `packages/cli/src/package.mjs` package 合同 23/23、CLI 聚合 57/57 与真实 create-to-package smoke 通过；两套 packager 保持独立。run `31902303937` 的 build/archive jobs `95054897243` / `95054897272` 与 fresh download/validate/launch jobs `95059000291` / `95059000304` 在 macOS/Windows 全绿，launch 不 checkout、安装或调用开发工具链。
 
-G3B-05、G5-03、G5-04 与 MVP-01 保持未完成：G3B-05/G5-03 仍缺 Windows runner 的真实 UI Automation runtime；G5-04 仍缺 macOS/Windows 真实 `rfd` picker 的 selection/cancel Promise 成功记录；MVP-01 仍缺 macOS/Windows hosted clean runner 成功记录。上述本地证据不替代平台运行验收。
+PR head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` 触发 run `31902303937`，package/performance/artifact 执行实际绑定 Actions merge revision `991b28142783833c14be659125c4564d14219cc5`。直接平台 jobs 已关闭 G3B-05、G5-03、G5-04、G5-09 与 MVP-01；但 `collect_mvp_proof=false` 使 native/clean-package proof 上传被跳过，所以 N-10/N-11/MVP-02 仍等待 clean `refs/tags/v*` schema-v5 promotion。
