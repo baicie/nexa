@@ -96,6 +96,31 @@ function Get-RemainingMessageTimeout([string] $Operation) {
   return [uint32] [Math]::Max(1, [Math]::Min($remaining, 1000))
 }
 
+function Wait-ForDialogClose([int] $MaximumMilliseconds) {
+  $remaining = [int] [Math]::Max(
+    0,
+    $TimeoutMilliseconds - $stopwatch.ElapsedMilliseconds
+  )
+  $waitMilliseconds = [int] [Math]::Min($MaximumMilliseconds, $remaining)
+  if ($waitMilliseconds -le 0) {
+    return $false
+  }
+  $closeWatch = [System.Diagnostics.Stopwatch]::StartNew()
+  while ($closeWatch.ElapsedMilliseconds -lt $waitMilliseconds) {
+    if ((Find-DialogWindow) -eq [IntPtr]::Zero) {
+      return $true
+    }
+    $sleepMilliseconds = [int] [Math]::Min(
+      100,
+      $waitMilliseconds - $closeWatch.ElapsedMilliseconds
+    )
+    if ($sleepMilliseconds -gt 0) {
+      Start-Sleep -Milliseconds $sleepMilliseconds
+    }
+  }
+  return (Find-DialogWindow) -eq [IntPtr]::Zero
+}
+
 function Get-WindowText([IntPtr] $Handle) {
   $text = [System.Text.StringBuilder]::new(1024)
   [void] [NexaDialogPickerNative]::GetWindowText($Handle, $text, $text.Capacity)
@@ -230,26 +255,42 @@ function Find-AutomationNativeControlInContainers(
 function Find-AutomationPatternCandidatesInContainers(
   $Root,
   [string[]] $ContainerAutomationIds,
-  $PatternDefinitions
+  $PatternDefinitions,
+  [string[]] $ExpectedClasses,
+  [object[]] $ExpectedControlTypes
 ) {
   $candidates = [System.Collections.Generic.List[object]]::new()
   $elements = @(Find-AutomationElementsInContainers $Root $ContainerAutomationIds)
   foreach ($element in $elements) {
-    foreach ($definition in $PatternDefinitions) {
-      try {
+    try {
+      if (
+        $element.Current.ProcessId -ne $ProcessId -or
+        -not $element.Current.IsEnabled
+      ) {
+        continue
+      }
+      $classMatches = $ExpectedClasses -ccontains $element.Current.ClassName
+      $controlTypeMatches = $ExpectedControlTypes -contains $element.Current.ControlType
+      if (-not $classMatches -and -not $controlTypeMatches) {
+        continue
+      }
+      $roleRank = if ($controlTypeMatches) { 0 } else { 1 }
+      foreach ($definition in $PatternDefinitions) {
         $pattern = $null
         if ($element.TryGetCurrentPattern($definition.PatternId, [ref] $pattern)) {
           [void] $candidates.Add([PSCustomObject] @{
             Kind = $definition.Kind
             Pattern = $pattern
+            Element = $element
+            Rank = ($definition.Rank * 10) + $roleRank
           })
         }
-      } catch {
-        continue
       }
+    } catch {
+      continue
     }
   }
-  return $candidates
+  return $candidates | Sort-Object Rank
 }
 
 function Find-FileNameAutomationNativeControl([IntPtr] $Dialog) {
@@ -279,13 +320,20 @@ function Find-FileNameAutomationPatterns([IntPtr] $Dialog) {
     [PSCustomObject] @{
       Kind = "Value"
       PatternId = [System.Windows.Automation.ValuePattern]::Pattern
+      Rank = 0
     },
     [PSCustomObject] @{
       Kind = "Legacy"
       PatternId = [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern
+      Rank = 1
     }
   )
-  return Find-AutomationPatternCandidatesInContainers $root @("FileNameControlHost") $definitions
+  $expectedClasses = @("Edit", "ComboBox", "ComboBoxEx32")
+  $expectedControlTypes = @(
+    [System.Windows.Automation.ControlType]::Edit,
+    [System.Windows.Automation.ControlType]::ComboBox
+  )
+  return Find-AutomationPatternCandidatesInContainers $root @("FileNameControlHost") $definitions $expectedClasses $expectedControlTypes
 }
 
 function Find-ButtonAutomationNativeControl([IntPtr] $Dialog, [int] $ControlId) {
@@ -311,13 +359,17 @@ function Find-ButtonAutomationPatterns([IntPtr] $Dialog, [int] $ControlId) {
     [PSCustomObject] @{
       Kind = "Invoke"
       PatternId = [System.Windows.Automation.InvokePattern]::Pattern
+      Rank = 0
     },
     [PSCustomObject] @{
       Kind = "Legacy"
       PatternId = [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern
+      Rank = 1
     }
   )
-  return Find-AutomationPatternCandidatesInContainers $root @("$ControlId") $definitions
+  $expectedClasses = @("Button")
+  $expectedControlTypes = @([System.Windows.Automation.ControlType]::Button)
+  return Find-AutomationPatternCandidatesInContainers $root @("$ControlId") $definitions $expectedClasses $expectedControlTypes
 }
 
 function Get-DialogAutomationSummary([IntPtr] $Dialog) {
@@ -494,9 +546,17 @@ if ($button -ne [IntPtr]::Zero) {
         $buttonAutomation.Pattern.DoDefaultAction()
       }
       $invoked = $true
-      break
     } catch {
       continue
+    }
+    $candidateRemaining = $TimeoutMilliseconds - $stopwatch.ElapsedMilliseconds
+    if ($candidateRemaining -le 0) {
+      break
+    }
+    $candidateCloseMilliseconds = [int] [Math]::Min($candidateRemaining, 250)
+    if (Wait-ForDialogClose $candidateCloseMilliseconds) {
+      Write-Output "drove real rfd picker $Title"
+      exit 0
     }
   }
   if (-not $invoked) {
@@ -509,12 +569,8 @@ if ($remainingMilliseconds -le 0) {
   throw "real rfd picker action exhausted the timeout budget"
 }
 $closeDeadline = [Math]::Min($remainingMilliseconds, 5000)
-$closeWatch = [System.Diagnostics.Stopwatch]::StartNew()
-while ($closeWatch.ElapsedMilliseconds -lt $closeDeadline) {
-  if ((Find-DialogWindow) -eq [IntPtr]::Zero) {
-    Write-Output "drove real rfd picker $Title"
-    exit 0
-  }
-  Start-Sleep -Milliseconds 100
+if (Wait-ForDialogClose $closeDeadline) {
+  Write-Output "drove real rfd picker $Title"
+  exit 0
 }
 throw "real rfd picker did not close after the $Action action"

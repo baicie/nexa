@@ -375,6 +375,26 @@ test("the Windows driver budget covers Add-Type startup, discovery, and close", 
   assert.match(source, /SendMessageTimeout/u);
 });
 
+test("the Windows UI Automation fallback rejects unrelated and ineffective candidates", () => {
+  const source = readFileSync(
+    new URL("./dialog-picker-driver-windows.ps1", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /\.Current\.ProcessId/u);
+  assert.match(source, /\.Current\.IsEnabled/u);
+  assert.match(source, /ExpectedClasses/u);
+  assert.match(source, /ExpectedControlTypes/u);
+  assert.match(source, /Element = \$element/u);
+  assert.match(source, /Sort-Object Rank/u);
+  assert.match(source, /Wait-ForDialogClose/u);
+  assert.match(source, /if \(Wait-ForDialogClose \$candidateCloseMilliseconds\)/u);
+  assert.ok(
+    source.indexOf("Wait-ForDialogClose $candidateCloseMilliseconds") <
+      source.indexOf("real rfd picker UI Automation candidates rejected"),
+  );
+});
+
 test("the Windows supervisor assigns a suspended probe to a kill-on-close Job Object", () => {
   const source = readFileSync(
     new URL("./dialog-picker-probe-supervisor-windows.ps1", import.meta.url),
