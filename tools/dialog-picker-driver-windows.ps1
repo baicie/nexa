@@ -175,60 +175,8 @@ function Find-FileNameControl([IntPtr] $Dialog) {
   return $container
 }
 
-function Find-AutomationControl($Root, [string[]] $AutomationIds, $ExpectedControlTypes, $RequiredPattern) {
-  foreach ($automationId in $AutomationIds) {
-    $condition = [System.Windows.Automation.PropertyCondition]::new(
-      [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
-      $automationId
-    )
-    $matches = $Root.FindAll(
-      [System.Windows.Automation.TreeScope]::Descendants,
-      $condition
-    )
-    foreach ($element in $matches) {
-      try {
-        if ($ExpectedControlTypes -notcontains $element.Current.ControlType) {
-          continue
-        }
-        $pattern = $null
-        if ($element.TryGetCurrentPattern($RequiredPattern, [ref] $pattern)) {
-          return [PSCustomObject] @{ Element = $element; Pattern = $pattern }
-        }
-      } catch {
-        continue
-      }
-    }
-  }
-  return $null
-}
-
-function Find-AutomationControlByType($Root, $ExpectedControlTypes, $RequiredPattern) {
-  $matches = $Root.FindAll(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    [System.Windows.Automation.Condition]::TrueCondition
-  )
-  foreach ($element in $matches) {
-    try {
-      if ($ExpectedControlTypes -notcontains $element.Current.ControlType) {
-        continue
-      }
-      $pattern = $null
-      if ($element.TryGetCurrentPattern($RequiredPattern, [ref] $pattern)) {
-        return [PSCustomObject] @{ Element = $element; Pattern = $pattern }
-      }
-    } catch {
-      continue
-    }
-  }
-  return $null
-}
-
-function Find-AutomationControlInContainers(
-  $Root,
-  [string[]] $ContainerAutomationIds,
-  $ExpectedControlTypes,
-  $RequiredPattern
-) {
+function Find-AutomationElementsInContainers($Root, [string[]] $ContainerAutomationIds) {
+  $elements = [System.Collections.Generic.List[object]]::new()
   foreach ($containerAutomationId in $ContainerAutomationIds) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
       [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
@@ -239,52 +187,137 @@ function Find-AutomationControlInContainers(
       $condition
     )
     foreach ($container in $containers) {
-      $nested = Find-AutomationControlByType $container $ExpectedControlTypes $RequiredPattern
-      if ($null -ne $nested) {
-        return $nested
+      [void] $elements.Add($container)
+      $descendants = $container.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition
+      )
+      foreach ($element in $descendants) {
+        [void] $elements.Add($element)
       }
     }
   }
-  return $null
+  return $elements
 }
 
-function Find-FileNameAutomationControl([IntPtr] $Dialog) {
+function Find-AutomationNativeControlInContainers(
+  $Root,
+  [string[]] $ContainerAutomationIds,
+  [string[]] $ExpectedClasses
+) {
+  $elements = @(Find-AutomationElementsInContainers $Root $ContainerAutomationIds)
+  foreach ($element in $elements) {
+    try {
+      if ($ExpectedClasses -cnotcontains $element.Current.ClassName) {
+        continue
+      }
+      $nativeHandle = [IntPtr] $element.Current.NativeWindowHandle
+      if ($nativeHandle -eq [IntPtr]::Zero) {
+        continue
+      }
+      $owner = [uint32] 0
+      [void] [NexaDialogPickerNative]::GetWindowThreadProcessId($nativeHandle, [ref] $owner)
+      if ($owner -eq [uint32] $ProcessId) {
+        return $nativeHandle
+      }
+    } catch {
+      continue
+    }
+  }
+  return [IntPtr]::Zero
+}
+
+function Find-AutomationPatternCandidatesInContainers(
+  $Root,
+  [string[]] $ContainerAutomationIds,
+  $PatternDefinitions
+) {
+  $candidates = [System.Collections.Generic.List[object]]::new()
+  $elements = @(Find-AutomationElementsInContainers $Root $ContainerAutomationIds)
+  foreach ($element in $elements) {
+    foreach ($definition in $PatternDefinitions) {
+      try {
+        $pattern = $null
+        if ($element.TryGetCurrentPattern($definition.PatternId, [ref] $pattern)) {
+          [void] $candidates.Add([PSCustomObject] @{
+            Kind = $definition.Kind
+            Pattern = $pattern
+          })
+        }
+      } catch {
+        continue
+      }
+    }
+  }
+  return $candidates
+}
+
+function Find-FileNameAutomationNativeControl([IntPtr] $Dialog) {
   if (-not $script:automationAvailable) {
-    return $null
+    return [IntPtr]::Zero
   }
   $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
   if ($null -eq $root) {
-    return $null
+    return [IntPtr]::Zero
   }
-  $valuePattern = [System.Windows.Automation.ValuePattern]::Pattern
-  $controlTypes = @(
-    [System.Windows.Automation.ControlType]::Edit,
-    [System.Windows.Automation.ControlType]::ComboBox
+  return Find-AutomationNativeControlInContainers $root @("FileNameControlHost") @(
+    "Edit",
+    "ComboBox",
+    "ComboBoxEx32"
   )
-  $direct = Find-AutomationControl $root @("1148", "1001") $controlTypes $valuePattern
-  if ($null -ne $direct) {
-    return $direct
-  }
-  return Find-AutomationControlInContainers $root @("FileNameControlHost", "1001", "1148") $controlTypes $valuePattern
 }
 
-function Find-ButtonAutomationControl([IntPtr] $Dialog, [int] $ControlId) {
+function Find-FileNameAutomationPatterns([IntPtr] $Dialog) {
   if (-not $script:automationAvailable) {
-    return $null
+    return @()
   }
   $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
   if ($null -eq $root) {
-    return $null
+    return @()
   }
-  $controlTypes = @(
-    [System.Windows.Automation.ControlType]::Button
+  $definitions = @(
+    [PSCustomObject] @{
+      Kind = "Value"
+      PatternId = [System.Windows.Automation.ValuePattern]::Pattern
+    },
+    [PSCustomObject] @{
+      Kind = "Legacy"
+      PatternId = [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern
+    }
   )
-  $invokePattern = [System.Windows.Automation.InvokePattern]::Pattern
-  $direct = Find-AutomationControl $root @("$ControlId") $controlTypes $invokePattern
-  if ($null -ne $direct) {
-    return $direct
+  return Find-AutomationPatternCandidatesInContainers $root @("FileNameControlHost") $definitions
+}
+
+function Find-ButtonAutomationNativeControl([IntPtr] $Dialog, [int] $ControlId) {
+  if (-not $script:automationAvailable) {
+    return [IntPtr]::Zero
   }
-  return Find-AutomationControlInContainers $root @("$ControlId") $controlTypes $invokePattern
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
+  if ($null -eq $root) {
+    return [IntPtr]::Zero
+  }
+  return Find-AutomationNativeControlInContainers $root @("$ControlId") @("Button")
+}
+
+function Find-ButtonAutomationPatterns([IntPtr] $Dialog, [int] $ControlId) {
+  if (-not $script:automationAvailable) {
+    return @()
+  }
+  $root = [System.Windows.Automation.AutomationElement]::FromHandle($Dialog)
+  if ($null -eq $root) {
+    return @()
+  }
+  $definitions = @(
+    [PSCustomObject] @{
+      Kind = "Invoke"
+      PatternId = [System.Windows.Automation.InvokePattern]::Pattern
+    },
+    [PSCustomObject] @{
+      Kind = "Legacy"
+      PatternId = [System.Windows.Automation.LegacyIAccessiblePattern]::Pattern
+    }
+  )
+  return Find-AutomationPatternCandidatesInContainers $root @("$ControlId") $definitions
 }
 
 function Get-DialogAutomationSummary([IntPtr] $Dialog) {
@@ -357,6 +390,9 @@ if ($Action -eq "accept") {
     throw "selection parent directory does not exist: $parent"
   }
   $fileNameControl = Find-FileNameControl $dialog
+  if ($fileNameControl -eq [IntPtr]::Zero) {
+    $fileNameControl = Find-FileNameAutomationNativeControl $dialog
+  }
   if ($fileNameControl -ne [IntPtr]::Zero) {
     $setTextTimeout = Get-RemainingMessageTimeout "setting the selection path"
     $setTextResult = [IntPtr]::Zero
@@ -391,13 +427,30 @@ if ($Action -eq "accept") {
       throw "real rfd picker did not retain the requested selection path"
     }
   } else {
-    $fileNameAutomation = Find-FileNameAutomationControl $dialog
-    if ($null -eq $fileNameAutomation) {
+    $fileNameAutomations = @(Find-FileNameAutomationPatterns $dialog)
+    if ($fileNameAutomations.Count -eq 0) {
       $summary = Get-DialogAutomationSummary $dialog
       throw "real rfd picker did not expose the standard file-name control ($summary)"
     }
-    $fileNameAutomation.Pattern.SetValue($SelectionPath)
-    if ($fileNameAutomation.Pattern.Current.Value -cne $SelectionPath) {
+    $selectionApplied = $false
+    foreach ($fileNameAutomation in $fileNameAutomations) {
+      try {
+        if (
+          $fileNameAutomation.Kind -ceq "Value" -and
+          $fileNameAutomation.Pattern.Current.IsReadOnly
+        ) {
+          continue
+        }
+        $fileNameAutomation.Pattern.SetValue($SelectionPath)
+        if ($fileNameAutomation.Pattern.Current.Value -ceq $SelectionPath) {
+          $selectionApplied = $true
+          break
+        }
+      } catch {
+        continue
+      }
+    }
+    if (-not $selectionApplied) {
       throw "real rfd picker UI Automation control did not retain the requested selection path"
     }
   }
@@ -406,11 +459,14 @@ if ($Action -eq "accept") {
   $button = Find-DialogControl $dialog 2 "Button"
 }
 $buttonId = if ($Action -eq "accept") { 1 } else { 2 }
-$buttonAutomation = $null
 if ($button -eq [IntPtr]::Zero) {
-  $buttonAutomation = Find-ButtonAutomationControl $dialog $buttonId
+  $button = Find-ButtonAutomationNativeControl $dialog $buttonId
 }
-if ($button -eq [IntPtr]::Zero -and $null -eq $buttonAutomation) {
+$buttonAutomations = @()
+if ($button -eq [IntPtr]::Zero) {
+  $buttonAutomations = @(Find-ButtonAutomationPatterns $dialog $buttonId)
+}
+if ($button -eq [IntPtr]::Zero -and $buttonAutomations.Count -eq 0) {
   throw "real rfd picker did not expose the expected $Action button"
 }
 $clickTimeout = Get-RemainingMessageTimeout "clicking the $Action button"
@@ -429,7 +485,23 @@ if ($button -ne [IntPtr]::Zero) {
     throw "real rfd picker $Action button did not accept BM_CLICK within the timeout"
   }
 } else {
-  $buttonAutomation.Pattern.Invoke()
+  $invoked = $false
+  foreach ($buttonAutomation in $buttonAutomations) {
+    try {
+      if ($buttonAutomation.Kind -ceq "Invoke") {
+        $buttonAutomation.Pattern.Invoke()
+      } else {
+        $buttonAutomation.Pattern.DoDefaultAction()
+      }
+      $invoked = $true
+      break
+    } catch {
+      continue
+    }
+  }
+  if (-not $invoked) {
+    throw "real rfd picker UI Automation candidates rejected the $Action action"
+  }
 }
 
 $remainingMilliseconds = $TimeoutMilliseconds - $stopwatch.ElapsedMilliseconds
