@@ -1,11 +1,45 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
   cargoDependencyRoots,
+  dependencyCommandLauncher,
   normalizeDependencyGraph,
   validateDependencyGraph,
 } from "./release-dependency-graph.mjs";
+
+test("dependency graph launches pnpm through a regular JS entrypoint on Windows", (t) => {
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "nexa-dependency-pnpm-"));
+  t.after(() => rmSync(temporaryDirectory, { force: true, recursive: true }));
+  const pnpmHome = path.join(temporaryDirectory, "node_modules", ".bin");
+  const pnpmEntrypoint = path.join(temporaryDirectory, "node_modules", "pnpm", "bin", "pnpm.cjs");
+  mkdirSync(pnpmHome, { recursive: true });
+  mkdirSync(path.dirname(pnpmEntrypoint), { recursive: true });
+  writeFileSync(pnpmEntrypoint, "// pnpm fixture\n");
+
+  assert.deepEqual(
+    dependencyCommandLauncher("pnpm", ["list", "--json"], {
+      environment: { PNPM_HOME: pnpmHome },
+      nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
+      platform: "win32",
+    }),
+    {
+      command: "C:\\Program Files\\nodejs\\node.exe",
+      args: [pnpmEntrypoint, "list", "--json"],
+    },
+  );
+  assert.deepEqual(
+    dependencyCommandLauncher("cargo", ["metadata"], {
+      environment: { PNPM_HOME: pnpmHome },
+      nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
+      platform: "win32",
+    }),
+    { command: "cargo", args: ["metadata"] },
+  );
+});
 
 test("release graph includes every shipped Cargo closure", () => {
   assert.deepEqual(cargoDependencyRoots, [

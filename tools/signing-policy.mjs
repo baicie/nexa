@@ -14,6 +14,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const REVIEWED_EXECUTOR_FILES = [
   "release/artifact-integrity.json",
   "tools/archive-utils.mjs",
+  "tools/pnpm-launcher.mjs",
   "tools/release-dependency-graph.mjs",
   "tools/release-evidence.mjs",
   "tools/signing-credentials.mjs",

@@ -12,9 +12,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildAllReleasePackages } from "./build-release-packages.mjs";
+import { packageManagerCommand, packageManagerLauncher } from "./pnpm-launcher.mjs";
 import { cargoDependencyRoots, collectDependencyGraph } from "./release-dependency-graph.mjs";
 import { generateEvidence, verifyEvidence } from "./release-evidence.mjs";
 import { stageWindowsSkia } from "./stage-windows-skia.mjs";
+
+export { packageManagerCommand, packageManagerLauncher };
 
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const release = JSON.parse(readFileSync(path.join(root, "release/packages.json"), "utf8"));
@@ -24,63 +27,6 @@ const builderId = `${repository}/.github/workflows/release-rehearsal.yml`;
 const buildType = "https://nexa-ui.dev/build-types/technical-preview/v1";
 const nuiHostLinkMarker = Buffer.from("nexa-nui-host");
 const publicRuntimeCompilePackages = ["solid-js"];
-
-export function packageManagerCommand({ platform = process.platform } = {}) {
-  return platform === "win32" ? "pnpm.cmd" : "pnpm";
-}
-
-function environmentValue(environment, name) {
-  const normalizedName = name.toUpperCase();
-  return Object.entries(environment ?? {}).find(
-    ([candidate]) => candidate.toUpperCase() === normalizedName,
-  )?.[1];
-}
-
-function resolvePnpmEntrypoint(environment) {
-  const candidates = [];
-  const npmExecpath = environmentValue(environment, "npm_execpath");
-  if (typeof npmExecpath === "string") candidates.push(npmExecpath);
-  const pnpmHome = environmentValue(environment, "PNPM_HOME");
-  if (typeof pnpmHome === "string") {
-    candidates.push(
-      path.join(pnpmHome, "pnpm.cjs"),
-      path.resolve(pnpmHome, "..", "pnpm", "bin", "pnpm.cjs"),
-    );
-  }
-
-  for (const candidate of candidates) {
-    if (!path.isAbsolute(candidate) || path.basename(candidate).toLowerCase() !== "pnpm.cjs") {
-      continue;
-    }
-    try {
-      const metadata = lstatSync(candidate);
-      if (!metadata.isSymbolicLink() && metadata.isFile()) return candidate;
-    } catch {
-      // Try the next controlled pnpm installation layout.
-    }
-  }
-  throw new Error(
-    "Windows release consumer requires npm_execpath or PNPM_HOME to resolve a regular pnpm.cjs entrypoint",
-  );
-}
-
-export function packageManagerLauncher({
-  args = [],
-  environment = process.env,
-  nodeExecutable = process.execPath,
-  platform = process.platform,
-} = {}) {
-  if (platform === "win32") {
-    return {
-      command: nodeExecutable,
-      args: [resolvePnpmEntrypoint(environment), ...args],
-    };
-  }
-  return {
-    command: packageManagerCommand({ platform }),
-    args: [...args],
-  };
-}
 
 function portablePath(value) {
   return value.split(path.sep).join("/");

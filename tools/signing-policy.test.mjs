@@ -39,6 +39,7 @@ test("signing policy isolates immutable unsigned, signed, and quarantine artifac
   assert.deepEqual(policy.execution.reviewedExecutor.closure.files, [
     "release/artifact-integrity.json",
     "tools/archive-utils.mjs",
+    "tools/pnpm-launcher.mjs",
     "tools/release-dependency-graph.mjs",
     "tools/release-evidence.mjs",
     "tools/signing-credentials.mjs",

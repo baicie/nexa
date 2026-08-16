@@ -31,13 +31,14 @@
         "files": [
           "release/artifact-integrity.json",
           "tools/archive-utils.mjs",
+          "tools/pnpm-launcher.mjs",
           "tools/release-dependency-graph.mjs",
           "tools/release-evidence.mjs",
           "tools/signing-credentials.mjs",
           "tools/signing-executor.mjs",
           "tools/signing-policy.mjs"
         ],
-        "sha256": "c97df99ee8e71ea649ecb83fcd0ef66f21b9a48a3393309fb4b519b01d956d39"
+        "sha256": "b8c7e57fc589460003575c02fb828f1d0138130a024668b61e3f4cb27889f5a8"
       },
       "platforms": {
         "darwin": {

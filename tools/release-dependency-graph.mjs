@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { packageManagerLauncher } from "./pnpm-launcher.mjs";
+
 const defaultRoot = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const ecosystemOrder = new Map([
   ["cargo", 0],
@@ -418,8 +420,14 @@ export function normalizeDependencyGraph({ sources, npmProjects, cargoMetadata, 
   });
 }
 
+export function dependencyCommandLauncher(command, args, options = {}) {
+  if (command === "pnpm") return packageManagerLauncher({ args, ...options });
+  return { command, args: [...args] };
+}
+
 function runCommand(command, args, cwd) {
-  const result = spawnSync(command, args, {
+  const launcher = dependencyCommandLauncher(command, args);
+  const result = spawnSync(launcher.command, launcher.args, {
     cwd,
     encoding: "utf8",
     maxBuffer: 100 * 1024 * 1024,
