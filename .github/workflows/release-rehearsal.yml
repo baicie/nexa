@@ -124,6 +124,12 @@ jobs:
   consumer:
     name: Build unsigned candidate (${{ matrix.platform }})
     needs: [source, contracts, security, performance-gate]
+    if: >-
+      always() &&
+      needs.source.result == 'success' &&
+      needs.contracts.result == 'success' &&
+      needs.security.result == 'success' &&
+      needs.performance-gate.result == 'success'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -285,6 +291,7 @@ jobs:
   fresh-verify:
     name: Fresh integrity verification (${{ matrix.platform }})
     needs: consumer
+    if: always() && needs.consumer.result == 'success'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -330,6 +337,7 @@ jobs:
   launch:
     name: Launch verified download (${{ matrix.platform }})
     needs: fresh-verify
+    if: always() && needs.fresh-verify.result == 'success'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:

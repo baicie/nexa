@@ -615,6 +615,18 @@ test("CI rehearsals reuse one active performance result while tag rehearsals cap
     "security",
     "performance-gate",
   ]);
+  assert.equal(
+    rehearsal.jobs.consumer.if,
+    "always() && needs.source.result == 'success' && needs.contracts.result == 'success' && needs.security.result == 'success' && needs.performance-gate.result == 'success'",
+  );
+  assert.equal(
+    rehearsal.jobs["fresh-verify"].if,
+    "always() && needs.consumer.result == 'success'",
+  );
+  assert.equal(
+    rehearsal.jobs.launch.if,
+    "always() && needs.fresh-verify.result == 'success'",
+  );
   assert.ok(rehearsal.jobs.decision.needs.includes("performance-gate"));
   assert.equal(rehearsal.jobs.decision.needs.includes("performance"), false);
   const decision = rehearsal.jobs.decision.steps.find((step) =>
