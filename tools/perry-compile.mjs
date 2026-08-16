@@ -51,6 +51,19 @@ export function runPerryCompile({
     fallbackShell: platform === "win32",
     platform,
   });
+  const compileArgs = [...args];
+  const hasExplicitTarget = compileArgs.some(
+    (arg) => arg === "--target" || arg.startsWith("--target="),
+  );
+  if (platform === "win32" && !hasExplicitTarget) {
+    const subsystemIndex = compileArgs.indexOf("--windows-subsystem");
+    compileArgs.splice(
+      subsystemIndex === -1 ? compileArgs.length : subsystemIndex,
+      0,
+      "--target",
+      "windows",
+    );
+  }
   const prepared = prepare({
     projectDirectory,
     manifestPath: resolvedManifestPath,
@@ -60,7 +73,7 @@ export function runPerryCompile({
     runtime: { platform, arch },
   });
   try {
-    const result = runner(perry.command, [...perry.prefixArgs, "compile", ...args], {
+    const result = runner(perry.command, [...perry.prefixArgs, "compile", ...compileArgs], {
       cwd: projectDirectory,
       env: compileEnvironment(prepared.environment, resolvedManifestPath, resolvedFixturePath),
       shell: perry.shell,

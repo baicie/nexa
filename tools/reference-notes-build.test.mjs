@@ -59,6 +59,8 @@ test("Notes build embeds its trusted manifest and verifies the resulting binary"
     "main.tsx",
     "-o",
     "reference-notes",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -73,6 +75,8 @@ test("Notes build embeds its trusted manifest and verifies the resulting binary"
     "startup-smoke.tsx",
     "-o",
     "reference-notes-startup-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -167,6 +171,22 @@ test("Notes production build strips the Dialog test fixture from every child pro
   });
 
   assert.equal(calls.length, 3);
+  assert.deepEqual(calls[0].args, [
+    "exec",
+    "perry",
+    "compile",
+    "main.tsx",
+    "-o",
+    "reference-notes",
+  ]);
+  assert.deepEqual(calls[1].args, [
+    "exec",
+    "perry",
+    "compile",
+    "startup-smoke.tsx",
+    "-o",
+    "reference-notes-startup-smoke",
+  ]);
   for (const call of calls) {
     assert.equal(Object.hasOwn(call.options.env, fixtureVariable), false);
   }

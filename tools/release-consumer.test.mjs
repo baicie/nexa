@@ -7,11 +7,18 @@ import { fileURLToPath } from "node:url";
 import {
   assertNativeHostsLinked,
   createConsumerManifest,
+  packageManagerCommand,
   prepareNativeConsumerEnvironment,
   releaseRehearsalPlan,
 } from "./release-consumer.mjs";
 
 const root = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
+
+test("release consumer resolves the pnpm launcher for each host platform", () => {
+  assert.equal(packageManagerCommand({ platform: "win32" }), "pnpm.cmd");
+  assert.equal(packageManagerCommand({ platform: "darwin" }), "pnpm");
+  assert.equal(packageManagerCommand({ platform: "linux" }), "pnpm");
+});
 
 test("release rehearsal plan covers every public package and fail-closed stage", () => {
   const plan = releaseRehearsalPlan();

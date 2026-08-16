@@ -72,6 +72,8 @@ test("compiles the FS smoke with the trusted manifest and Windows console subsys
     "fs-runtime-smoke.tsx",
     "-o",
     "reference-notes-fs-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -103,6 +105,8 @@ test("compiles the FS smoke with a native Perry override and sanitized environme
     "fs-runtime-smoke.tsx",
     "-o",
     "reference-notes-fs-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);

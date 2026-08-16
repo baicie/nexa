@@ -419,7 +419,9 @@ export function runProjectBuild({
     "-o",
     outputRelative,
   ];
-  if (runtime.platform === "win32") args.push("--windows-subsystem", "windows");
+  if (runtime.platform === "win32") {
+    args.push("--target", "windows", "--windows-subsystem", "windows");
+  }
   let prepared;
   try {
     prepared = prepareRuntime({

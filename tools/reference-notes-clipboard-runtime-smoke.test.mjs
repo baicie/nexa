@@ -52,6 +52,8 @@ test("compiles the Clipboard smoke with the trusted manifest and Windows console
     "clipboard-runtime-smoke.tsx",
     "-o",
     "reference-notes-clipboard-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -83,6 +85,8 @@ test("compiles the Clipboard smoke with a native Perry override and sanitized en
     "clipboard-runtime-smoke.tsx",
     "-o",
     "reference-notes-clipboard-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);

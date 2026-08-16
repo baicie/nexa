@@ -222,6 +222,8 @@ test("Windows build selects an exe and the GUI subsystem without a shell", (t) =
     "src/main.tsx",
     "-o",
     path.join("dist", "temp-app"),
+    "--target",
+    "windows",
     "--windows-subsystem",
     "windows",
   ]);
@@ -262,6 +264,8 @@ test("build executes a canonical native Perry override without a shell or contro
     "src/main.tsx",
     "-o",
     path.join("dist", "temp-app"),
+    "--target",
+    "windows",
     "--windows-subsystem",
     "windows",
   ]);

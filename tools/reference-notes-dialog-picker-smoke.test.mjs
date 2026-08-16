@@ -137,6 +137,8 @@ test("compiles a fixture-free picker probe with only the trusted manifest inject
     "dialog-picker-smoke.tsx",
     "-o",
     "reference-notes-dialog-picker-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -183,6 +185,8 @@ test("compiles the picker probe with a native Perry override and sanitized envir
     "dialog-picker-smoke.tsx",
     "-o",
     "reference-notes-dialog-picker-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);

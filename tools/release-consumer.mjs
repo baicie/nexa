@@ -25,6 +25,12 @@ const buildType = "https://nexa-ui.dev/build-types/technical-preview/v1";
 const nuiHostLinkMarker = Buffer.from("nexa-nui-host");
 const publicRuntimeCompilePackages = ["solid-js"];
 
+export function packageManagerCommand({ platform = process.platform } = {}) {
+  return platform === "win32" ? "pnpm.cmd" : "pnpm";
+}
+
+const pnpm = packageManagerCommand();
+
 function portablePath(value) {
   return value.split(path.sep).join("/");
 }
@@ -139,7 +145,7 @@ function packPublicPackages(artifactsDirectory) {
   const tarballs = new Map();
   for (const entry of release.npm.public) {
     const before = new Set(readdirSync(artifactsDirectory));
-    run("pnpm", ["--dir", entry.path, "pack", "--pack-destination", artifactsDirectory], {
+    run(pnpm, ["--dir", entry.path, "pack", "--pack-destination", artifactsDirectory], {
       capture: true,
     });
     const created = readdirSync(artifactsDirectory).filter(
@@ -223,7 +229,7 @@ function createConsumerProject(consumerDirectory, tarballs) {
 }
 
 function verifyDoctor(consumerDirectory) {
-  const output = run("pnpm", ["exec", "nexa", "doctor", "--json"], {
+  const output = run(pnpm, ["exec", "nexa", "doctor", "--json"], {
     cwd: consumerDirectory,
     capture: true,
   });
@@ -331,10 +337,10 @@ export function runReleaseConsumer({ outputDirectory, native = true }) {
   const descriptorPath = createDescriptor(output);
   generateEvidence({ artifactsDir: artifacts, evidenceDir: evidence, descriptorPath });
   createConsumerProject(consumer, tarballs);
-  run("pnpm", ["install", "--ignore-scripts", "--registry=https://registry.npmjs.org/"], {
+  run(pnpm, ["install", "--ignore-scripts", "--registry=https://registry.npmjs.org/"], {
     cwd: consumer,
   });
-  run("pnpm", ["run", "typecheck"], { cwd: consumer });
+  run(pnpm, ["run", "typecheck"], { cwd: consumer });
   verifyNodeImports(consumer);
   verifyDoctor(consumer);
   let nativeInputs = null;
@@ -344,14 +350,14 @@ export function runReleaseConsumer({ outputDirectory, native = true }) {
       installedHostsRequired: true,
       windowsSkia: prepared.windowsSkia,
     };
-    run("pnpm", ["run", "build"], { cwd: consumer, env: prepared.environment });
+    run(pnpm, ["run", "build"], { cwd: consumer, env: prepared.environment });
     const binaryName =
       process.platform === "win32" ? "nexa-release-consumer.exe" : "nexa-release-consumer";
     assertNativeHostsLinked(
       readFileSync(path.join(consumer, "dist", binaryName)),
       readFileSync(path.join(consumer, "app.manifest.json")),
     );
-    run("pnpm", ["run", "package"], { cwd: consumer, env: prepared.environment });
+    run(pnpm, ["run", "package"], { cwd: consumer, env: prepared.environment });
   }
   verifyEvidence({ artifactsDir: artifacts, evidenceDir: evidence, descriptorPath });
   writeJson(path.join(output, "result.json"), {

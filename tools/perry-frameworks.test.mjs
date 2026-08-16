@@ -8,7 +8,7 @@ import {
   PERRY_FRAMEWORKS,
   runPerryFrameworkBuilds,
 } from "./perry-frameworks.mjs";
-import { runPerryCompileCommand } from "./perry-compile.mjs";
+import { runPerryCompile, runPerryCompileCommand } from "./perry-compile.mjs";
 
 function result(status, stdout = "", stderr = "") {
   return { status, stdout, stderr };
@@ -186,6 +186,44 @@ test("the guarded compiler CLI binds the owned manifest and forces Windows runti
       /usage: perry-compile\.mjs/u,
     );
   }
+});
+
+test("the guarded Windows compiler preserves an explicit cross target", () => {
+  const calls = [];
+  let cleanups = 0;
+  for (const targetArgs of [["--target", "linux"], ["--target=linux"]]) {
+    runPerryCompile({
+      args: ["main.ts", ...targetArgs, "-o", "counter"],
+      cwd: "/workspace/example",
+      manifestPath: "/workspace/example/app.manifest.json",
+      environment: { PATH: "/tools" },
+      platform: "win32",
+      arch: "x64",
+      prepare({ environment }) {
+        return {
+          environment,
+          cleanup() {
+            cleanups += 1;
+          },
+        };
+      },
+      runner(command, args, options) {
+        calls.push({ command, args, options });
+        return result(0);
+      },
+    });
+  }
+
+  assert.deepEqual(
+    calls.map(({ args }) => args),
+    [
+      ["exec", "perry", "compile", "main.ts", "--target", "linux", "-o", "counter"],
+      ["exec", "perry", "compile", "main.ts", "--target=linux", "-o", "counter"],
+    ],
+  );
+  assert.ok(calls.every(({ command }) => command === "pnpm.cmd"));
+  assert.ok(calls.every(({ options }) => options.shell === true));
+  assert.equal(cleanups, 2);
 });
 
 test("a selected framework is cleaned, built without Perry cache, and verified", () => {

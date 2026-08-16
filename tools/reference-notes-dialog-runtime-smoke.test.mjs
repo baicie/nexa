@@ -87,6 +87,8 @@ test("compiles the Dialog smoke with trusted manifest and build-time fixture", (
     "dialog-runtime-smoke.tsx",
     "-o",
     "reference-notes-dialog-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
@@ -121,6 +123,8 @@ test("compiles the Dialog smoke with a native Perry override and sanitized envir
     "dialog-runtime-smoke.tsx",
     "-o",
     "reference-notes-dialog-runtime-smoke",
+    "--target",
+    "windows",
     "--windows-subsystem",
     "console",
   ]);
