@@ -129,12 +129,17 @@ function report(overrides = {}) {
   };
 }
 
-test("the release config covers every G6-07 metric with one coherent baseline state", () => {
+test("the release config covers every G6-07 metric with raw hosted v2 evidence", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
   );
 
-  assert.doesNotThrow(() => validatePerformanceConfig(config));
+  assert.doesNotThrow(() =>
+    validatePerformanceConfig(config, {
+      verifyActiveEvidence: true,
+      evidenceRoot: repositoryRoot,
+    }),
+  );
   assert.equal(config.workload.id, "reference-notes-v2");
   assert.equal(config.workload.samplePolicy.startupPresentsPerMeasuredRun, 1);
   for (const metricName of ["tickMs", "layoutMs", "paintMs"]) {
@@ -146,25 +151,32 @@ test("the release config covers every G6-07 metric with one coherent baseline st
     assert.equal(config.metrics[name].collection, "hosted-native");
   }
   assert.deepEqual(Object.keys(config.platforms).sort(), ["darwin-arm64", "win32-x64"]);
-  const baselines = Object.values(config.platforms).flatMap((platform) =>
-    Object.values(platform.baselines),
-  );
-  assert.equal(new Set(baselines.map((baseline) => baseline.status)).size, 1);
-  if (baselines[0].status === "active") {
-    assert.doesNotThrow(() =>
-      validatePerformanceConfig(config, {
-        verifyActiveEvidence: true,
-        evidenceRoot: repositoryRoot,
-      }),
+  for (const platform of Object.values(config.platforms)) {
+    const evidence = new Set();
+    const baselines = Object.values(platform.baselines);
+    for (const baseline of baselines) {
+      assert.equal(baseline.status, "active");
+      assert.equal(Number.isFinite(baseline.value), true);
+      assert.equal(baseline.evidence.commit, "184351135c649f83af07730bf337ff9b20f8b89f");
+      evidence.add(JSON.stringify(baseline.evidence));
+    }
+    assert.equal(evidence.size, 1);
+
+    const rawReport = JSON.parse(
+      readFileSync(path.join(repositoryRoot, baselines[0].evidence.report), "utf8"),
     );
-  } else {
-    assert.equal(baselines[0].status, "pending");
-    assert.ok(
-      baselines.every(
-        (baseline) =>
-          baseline.reason ===
-          "reference-notes-v2 requires hosted steady-state baseline capture",
+    assert.deepEqual(
+      Object.fromEntries(
+        metricNames.map((metricName) => [metricName, rawReport.samples[metricName].length]),
       ),
+      {
+        coldStartMs: 10,
+        idleRssBytes: 10,
+        artifactBytes: 1,
+        tickMs: 1_000,
+        layoutMs: 1_000,
+        paintMs: 1_000,
+      },
     );
   }
 });

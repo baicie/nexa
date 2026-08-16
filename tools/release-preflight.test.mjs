@@ -54,15 +54,9 @@ test("preflight aggregates every external release blocker without mutating polic
     /staging signed-release evidence is pending/u,
   );
   assert.deepEqual(Object.keys(report.performance), ["darwin-arm64", "win32-x64"]);
-  const performanceConfig = JSON.parse(
-    readFileSync(path.join(root, "release/performance-budgets.json"), "utf8"),
-  );
-  for (const [platformName, platform] of Object.entries(report.performance)) {
-    const expectedPending = Object.entries(performanceConfig.platforms[platformName].baselines)
-      .filter(([, baseline]) => baseline.status === "pending")
-      .map(([metricName]) => metricName);
-    assert.equal(platform.status, expectedPending.length === 0 ? "active" : "pending");
-    assert.deepEqual(platform.pending, expectedPending);
+  for (const platform of Object.values(report.performance)) {
+    assert.equal(platform.status, "active");
+    assert.deepEqual(platform.pending, []);
   }
   assert.deepEqual(
     policyFiles.map((file) => readFileSync(path.join(root, file), "utf8")),

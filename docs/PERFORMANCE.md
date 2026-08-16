@@ -5,9 +5,11 @@
 `tools/performance-budget.mjs`，独立 hosted 边界位于
 `.github/workflows/performance.yml`。
 
-当前状态是 **`reference-notes-v2` 双平台 baseline 待 hosted 捕获**。v1 的已评审
-raw report 继续作为历史证据保留，但不能跨采样语义复用；`require_active` 在 v2
-激活前必须 fail closed。本地 AOT smoke 仍不能替代 hosted 原生证据。
+当前状态是 **`reference-notes-v2` 双平台 baseline active**。PR run
+`31958001217` 已在 `macos-15` / `windows-2022` 捕获并上传完整报告，人工复核后按
+Actions merge revision `184351135c649f83af07730bf337ff9b20f8b89f` 归档和激活。
+v1 的已评审 raw report 继续作为历史证据保留，但不能跨采样语义复用；本地 AOT
+smoke 仍不能替代 hosted 原生证据。
 
 ## Reference Workload
 
@@ -275,6 +277,33 @@ schema、identity、单调 frame ID、outcome/count 和 drop 校验；首帧 dro
 10 个独立 measured 进程和 5 秒 settle 不变，每进程采 100 个 steady frame，使
 nearest-rank p95 由约 5 个尾样本扩展到约 50 个尾样本，而不是重复运行直到碰巧通过。
 
+### v2 activation
+
+PR run `31958001217` 的 source head 为
+`3051815dd70118c292ad7f64d1c34b0f728182c7`，两份报告都绑定该次 Actions merge
+execution revision `184351135c649f83af07730bf337ff9b20f8b89f`。macOS job
+`95191688326` 与 Windows job `95191688333` 均完成 candidate build、真实 native
+capture、pending-aware check 和 raw report upload。两份报告的 `failedRuns`、
+`droppedFrames` 都是 `0`，样本数都精确为 `10/10/1/1000/1000/1000`，没有按耗时
+删除样本。macOS / Windows 的 `capturedAt` 分别为
+`2026-08-16T16:27:45.739Z` / `2026-08-16T16:38:08.451Z`：
+
+| Platform       |       cold start median | idle RSS median | artifact max |      tick p95 |   layout p95 |    paint p95 | Raw report                                                                       |
+| -------------- | ----------------------: | --------------: | -----------: | ------------: | -----------: | -----------: | -------------------------------------------------------------------------------- |
+| `darwin-arm64` |  `222.8333330000023 ms` |   `593289216 B` | `27159002 B` | `1.934543 ms` | `0.25125 ms` | `0.14575 ms` | `release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json` |
+| `win32-x64`    | `124.14789999999994 ms` |   `154681344 B` | `18529860 B` |    `0.617 ms` |  `0.2208 ms` |  `0.1526 ms` | `release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json`    |
+
+macOS artifact `9266640366` 的 GitHub digest（上传 ZIP）为
+`sha256:b29499dcf1104b7623270855428a430776a388f81a0cdf15a032ed56a3b8dbe3`，raw
+JSON SHA-256 为
+`4a988731c16b41a94fde7315387ed26e1fece9906c6e240babe9ca9c2fcb909d`；Windows
+artifact `9266767913` 的 GitHub digest（上传 ZIP）为
+`sha256:8a25fce685d9383ab8c5e8aae1a5343b0c573e026485d506936a353b8378acaf`，raw
+JSON SHA-256 为
+`e959227501ab4302e3380f1313de108166e9fac5f13d283b427b9b3848e3a506`。GitHub
+artifact digest 与 raw JSON digest 的对象不同，二者不能互换。激活后两个 raw report
+的严格 `check` 与两个平台的 `status --require-active` 均返回 `0`。
+
 ## Workflow Boundary
 
 `performance.yml` 可通过手动触发、每周 schedule 或 reusable workflow 运行；PR
@@ -286,8 +315,9 @@ tag rehearsal 没有 caller result，因此仍自行调用 performance workflow�
 `macos-15` / `windows-2022` 上先运行
 `pnpm release:build` 物化 Native Host 输入，再构建 Notes candidate，拆开 native
 capture 与 budget check，并在 check 回归时仍上传完整 raw report。`require_active`
-或 `performance-required` 会在采集前验证两个平台没有 pending baseline；v2 首次捕获
-只能由显式手动 workflow 以 `--allow-pending` 生成评审报告。
+或 `performance-required` 会在采集前验证两个平台没有 pending baseline；首次
+baseline 捕获只能由显式 `performance-capture` PR label 或手动 workflow 通过
+`--allow-pending` 生成评审报告。
 
 该 workflow 当前没有伪装成 native benchmark：它不会把编译成功、启动存活、
 startup smoke、测试 fixture 或 artifact byte count 填入 cold start、RSS、tick、
