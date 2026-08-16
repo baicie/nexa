@@ -20,7 +20,7 @@ macOS 数值复制到 Windows，或把开发机数值提交为 hosted baseline�
 1. 在 `macos-15` 的 `darwin-arm64` 或 `windows-2022` 的 `win32-x64`
    clean hosted runner 上构建 release artifact。
 2. 先完成 3 次不入报告的 warmup，再完成 10 次独立 measured 进程运行。每个
-   measured 进程固定采集 1 个 startup present 和随后 10 个 steady-state present。
+   measured 进程固定采集 1 个 startup present 和随后 100 个 steady-state present。
 3. cold start 使用 monotonic clock，从进程创建前一刻量到 Runtime
    `FrameOutcome::Presented` 的 first-present observation。`Ready` lifecycle、
    TS `console.log`、离屏 paint 或进程存活都不是 first-present。
@@ -31,7 +31,7 @@ macOS 数值复制到 Windows，或把开发机数值提交为 hosted baseline�
    `FrameMetricsObserver` 真实阶段计时。
    `tickMs` 是同一 presented record 中所有 `FrameDurations` 的总和，
    `layoutMs` 和 `paintMs` 分别来自对应字段。
-6. 至少提交 100 个成功 steady-state presented record 的 tick/layout/paint 样本。
+6. 至少提交 1000 个成功 steady-state presented record 的 tick/layout/paint 样本。
    startup 及 steady-state 中任一 failed run 或 dropped frame 都使整份报告无效；
    除固定的首个 startup present 外，不能删除任何慢样本。
 
@@ -131,9 +131,9 @@ limit = baseline * (1 + maxRegressionPercent / 100)
     "coldStartMs": ["<10 or more raw numbers>"],
     "idleRssBytes": ["<10 or more raw numbers>"],
     "artifactBytes": ["<one or more raw numbers>"],
-    "tickMs": ["<100 or more raw numbers>"],
-    "layoutMs": ["<100 or more raw numbers>"],
-    "paintMs": ["<100 or more raw numbers>"],
+    "tickMs": ["<1000 or more raw numbers>"],
+    "layoutMs": ["<1000 or more raw numbers>"],
+    "paintMs": ["<1000 or more raw numbers>"],
   },
 }
 ```
@@ -143,8 +143,8 @@ limit = baseline * (1 + maxRegressionPercent / 100)
 校验器都会 fail closed。
 
 生产入口还冻结采样政策：3 次 warmup、10 次 measured，每个 measured 进程固定
-1 个 startup present 后再提交 10 个 steady-state present；cold start/RSS 各至少 10
-条样本，artifact 至少 1 条，tick/layout/paint 各至少 100 条。单元合同可以使用
+1 个 startup present 后再提交 100 个 steady-state present；cold start/RSS 各至少 10
+条样本，artifact 至少 1 条，tick/layout/paint 各至少 1000 条。单元合同可以使用
 更小的 fixture，但 `validate`、`status`、artifact CLI 和 native collector 对生产
 配置拒绝弱化后的采样数。active baseline 的 evidence report 必须是仓库相对路径，
 每一级父目录和最终文件都必须是非 symlink 的 regular file；校验器会重新读取 raw
@@ -268,10 +268,12 @@ activation、run `31902303937`、run `31949361718` 和该失败报告逐进程�
 采样碰巧通过当作修复。
 
 v2 用固定位置而非耗时值划分边界：每个 measured 进程的首个 Presented 只证明
-cold start，随后 10 个 Presented 才进入 tick/layout/paint p95。所有 event 仍先完成
+cold start，随后 100 个 Presented 才进入 tick/layout/paint p95。所有 event 仍先完成
 schema、identity、单调 frame ID、outcome/count 和 drop 校验；首帧 drop 仍阻断报告，
 第二帧及以后任何慢样本都必须保留。该语义变更已递增 workload ID，并要求双平台
-重新生成 raw report，禁止沿用或改写 v1 数值。
+重新生成 raw report，禁止沿用或改写 v1 数值。steady 样本同时从 100 提高到 1000；
+10 个独立 measured 进程和 5 秒 settle 不变，每进程采 100 个 steady frame，使
+nearest-rank p95 由约 5 个尾样本扩展到约 50 个尾样本，而不是重复运行直到碰巧通过。
 
 ## Workflow Boundary
 

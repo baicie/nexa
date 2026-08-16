@@ -908,7 +908,7 @@ Notes/Perry process
 
 collector 合同：
 
-- 读取 `release/performance-budgets.json`，严格执行 3 次 warmup、10 次 measured run。每个 measured 进程的 presented 目标为 `1 startup + ceil(minimum frame samples / measured runs) steady-state`；不得通过 CLI 降低 startup、样本数或 5 秒 settle window。
+- 读取 `release/performance-budgets.json`，严格执行 3 次 warmup、10 次 measured run 和至少 1000 个 steady-state frame。每个 measured 进程的 presented 目标为 `1 startup + ceil(minimum frame samples / measured runs) steady-state`；不得通过 CLI 降低 startup、样本数或 5 秒 settle window。
 - parent 在 `spawn()` 前用 Node monotonic clock 取起点，以第一条 native `Presented` event 到达为 first-present；measured run 在该事件后等待至少 5 秒且不注入输入，再用 macOS `ps` 或 Windows PowerShell 读取该 PID 的 resident set。
 - warmup 样本全部丢弃；measured run 的 cold start/RSS 各保留一条，第一个 successful Presented 固定归入 startup 且不进入帧 p95，随后所有 successful Presented duration 都保留。所有 event 包括 startup 都先验证 identity/outcome/drop；任一 timeout、malformed event、非零/异常提前退出、缺样本、drop 或 RSS 读取失败都阻止报告生成，不能按耗时筛除 outlier。
 - collector 必须核对实际 `process.platform/process.arch`、配置中的 runner image、与

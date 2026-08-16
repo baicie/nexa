@@ -137,6 +137,9 @@ test("the release config covers every G6-07 metric with one coherent baseline st
   assert.doesNotThrow(() => validatePerformanceConfig(config));
   assert.equal(config.workload.id, "reference-notes-v2");
   assert.equal(config.workload.samplePolicy.startupPresentsPerMeasuredRun, 1);
+  for (const metricName of ["tickMs", "layoutMs", "paintMs"]) {
+    assert.equal(config.metrics[metricName].minimumSamples, 1_000);
+  }
   assert.deepEqual(Object.keys(config.metrics).sort(), [...metricNames].sort());
   assert.equal(config.metrics.artifactBytes.collection, "deterministic-artifact");
   for (const name of metricNames.filter((metricName) => metricName !== "artifactBytes")) {
@@ -368,15 +371,15 @@ test("the CLI returns distinct pass, regression, and pending exit codes", () => 
       (_, index) => input.samples.idleRssBytes[index % 5],
     );
     input.samples.tickMs = Array.from(
-      { length: 100 },
+      { length: config.metrics.tickMs.minimumSamples },
       (_, index) => input.samples.tickMs[index % 5],
     );
     input.samples.layoutMs = Array.from(
-      { length: 100 },
+      { length: config.metrics.layoutMs.minimumSamples },
       (_, index) => input.samples.layoutMs[index % 5],
     );
     input.samples.paintMs = Array.from(
-      { length: 100 },
+      { length: config.metrics.paintMs.minimumSamples },
       (_, index) => input.samples.paintMs[index % 5],
     );
     return input;
@@ -405,7 +408,7 @@ test("the CLI returns distinct pass, regression, and pending exit codes", () => 
   assert.equal(JSON.parse(passed.stdout).status, "pass");
 
   const regressed = expandSamples(report());
-  regressed.samples.tickMs = Array(100).fill(12);
+  regressed.samples.tickMs = Array(config.metrics.tickMs.minimumSamples).fill(12);
   writeFileSync(reportPath, JSON.stringify(regressed));
   const failed = spawnSync(
     process.execPath,

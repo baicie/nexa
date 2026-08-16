@@ -246,7 +246,7 @@ export function validateFrozenPerformancePolicy(config) {
       metricName === "artifactBytes"
         ? 1
         : ["tickMs", "layoutMs", "paintMs"].includes(metricName)
-          ? 100
+          ? 1_000
           : 10;
     if (config.metrics[metricName].minimumSamples !== expected) {
       fail(`metrics.${metricName}.minimumSamples is frozen at ${expected} for production capture`);

@@ -79,7 +79,7 @@ function nativeEvent({
   })}`;
 }
 
-function measuredRuns({ eventsPerRun = 11, overrides = {} } = {}) {
+function measuredRuns({ eventsPerRun = 101, overrides = {} } = {}) {
   return Array.from({ length: 10 }, (_, index) => ({
     coldStartMs: 90 + index,
     idleRssBytes: 90_000_000 + index,
@@ -416,7 +416,7 @@ test("native run preserves both collection and termination failures", async () =
   );
 });
 
-test("report aggregation separates ten startup presents from 100 steady frames", () => {
+test("report aggregation separates ten startup presents from 1000 steady frames", () => {
   const report = createPerformanceReport({
     config,
     platform: "darwin-arm64",
@@ -436,9 +436,9 @@ test("report aggregation separates ten startup presents from 100 steady frames",
   assert.equal(report.quality.droppedFrames, 0);
   assert.equal(report.samples.coldStartMs.length, 10);
   assert.equal(report.samples.idleRssBytes.length, 10);
-  assert.equal(report.samples.tickMs.length, 100);
-  assert.equal(report.samples.layoutMs.length, 100);
-  assert.equal(report.samples.paintMs.length, 100);
+  assert.equal(report.samples.tickMs.length, 1_000);
+  assert.equal(report.samples.layoutMs.length, 1_000);
+  assert.equal(report.samples.paintMs.length, 1_000);
   assert.ok(report.samples.layoutMs.every((sample) => sample === 3));
   assert.equal(report.artifact.executableSha256, "b".repeat(64));
   assert.doesNotThrow(() => validatePerformanceReport(report, config));
@@ -475,9 +475,9 @@ test("report creation fails closed for missing measured runs or insufficient pre
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
         executableSha256: "b".repeat(64),
-        runs: measuredRuns({ eventsPerRun: 10 }),
+        runs: measuredRuns({ eventsPerRun: 100 }),
       }),
-    /100.*presented/u,
+    /1000.*presented/u,
   );
 });
 
@@ -528,8 +528,8 @@ test("collector executes configured warmups and measured runs with a fixed settl
     calls.map((call) => call.warmup),
     [true, true, true, false, false, false, false, false, false, false, false, false, false],
   );
-  assert.ok(calls.filter((call) => call.warmup).every((call) => call.frameTarget === 10));
-  assert.ok(calls.filter((call) => !call.warmup).every((call) => call.frameTarget === 11));
+  assert.ok(calls.filter((call) => call.warmup).every((call) => call.frameTarget === 100));
+  assert.ok(calls.filter((call) => !call.warmup).every((call) => call.frameTarget === 101));
   assert.ok(calls.filter((call) => !call.warmup).every((call) => call.settleMs === 5_000));
   assert.equal(report.samples.coldStartMs.length, 10);
   assert.ok(report.samples.coldStartMs.every((sample) => sample !== 999));
