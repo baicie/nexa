@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,6 +10,7 @@ import {
   assertNativeHostsLinked,
   createConsumerManifest,
   packageManagerCommand,
+  packageManagerLauncher,
   prepareNativeConsumerEnvironment,
   releaseRehearsalPlan,
 } from "./release-consumer.mjs";
@@ -18,6 +21,64 @@ test("release consumer resolves the pnpm launcher for each host platform", () =>
   assert.equal(packageManagerCommand({ platform: "win32" }), "pnpm.cmd");
   assert.equal(packageManagerCommand({ platform: "darwin" }), "pnpm");
   assert.equal(packageManagerCommand({ platform: "linux" }), "pnpm");
+});
+
+test("release consumer keeps Windows pnpm path arguments out of the command interpreter", (t) => {
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "nexa-release-pnpm-"));
+  t.after(() => rmSync(temporaryDirectory, { force: true, recursive: true }));
+  const pnpmEntrypoint = path.join(temporaryDirectory, "pnpm.cjs");
+  writeFileSync(pnpmEntrypoint, "// pnpm fixture\n");
+  const artifactsDirectory = path.join(temporaryDirectory, "candidate & echo injected");
+  const args = ["pack", "--pack-destination", artifactsDirectory];
+  const nodeExecutable = path.join(temporaryDirectory, "node.exe");
+
+  assert.deepEqual(
+    packageManagerLauncher({
+      args,
+      environment: { npm_execpath: pnpmEntrypoint },
+      nodeExecutable,
+      platform: "win32",
+    }),
+    {
+      command: nodeExecutable,
+      args: [pnpmEntrypoint, "pack", "--pack-destination", artifactsDirectory],
+    },
+  );
+});
+
+test("release consumer accepts only a regular pnpm.cjs from the action installation", (t) => {
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "nexa-release-pnpm-home-"));
+  t.after(() => rmSync(temporaryDirectory, { force: true, recursive: true }));
+  const pnpmHome = path.join(temporaryDirectory, "node_modules", ".bin");
+  const pnpmEntrypoint = path.join(temporaryDirectory, "node_modules", "pnpm", "bin", "pnpm.cjs");
+  mkdirSync(pnpmHome, { recursive: true });
+  mkdirSync(path.dirname(pnpmEntrypoint), { recursive: true });
+  writeFileSync(pnpmEntrypoint, "// pnpm fixture\n");
+
+  assert.deepEqual(
+    packageManagerLauncher({
+      args: ["--version"],
+      environment: { PNPM_HOME: pnpmHome },
+      nodeExecutable: process.execPath,
+      platform: "win32",
+    }),
+    {
+      command: process.execPath,
+      args: [pnpmEntrypoint, "--version"],
+    },
+  );
+
+  rmSync(pnpmEntrypoint);
+  mkdirSync(pnpmEntrypoint);
+  assert.throws(
+    () =>
+      packageManagerLauncher({
+        args: ["--version"],
+        environment: { PNPM_HOME: pnpmHome },
+        platform: "win32",
+      }),
+    /regular pnpm\.cjs entrypoint/u,
+  );
 });
 
 test("release rehearsal plan covers every public package and fail-closed stage", () => {

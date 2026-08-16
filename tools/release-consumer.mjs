@@ -29,7 +29,58 @@ export function packageManagerCommand({ platform = process.platform } = {}) {
   return platform === "win32" ? "pnpm.cmd" : "pnpm";
 }
 
-const pnpm = packageManagerCommand();
+function environmentValue(environment, name) {
+  const normalizedName = name.toUpperCase();
+  return Object.entries(environment ?? {}).find(
+    ([candidate]) => candidate.toUpperCase() === normalizedName,
+  )?.[1];
+}
+
+function resolvePnpmEntrypoint(environment) {
+  const candidates = [];
+  const npmExecpath = environmentValue(environment, "npm_execpath");
+  if (typeof npmExecpath === "string") candidates.push(npmExecpath);
+  const pnpmHome = environmentValue(environment, "PNPM_HOME");
+  if (typeof pnpmHome === "string") {
+    candidates.push(
+      path.join(pnpmHome, "pnpm.cjs"),
+      path.resolve(pnpmHome, "..", "pnpm", "bin", "pnpm.cjs"),
+    );
+  }
+
+  for (const candidate of candidates) {
+    if (!path.isAbsolute(candidate) || path.basename(candidate).toLowerCase() !== "pnpm.cjs") {
+      continue;
+    }
+    try {
+      const metadata = lstatSync(candidate);
+      if (!metadata.isSymbolicLink() && metadata.isFile()) return candidate;
+    } catch {
+      // Try the next controlled pnpm installation layout.
+    }
+  }
+  throw new Error(
+    "Windows release consumer requires npm_execpath or PNPM_HOME to resolve a regular pnpm.cjs entrypoint",
+  );
+}
+
+export function packageManagerLauncher({
+  args = [],
+  environment = process.env,
+  nodeExecutable = process.execPath,
+  platform = process.platform,
+} = {}) {
+  if (platform === "win32") {
+    return {
+      command: nodeExecutable,
+      args: [resolvePnpmEntrypoint(environment), ...args],
+    };
+  }
+  return {
+    command: packageManagerCommand({ platform }),
+    args: [...args],
+  };
+}
 
 function portablePath(value) {
   return value.split(path.sep).join("/");
@@ -60,6 +111,11 @@ function run(command, args, { cwd = root, capture = false, env = process.env } =
     );
   }
   return capture ? result.stdout : "";
+}
+
+function runPackageManager(args, options = {}) {
+  const launcher = packageManagerLauncher({ args, environment: options.env ?? process.env });
+  return run(launcher.command, launcher.args, options);
 }
 
 function git(args) {
@@ -145,7 +201,7 @@ function packPublicPackages(artifactsDirectory) {
   const tarballs = new Map();
   for (const entry of release.npm.public) {
     const before = new Set(readdirSync(artifactsDirectory));
-    run(pnpm, ["--dir", entry.path, "pack", "--pack-destination", artifactsDirectory], {
+    runPackageManager(["--dir", entry.path, "pack", "--pack-destination", artifactsDirectory], {
       capture: true,
     });
     const created = readdirSync(artifactsDirectory).filter(
@@ -229,7 +285,7 @@ function createConsumerProject(consumerDirectory, tarballs) {
 }
 
 function verifyDoctor(consumerDirectory) {
-  const output = run(pnpm, ["exec", "nexa", "doctor", "--json"], {
+  const output = runPackageManager(["exec", "nexa", "doctor", "--json"], {
     cwd: consumerDirectory,
     capture: true,
   });
@@ -337,10 +393,10 @@ export function runReleaseConsumer({ outputDirectory, native = true }) {
   const descriptorPath = createDescriptor(output);
   generateEvidence({ artifactsDir: artifacts, evidenceDir: evidence, descriptorPath });
   createConsumerProject(consumer, tarballs);
-  run(pnpm, ["install", "--ignore-scripts", "--registry=https://registry.npmjs.org/"], {
+  runPackageManager(["install", "--ignore-scripts", "--registry=https://registry.npmjs.org/"], {
     cwd: consumer,
   });
-  run(pnpm, ["run", "typecheck"], { cwd: consumer });
+  runPackageManager(["run", "typecheck"], { cwd: consumer });
   verifyNodeImports(consumer);
   verifyDoctor(consumer);
   let nativeInputs = null;
@@ -350,14 +406,14 @@ export function runReleaseConsumer({ outputDirectory, native = true }) {
       installedHostsRequired: true,
       windowsSkia: prepared.windowsSkia,
     };
-    run(pnpm, ["run", "build"], { cwd: consumer, env: prepared.environment });
+    runPackageManager(["run", "build"], { cwd: consumer, env: prepared.environment });
     const binaryName =
       process.platform === "win32" ? "nexa-release-consumer.exe" : "nexa-release-consumer";
     assertNativeHostsLinked(
       readFileSync(path.join(consumer, "dist", binaryName)),
       readFileSync(path.join(consumer, "app.manifest.json")),
     );
-    run(pnpm, ["run", "package"], { cwd: consumer, env: prepared.environment });
+    runPackageManager(["run", "package"], { cwd: consumer, env: prepared.environment });
   }
   verifyEvidence({ artifactsDir: artifacts, evidenceDir: evidence, descriptorPath });
   writeJson(path.join(output, "result.json"), {
