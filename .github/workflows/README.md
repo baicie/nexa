@@ -32,7 +32,7 @@ CI 对齐 ADR-004 的垂直切片策略：**主线串行、路径过滤、平台
 5. **失败即阻断**：`CI / result` 对所有匹配路径的 Rust、TypeScript、FFI、Perry、native、package、docs 与 security job 做 fail-closed 汇总。
 6. **无凭据签名预检**：每个 CI revision 都以 `operation: validate` 调用 `signing.yml`，不传 secrets；`CI / result` 对任何非成功结果 fail closed。
 7. **性能标签**：`performance-capture` 只采集报告且不阻断合并；`performance-required` 还要求 active baseline，并由 `CI / result` 等待和 fail-closed 汇总。
-8. **候选演练标签**：`release-rehearsal-required` 以 `candidate` 模式调用无凭据 rehearsal，并由 `CI / result` 等待和 fail-closed 汇总；该路径不会签名、公证、发布或推广版本。
+8. **候选演练标签**：`release-rehearsal-required` 先让当前 CI revision 运行一次 active performance workflow，再把该 job result 传入无凭据 `candidate` rehearsal；rehearsal 只接受 `success`，不会对同一 revision 重复启动另一组 hosted 性能采样。手动与 tag rehearsal 没有 caller result，仍在内部执行 active capture。该路径不会签名、公证、发布或推广版本。
 
 ## 发布证据与外部门禁
 
@@ -89,9 +89,9 @@ CI / result
 
 每个 PR/push 都会通过 reusable workflow 执行 credential-free signing preflight。该调用只运行静态 policy、reviewed executor binding、签名合同与 Action SHA 检查；平台签名 executor 继续由 literal `false` 跳过，调用方不传递任何 secrets。预检被取消、跳过或失败时，`CI / result` 一律失败。
 
-当 PR 带 `performance-required` 标签时，同一个 required check 还会等待并聚合双平台 performance workflow；`performance-capture` 标签只请求采集，不把采集失败升级为 required gate 失败。
+当 PR 带 `performance-required` 标签时，同一个 required check 还会等待并聚合双平台 performance workflow；`performance-capture` 标签只请求采集，不把采集失败升级为 required gate 失败。`release-rehearsal-required` 也会要求该 workflow 使用 active baseline，因为其结果同时作为 candidate rehearsal 的唯一 performance producer。
 
-当 PR 带 `release-rehearsal-required` 标签时，`CI / result` 还会等待 credential-free candidate rehearsal，并要求 reusable workflow 成功。未带该标签时 rehearsal 跳过且不影响 required check；PR candidate 结果不替代 clean-tag staging 或签名、registry、发布证据。
+当 PR 带 `release-rehearsal-required` 标签时，`CI / result` 还会等待 credential-free candidate rehearsal，并要求 reusable workflow 成功。caller performance 非 `success`、缺少 active baseline 或 rehearsal 内部意外重复运行 performance 都 fail closed。未带该标签时 rehearsal 跳过且不影响 required check；PR candidate 结果不替代 clean-tag staging 或签名、registry、发布证据。
 
 ## 当前仍未激活或不作为本地完成
 

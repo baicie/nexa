@@ -542,6 +542,7 @@ test("isolated workflow and runbook encode fresh jobs, rollback, and no release 
     "contracts",
     "security",
     "performance",
+    "performance-gate",
     "consumer",
     "fresh-verify",
     "launch",
@@ -586,6 +587,40 @@ test("nested rehearsal performance reports use a run-unique artifact suffix", ()
     upload.with.name,
     "performance-report-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
   );
+});
+
+test("CI rehearsals reuse one active performance result while tag rehearsals capture locally", () => {
+  const rehearsal = parseYaml(
+    readFileSync(new URL("../.github/workflows/release-rehearsal.yml", import.meta.url), "utf8"),
+  );
+  const input = rehearsal.on.workflow_call.inputs.upstream_performance_result;
+  const performance = rehearsal.jobs.performance;
+  const gate = rehearsal.jobs["performance-gate"];
+
+  assert.equal(input.type, "string");
+  assert.equal(input.required, false);
+  assert.equal(input.default, "");
+  assert.equal(performance.if, "inputs.upstream_performance_result == ''");
+  assert.deepEqual(gate.needs, ["source", "performance"]);
+  assert.equal(gate.if, "always() && needs.source.result == 'success'");
+  assert.equal(gate.env.UPSTREAM_PERFORMANCE_RESULT, "${{ inputs.upstream_performance_result }}");
+  assert.equal(gate.env.INTERNAL_PERFORMANCE_RESULT, "${{ needs.performance.result }}");
+  const command = gate.steps.find((step) => typeof step.run === "string")?.run ?? "";
+  assert.match(command, /UPSTREAM_PERFORMANCE_RESULT.*success/su);
+  assert.match(command, /INTERNAL_PERFORMANCE_RESULT.*success/su);
+  assert.match(command, /INTERNAL_PERFORMANCE_RESULT.*skipped/su);
+  assert.deepEqual(rehearsal.jobs.consumer.needs, [
+    "source",
+    "contracts",
+    "security",
+    "performance-gate",
+  ]);
+  assert.ok(rehearsal.jobs.decision.needs.includes("performance-gate"));
+  assert.equal(rehearsal.jobs.decision.needs.includes("performance"), false);
+  const decision = rehearsal.jobs.decision.steps.find((step) =>
+    step.run?.includes("release-rehearsal.mjs decision"),
+  );
+  assert.match(decision.run, /--gate-performance "\$\{\{ needs\.performance-gate\.result \}\}"/u);
 });
 
 test("rehearsal consumer builds with the pinned native toolchain and clean installed Hosts", () => {

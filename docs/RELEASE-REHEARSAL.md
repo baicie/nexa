@@ -33,6 +33,15 @@ and the isolated hosted path is
 test. Tag and publishable candidates accept native application descriptors
 only.
 
+For a labeled pull request, `ci.yml` runs one revision-bound
+`performance.yml` invocation with `require_active: true` and passes its GitHub
+job result into the candidate rehearsal. The rehearsal resolver accepts only
+`success` and requires its internal performance job to be `skipped`, so the
+same revision is not judged by two independent hosted samples. Manual and tag
+rehearsals receive no caller result and therefore run the active performance
+workflow internally. Neither path changes the budget, statistic, sample count,
+or pending-baseline behavior.
+
 ## Local candidate rehearsal
 
 Use a new directory for every producer, download, extraction, and rollback
@@ -119,10 +128,10 @@ version.
 6. Treat a passed result as `owner-review-required`. It is not publication or
    signing authorization.
 
-The current performance policy contains pending native baselines. With
-`require_active: true`, a real tag rehearsal therefore fails closed until G6-07
-has hosted active measurements. Workflow configuration or a local candidate
-run is not hosted success evidence.
+The current performance policy contains reviewed active native baselines for
+both hosted platforms. `require_active: true` still fails closed if any metric
+returns to pending or if a candidate exceeds its active budget. Workflow
+configuration or a local candidate run is not hosted success evidence.
 
 ## First registry bootstrap and final promotion
 

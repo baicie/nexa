@@ -286,18 +286,23 @@ jobs:
     needs: changes
     if: >-
       contains(github.event.pull_request.labels.*.name, 'performance-capture') ||
-      contains(github.event.pull_request.labels.*.name, 'performance-required')
+      contains(github.event.pull_request.labels.*.name, 'performance-required') ||
+      contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')
     uses: ./.github/workflows/performance.yml
     with:
-      require_active: ${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}
+      require_active: ${{ contains(github.event.pull_request.labels.*.name, 'performance-required') || contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required') }}
 
   release-rehearsal:
     name: Candidate release rehearsal
-    needs: changes
-    if: contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')
+    needs: [changes, performance]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')
     uses: ./.github/workflows/release-rehearsal.yml
     with:
       mode: candidate
+      upstream_performance_result: ${{ needs.performance.result }}
 
   result:
     name: result

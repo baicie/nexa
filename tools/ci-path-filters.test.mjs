@@ -329,9 +329,10 @@ test("hosted performance capture is opt-in and only required captures gate mergi
   assert.equal(performance.uses, "./.github/workflows/performance.yml");
   assert.match(performance.if, /performance-capture/u);
   assert.match(performance.if, /performance-required/u);
+  assert.match(performance.if, /release-rehearsal-required/u);
   assert.equal(
     performance.with.require_active,
-    "${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}",
+    "${{ contains(github.event.pull_request.labels.*.name, 'performance-required') || contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required') }}",
   );
   assert.equal(ci.jobs.result.needs.includes("performance"), true);
   assert.match(workflow, /^\s+PERFORMANCE_STATUS: \$\{\{ needs\.performance\.result \}\}$/m);
@@ -347,13 +348,14 @@ test("hosted performance capture is opt-in and only required captures gate mergi
 
 test("candidate release rehearsal is credential-free and gates only labeled pull requests", () => {
   const rehearsal = ci.jobs["release-rehearsal"];
-  assert.equal(rehearsal.needs, "changes");
+  assert.deepEqual(rehearsal.needs, ["changes", "performance"]);
   assert.equal(
     rehearsal.if,
-    "contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')",
+    "always() && needs.changes.result == 'success' && contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')",
   );
   assert.equal(rehearsal.uses, "./.github/workflows/release-rehearsal.yml");
   assert.equal(rehearsal.with.mode, "candidate");
+  assert.equal(rehearsal.with.upstream_performance_result, "${{ needs.performance.result }}");
   assert.equal(rehearsal.secrets, undefined);
   assert.equal(ci.jobs.result.needs.includes("release-rehearsal"), true);
   assert.match(workflow, /^\s+REHEARSAL_STATUS: \$\{\{ needs\.release-rehearsal\.result \}\}$/m);

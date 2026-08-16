@@ -249,8 +249,11 @@ Actions merge execution revision
 ## Workflow Boundary
 
 `performance.yml` 可通过手动触发、每周 schedule 或 reusable workflow 运行；PR
-只有显式添加 `performance-capture` 或 `performance-required` label 才由 `ci.yml`
-调用，避免普通变更承担双平台长任务。它固定 Node 22 和 Action SHA，在
+只有显式添加 `performance-capture`、`performance-required` 或
+`release-rehearsal-required` label 才由 `ci.yml` 调用，避免普通变更承担双平台长任务。
+rehearsal label 固定要求 active baseline，并把这个同 revision job 的结果传给
+candidate rehearsal，避免在两个独立 hosted VM 上重复采样同一个性能 gate。手动与
+tag rehearsal 没有 caller result，因此仍自行调用 performance workflow。它固定 Node 22 和 Action SHA，在
 `macos-15` / `windows-2022` 上先运行
 `pnpm release:build` 物化 Native Host 输入，再构建 Notes candidate，拆开 native
 capture 与 budget check，并在 check 回归时仍上传完整 raw report。`require_active`
@@ -258,7 +261,8 @@ capture 与 budget check，并在 check 回归时仍上传完整 raw report。`r
 
 该 workflow 当前没有伪装成 native benchmark：它不会把编译成功、启动存活、
 startup smoke、测试 fixture 或 artifact byte count 填入 cold start、RSS、tick、
-layout、paint。release rehearsal 复用同一 workflow，并固定要求 active baseline。
+layout、paint。release rehearsal 复用同一 workflow，并固定要求 active baseline；复用
+的是完整 gate result，不改变阈值、统计量、样本数或 pending-baseline 的 fail-closed 语义。
 
 ## Local Implementation Evidence
 

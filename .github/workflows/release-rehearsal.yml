@@ -15,6 +15,11 @@ on:
         required: false
         default: none-first-preview
         type: string
+      upstream_performance_result:
+        description: "Result of this caller run's revision-bound active performance gate"
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       mode:
@@ -79,14 +84,46 @@ jobs:
   performance:
     name: Active performance budgets
     needs: source
+    if: inputs.upstream_performance_result == ''
     uses: ./.github/workflows/performance.yml
     with:
       require_active: true
       artifact_suffix: -rehearsal
 
+  performance-gate:
+    name: Resolve active performance gate
+    needs: [source, performance]
+    if: always() && needs.source.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      UPSTREAM_PERFORMANCE_RESULT: ${{ inputs.upstream_performance_result }}
+      INTERNAL_PERFORMANCE_RESULT: ${{ needs.performance.result }}
+    steps:
+      - name: Require exactly one successful performance producer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$UPSTREAM_PERFORMANCE_RESULT" ]]; then
+            if [[ "$INTERNAL_PERFORMANCE_RESULT" != "skipped" ]]; then
+              echo "Internal performance gate must be skipped when an upstream result is supplied: $INTERNAL_PERFORMANCE_RESULT"
+              exit 1
+            fi
+            if [[ "$UPSTREAM_PERFORMANCE_RESULT" != "success" ]]; then
+              echo "Upstream active performance gate failed: $UPSTREAM_PERFORMANCE_RESULT"
+              exit 1
+            fi
+            echo "Using the caller run's successful active performance gate."
+          elif [[ "$INTERNAL_PERFORMANCE_RESULT" != "success" ]]; then
+            echo "Internal active performance gate failed: $INTERNAL_PERFORMANCE_RESULT"
+            exit 1
+          else
+            echo "Using this rehearsal run's successful active performance gate."
+          fi
+
   consumer:
     name: Build unsigned candidate (${{ matrix.platform }})
-    needs: [source, contracts, security, performance]
+    needs: [source, contracts, security, performance-gate]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -389,7 +426,7 @@ jobs:
 
   decision:
     name: Promotion decision
-    needs: [source, contracts, security, performance, consumer, fresh-verify, launch, rollback]
+    needs: [source, contracts, security, performance-gate, consumer, fresh-verify, launch, rollback]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -412,7 +449,7 @@ jobs:
           --gate-source "${{ needs.source.result }}"
           --gate-contracts "${{ needs.contracts.result }}"
           --gate-security "${{ needs.security.result }}"
-          --gate-performance "${{ needs.performance.result }}"
+          --gate-performance "${{ needs.performance-gate.result }}"
           --gate-consumer "${{ needs.consumer.result }}"
           --gate-fresh-verification "${{ needs.fresh-verify.result }}"
           --gate-launch "${{ needs.launch.result }}"
