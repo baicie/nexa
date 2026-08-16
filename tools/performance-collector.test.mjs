@@ -79,13 +79,17 @@ function nativeEvent({
   })}`;
 }
 
-function measuredRuns({ eventsPerRun = 10, overrides = {} } = {}) {
+function measuredRuns({ eventsPerRun = 11, overrides = {} } = {}) {
   return Array.from({ length: 10 }, (_, index) => ({
     coldStartMs: 90 + index,
     idleRssBytes: 90_000_000 + index,
     events: Array.from({ length: eventsPerRun }, (_, eventIndex) =>
       parseNativePerformanceEvent(
-        nativeEvent({ tickId: String(eventIndex + 1), frameId: String(eventIndex + 1) }),
+        nativeEvent({
+          tickId: String(eventIndex + 1),
+          frameId: String(eventIndex + 1),
+          layout: eventIndex === 0 ? "9000000" : "3000000",
+        }),
       ),
     ),
     ...overrides,
@@ -131,6 +135,26 @@ test("frame samples sum all raw phases and exclude non-present outcomes", () => 
     droppedFrames: 0,
     presentedFrames: 1,
   });
+});
+
+test("steady frame samples reserve first present for cold start without filtering later slow frames", () => {
+  const samples = frameMetricSamples(
+    [
+      parseNativePerformanceEvent(
+        nativeEvent({ tickId: "1", frameId: "1", layout: "9000000" }),
+      ),
+      parseNativePerformanceEvent(
+        nativeEvent({ tickId: "2", frameId: "2", layout: "2000000" }),
+      ),
+      parseNativePerformanceEvent(
+        nativeEvent({ tickId: "3", frameId: "3", layout: "8000000" }),
+      ),
+    ],
+    { startupPresents: 1 },
+  );
+
+  assert.deepEqual(samples.layoutMs, [2, 8]);
+  assert.equal(samples.presentedFrames, 3);
 });
 
 test("presented frame samples require complete monotonic per-process identity", () => {
@@ -392,7 +416,7 @@ test("native run preserves both collection and termination failures", async () =
   );
 });
 
-test("report aggregation binds hosted identity, artifact identity, all ten runs and 100 frames", () => {
+test("report aggregation separates ten startup presents from 100 steady frames", () => {
   const report = createPerformanceReport({
     config,
     platform: "darwin-arm64",
@@ -415,6 +439,7 @@ test("report aggregation binds hosted identity, artifact identity, all ten runs 
   assert.equal(report.samples.tickMs.length, 100);
   assert.equal(report.samples.layoutMs.length, 100);
   assert.equal(report.samples.paintMs.length, 100);
+  assert.ok(report.samples.layoutMs.every((sample) => sample === 3));
   assert.equal(report.artifact.executableSha256, "b".repeat(64));
   assert.doesNotThrow(() => validatePerformanceReport(report, config));
 });
@@ -450,7 +475,7 @@ test("report creation fails closed for missing measured runs or insufficient pre
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
         executableSha256: "b".repeat(64),
-        runs: measuredRuns({ eventsPerRun: 9 }),
+        runs: measuredRuns({ eventsPerRun: 10 }),
       }),
     /100.*presented/u,
   );
@@ -486,7 +511,11 @@ test("collector executes configured warmups and measured runs with a fixed settl
         idleRssBytes: options.warmup ? 999 : 90_000_000 + calls.length,
         events: Array.from({ length: options.frameTarget }, (_, eventIndex) =>
           parseNativePerformanceEvent(
-            nativeEvent({ tickId: String(eventIndex + 1), frameId: String(eventIndex + 1) }),
+            nativeEvent({
+              tickId: String(eventIndex + 1),
+              frameId: String(eventIndex + 1),
+              layout: eventIndex === 0 ? "9000000" : "3000000",
+            }),
           ),
         ),
       };
@@ -499,10 +528,12 @@ test("collector executes configured warmups and measured runs with a fixed settl
     calls.map((call) => call.warmup),
     [true, true, true, false, false, false, false, false, false, false, false, false, false],
   );
-  assert.ok(calls.every((call) => call.frameTarget === 10));
+  assert.ok(calls.filter((call) => call.warmup).every((call) => call.frameTarget === 10));
+  assert.ok(calls.filter((call) => !call.warmup).every((call) => call.frameTarget === 11));
   assert.ok(calls.filter((call) => !call.warmup).every((call) => call.settleMs === 5_000));
   assert.equal(report.samples.coldStartMs.length, 10);
   assert.ok(report.samples.coldStartMs.every((sample) => sample !== 999));
+  assert.ok(report.samples.layoutMs.every((sample) => sample === 3));
   assert.equal(lifecycle[0], "inspect");
   assert.equal(lifecycle.at(-1), "inspect");
   assert.equal(lifecycle.filter((stage) => stage === "inspect").length, 2);

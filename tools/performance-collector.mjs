@@ -191,9 +191,12 @@ function nanosecondsToMilliseconds(value, label) {
   return Number(nanoseconds) / 1_000_000;
 }
 
-/** Derive reportable samples only from completed Presented records. */
-export function frameMetricSamples(events) {
+/** Derive reportable samples from completed Presented records after the startup boundary. */
+export function frameMetricSamples(events, { startupPresents = 0 } = {}) {
   if (!Array.isArray(events)) fail("native events must be an array");
+  if (!Number.isSafeInteger(startupPresents) || startupPresents < 0) {
+    fail("startup presents must be a non-negative integer");
+  }
   const result = {
     tickMs: [],
     layoutMs: [],
@@ -223,6 +226,8 @@ export function frameMetricSamples(events) {
       fail("presented native event frameId must be unique and strictly increasing");
     }
     previousFrameId = frameId;
+    result.presentedFrames += 1;
+    if (result.presentedFrames <= startupPresents) continue;
 
     let totalNanoseconds = 0n;
     for (const key of DURATION_KEYS) totalNanoseconds += BigInt(event.durationsNs[key]);
@@ -236,7 +241,6 @@ export function frameMetricSamples(events) {
     result.paintMs.push(
       nanosecondsToMilliseconds(event.durationsNs.paint, "native event paint duration"),
     );
-    result.presentedFrames += 1;
   }
   return result;
 }
@@ -400,6 +404,7 @@ export function createPerformanceReport({
     layoutMs: [],
     paintMs: [],
   };
+  const startupPresents = config.workload.samplePolicy.startupPresentsPerMeasuredRun;
   let droppedFrames = 0;
   for (const [index, run] of runs.entries()) {
     requireObject(run, `measured run ${index + 1}`);
@@ -409,7 +414,7 @@ export function createPerformanceReport({
     samples.idleRssBytes.push(
       requireNonNegativeNumber(run.idleRssBytes, `measured run ${index + 1} idleRssBytes`),
     );
-    const frameSamples = frameMetricSamples(run.events);
+    const frameSamples = frameMetricSamples(run.events, { startupPresents });
     droppedFrames += frameSamples.droppedFrames;
     samples.tickMs.push(...frameSamples.tickMs);
     samples.layoutMs.push(...frameSamples.layoutMs);
@@ -423,7 +428,7 @@ export function createPerformanceReport({
   );
   if (samples.tickMs.length < requiredFrames) {
     fail(
-      `report requires at least ${requiredFrames} presented frame samples; received ${samples.tickMs.length}`,
+      `report requires at least ${requiredFrames} steady presented frame samples; received ${samples.tickMs.length}`,
     );
   }
 
@@ -700,31 +705,34 @@ export async function collectPerformanceReport({
     config.metrics.paintMs.minimumSamples,
   );
   const measuredRunCount = config.workload.samplePolicy.measuredRuns;
-  const frameTarget = Math.ceil(requiredFrames / measuredRunCount);
+  const steadyFrameTarget = Math.ceil(requiredFrames / measuredRunCount);
+  const measuredFrameTarget =
+    steadyFrameTarget + config.workload.samplePolicy.startupPresentsPerMeasuredRun;
   const commonRunOptions = {
     binaryPath: resolvedBinaryPath,
     environment,
-    frameTarget,
     runtimePlatform,
   };
 
   for (let index = 0; index < config.workload.samplePolicy.warmupRuns; index += 1) {
     const warmup = await runNative({
       ...commonRunOptions,
+      frameTarget: steadyFrameTarget,
       warmup: true,
       settleMs: 0,
     });
-    assertRunReachedTarget(warmup, frameTarget, `warmup run ${index + 1}`);
+    assertRunReachedTarget(warmup, steadyFrameTarget, `warmup run ${index + 1}`);
   }
 
   const runs = [];
   for (let index = 0; index < measuredRunCount; index += 1) {
     const run = await runNative({
       ...commonRunOptions,
+      frameTarget: measuredFrameTarget,
       warmup: false,
       settleMs: SETTLE_WINDOW_MS,
     });
-    assertRunReachedTarget(run, frameTarget, `measured run ${index + 1}`);
+    assertRunReachedTarget(run, measuredFrameTarget, `measured run ${index + 1}`);
     runs.push(run);
   }
   const finalArtifact = inspectArtifact({

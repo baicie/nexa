@@ -184,6 +184,10 @@ export function validatePerformanceConfig(
     fail("workload.samplePolicy.warmupRuns must be a non-negative integer");
   }
   requirePositiveInteger(samplePolicy.measuredRuns, "workload.samplePolicy.measuredRuns");
+  requirePositiveInteger(
+    samplePolicy.startupPresentsPerMeasuredRun,
+    "workload.samplePolicy.startupPresentsPerMeasuredRun",
+  );
 
   const metrics = requireObject(config.metrics, "metrics");
   assertExactKeys(metrics, PERFORMANCE_METRICS, "metrics");
@@ -231,6 +235,11 @@ export function validateFrozenPerformancePolicy(config) {
   }
   if (config.workload.samplePolicy.measuredRuns !== 10) {
     fail("workload.samplePolicy.measuredRuns is frozen at 10 for production capture");
+  }
+  if (config.workload.samplePolicy.startupPresentsPerMeasuredRun !== 1) {
+    fail(
+      "workload.samplePolicy.startupPresentsPerMeasuredRun is frozen at 1 for production capture",
+    );
   }
   for (const metricName of PERFORMANCE_METRICS) {
     const expected =

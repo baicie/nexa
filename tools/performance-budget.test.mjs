@@ -86,9 +86,13 @@ function activeConfig() {
   return {
     schemaVersion: 1,
     workload: {
-      id: "reference-notes-v1",
+      id: "reference-notes-v2",
       definition: "docs/PERFORMANCE.md#reference-workload",
-      samplePolicy: { warmupRuns: 1, measuredRuns: 5 },
+      samplePolicy: {
+        warmupRuns: 1,
+        measuredRuns: 5,
+        startupPresentsPerMeasuredRun: 1,
+      },
     },
     metrics,
     platforms: {
@@ -109,7 +113,7 @@ function report(overrides = {}) {
   };
   return {
     schemaVersion: 1,
-    workload: "reference-notes-v1",
+    workload: "reference-notes-v2",
     platform: "darwin-arm64",
     commit: "b".repeat(40),
     capturedAt: "2026-08-09T01:00:00.000Z",
@@ -125,29 +129,40 @@ function report(overrides = {}) {
   };
 }
 
-test("the release config covers every G6-07 metric with raw hosted evidence", () => {
+test("the release config covers every G6-07 metric with one coherent baseline state", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
   );
 
-  assert.doesNotThrow(() =>
-    validatePerformanceConfig(config, {
-      verifyActiveEvidence: true,
-      evidenceRoot: repositoryRoot,
-    }),
-  );
+  assert.doesNotThrow(() => validatePerformanceConfig(config));
+  assert.equal(config.workload.id, "reference-notes-v2");
+  assert.equal(config.workload.samplePolicy.startupPresentsPerMeasuredRun, 1);
   assert.deepEqual(Object.keys(config.metrics).sort(), [...metricNames].sort());
   assert.equal(config.metrics.artifactBytes.collection, "deterministic-artifact");
   for (const name of metricNames.filter((metricName) => metricName !== "artifactBytes")) {
     assert.equal(config.metrics[name].collection, "hosted-native");
   }
   assert.deepEqual(Object.keys(config.platforms).sort(), ["darwin-arm64", "win32-x64"]);
-  for (const platform of Object.values(config.platforms)) {
-    for (const baseline of Object.values(platform.baselines)) {
-      assert.equal(baseline.status, "active");
-      assert.equal(Number.isFinite(baseline.value), true);
-      assert.equal(baseline.evidence.commit, "892e1cede80762f791564302c86b8afa42157575");
-    }
+  const baselines = Object.values(config.platforms).flatMap((platform) =>
+    Object.values(platform.baselines),
+  );
+  assert.equal(new Set(baselines.map((baseline) => baseline.status)).size, 1);
+  if (baselines[0].status === "active") {
+    assert.doesNotThrow(() =>
+      validatePerformanceConfig(config, {
+        verifyActiveEvidence: true,
+        evidenceRoot: repositoryRoot,
+      }),
+    );
+  } else {
+    assert.equal(baselines[0].status, "pending");
+    assert.ok(
+      baselines.every(
+        (baseline) =>
+          baseline.reason ===
+          "reference-notes-v2 requires hosted steady-state baseline capture",
+      ),
+    );
   }
 });
 
@@ -160,6 +175,13 @@ test("production capture policy is frozen while unit fixtures may stay small", (
   const weakened = JSON.parse(JSON.stringify(config));
   weakened.workload.samplePolicy.measuredRuns = 1;
   assert.throws(() => validateFrozenPerformancePolicy(weakened), /measuredRuns is frozen at 10/u);
+
+  const mixedStartup = JSON.parse(JSON.stringify(config));
+  mixedStartup.workload.samplePolicy.startupPresentsPerMeasuredRun = 2;
+  assert.throws(
+    () => validateFrozenPerformancePolicy(mixedStartup),
+    /startupPresentsPerMeasuredRun is frozen at 1/u,
+  );
 });
 
 test("active baseline evidence is a bound raw report, not an unchecked label", () => {

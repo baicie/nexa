@@ -5,14 +5,13 @@
 `tools/performance-budget.mjs`，独立 hosted 边界位于
 `.github/workflows/performance.yml`。
 
-当前状态是 **双平台 hosted baseline 已评审并激活**。macOS 与 Windows 的 12 个
-baseline 全部由同一 PR merge execution revision 的完整 raw report 支撑；配置校验会
-逐项回读报告并重新计算统计量。后续 workflow 必须以 `require_active` 运行并将新采样
-与这些基线比较，本地 AOT smoke 仍不能替代 hosted 原生证据。
+当前状态是 **`reference-notes-v2` 双平台 baseline 待 hosted 捕获**。v1 的已评审
+raw report 继续作为历史证据保留，但不能跨采样语义复用；`require_active` 在 v2
+激活前必须 fail closed。本地 AOT smoke 仍不能替代 hosted 原生证据。
 
 ## Reference Workload
 
-版本化 workload ID 是 `reference-notes-v1`，对象是同一 commit 构建的
+版本化 workload ID 是 `reference-notes-v2`，对象是同一 commit 构建的
 unsigned Desktop Notes distribution。两个独立平台分别形成基线，禁止把
 macOS 数值复制到 Windows，或把开发机数值提交为 hosted baseline。
 
@@ -20,16 +19,21 @@ macOS 数值复制到 Windows，或把开发机数值提交为 hosted baseline�
 
 1. 在 `macos-15` 的 `darwin-arm64` 或 `windows-2022` 的 `win32-x64`
    clean hosted runner 上构建 release artifact。
-2. 先完成 3 次不入报告的 warmup，再完成 10 次独立进程运行。
+2. 先完成 3 次不入报告的 warmup，再完成 10 次独立 measured 进程运行。每个
+   measured 进程固定采集 1 个 startup present 和随后 10 个 steady-state present。
 3. cold start 使用 monotonic clock，从进程创建前一刻量到 Runtime
    `FrameOutcome::Presented` 的 first-present observation。`Ready` lifecycle、
    TS `console.log`、离屏 paint 或进程存活都不是 first-present。
-4. first present 后不注入输入，等待 5 秒 settle window，再读取一次进程 RSS。
-5. tick/layout/paint 只能来自 G2C-07 的 `FrameMetricsObserver` 真实阶段计时。
+4. first present 固定归入 startup 边界，不进入 steady-state p95；该帧无论快慢都按
+   位置分类，不能按数值选择。first present 后不注入输入，等待 5 秒 settle window，
+   再读取一次进程 RSS。
+5. tick/layout/paint 只能来自 first present 之后 G2C-07 的
+   `FrameMetricsObserver` 真实阶段计时。
    `tickMs` 是同一 presented record 中所有 `FrameDurations` 的总和，
    `layoutMs` 和 `paintMs` 分别来自对应字段。
-6. 至少提交 100 个成功 presented record 的 tick/layout/paint 样本。
-   任一 failed run 或 dropped frame 都使整份报告无效，不能选择性删除慢样本。
+6. 至少提交 100 个成功 steady-state presented record 的 tick/layout/paint 样本。
+   startup 及 steady-state 中任一 failed run 或 dropped frame 都使整份报告无效；
+   除固定的首个 startup present 外，不能删除任何慢样本。
 
 Native probe 已接入真实 Notes Host/Perry AOT 进程，并已在本机完成 first-present、
 无输入 redraw、5 秒 settle 和 RSS smoke；本机不能生成合格的 hosted native report。
@@ -56,11 +60,13 @@ payload 包含 `outcome`、可选 `dropStage`、session/tick/frame/surface gener
 
 collector 必须：
 
-1. 从预算配置读取 warmup/measured 数量和最小 frame 样本，不允许 CLI 降低它们。
+1. 从预算配置读取 warmup/measured 数量、每进程 startup present 数和最小 frame
+   样本，不允许 CLI 降低它们。
 2. 用 parent `performance.now()` 在 spawn 前取起点，第一条 native presented event
    到达时结束 cold-start 测量。
-3. 只通过无输入 coalesced redraw 达到每进程 frame 目标，随后停止重绘；从 first
-   present 起至少等待 5 秒，再读取目标 PID 的 RSS。
+3. 只通过无输入 coalesced redraw 达到每进程 frame 目标。measured 目标固定为
+   `1 startup + ceil(minimumSamples / measuredRuns) steady-state`；达到目标后停止重绘，
+   并从 first present 起至少等待 5 秒，再读取目标 PID 的 RSS。
 4. 在 macOS 使用无 shell 的 `ps` 参数读取 KiB，在 Windows 使用无 profile 的
    PowerShell `Get-Process ... WorkingSet64`；解析失败、进程消失或非正整数均失败。
 5. 取得 measured run 的 RSS 和足量 frame 后终止专用子进程。collector 发起的终止
@@ -80,9 +86,9 @@ baseline，也不发布或签名制品。
 | `coldStartMs`   | `hosted-native`          | median    | +20%         | process spawn 到 first present              |
 | `idleRssBytes`  | `hosted-native`          | median    | +20%         | first present 后 idle 5 秒的 resident set   |
 | `artifactBytes` | `deterministic-artifact` | max       | +5%          | unsigned distribution 内 regular files 之和 |
-| `tickMs`        | `hosted-native`          | p95       | +15%         | presented record 的全部真实阶段耗时之和     |
-| `layoutMs`      | `hosted-native`          | p95       | +15%         | Runtime Layout 阶段                         |
-| `paintMs`       | `hosted-native`          | p95       | +15%         | Runtime Paint 阶段                          |
+| `tickMs`        | `hosted-native`          | p95       | +15%         | steady record 的全部真实阶段耗时之和        |
+| `layoutMs`      | `hosted-native`          | p95       | +15%         | steady Runtime Layout 阶段                  |
+| `paintMs`       | `hosted-native`          | p95       | +15%         | steady Runtime Paint 阶段                   |
 
 `artifactBytes` 按路径排序递归计数 regular-file bytes，不跟随 symbolic link，
 遇到 link 或 special file 直接失败。它可以在本地确定性复核，但只有与 hosted
@@ -103,7 +109,7 @@ limit = baseline * (1 + maxRegressionPercent / 100)
 ```jsonc
 {
   "schemaVersion": 1,
-  "workload": "reference-notes-v1",
+  "workload": "reference-notes-v2",
   "platform": "darwin-arm64",
   "commit": "<40-character lowercase commit SHA>",
   "capturedAt": "<ISO-8601 timestamp>",
@@ -136,7 +142,8 @@ limit = baseline * (1 + maxRegressionPercent / 100)
 不匹配、样本不足、数值非有限或为负、failed run 非零、dropped frame 非零时，
 校验器都会 fail closed。
 
-生产入口还冻结采样政策：3 次 warmup、10 次 measured；cold start/RSS 各至少 10
+生产入口还冻结采样政策：3 次 warmup、10 次 measured，每个 measured 进程固定
+1 个 startup present 后再提交 10 个 steady-state present；cold start/RSS 各至少 10
 条样本，artifact 至少 1 条，tick/layout/paint 各至少 100 条。单元合同可以使用
 更小的 fixture，但 `validate`、`status`、artifact CLI 和 native collector 对生产
 配置拒绝弱化后的采样数。active baseline 的 evidence report 必须是仓库相对路径，
@@ -203,7 +210,10 @@ candidate，不能用于 release gate。`status --require-active` 用于 rehears
 任何 workload、采样方法、runner image 或 metric 含义变化都必须先递增 schema
 或 workload ID，并重新建立 baseline。旧平台 baseline 不可跨边界复用。
 
-本次激活证据来自 GitHub Actions run `31895582357`，source branch HEAD 为
+### Historical v1 activation
+
+以下证据属于 `reference-notes-v1`，只用于审计旧采样合同，不能激活 v2。
+v1 激活证据来自 GitHub Actions run `31895582357`，source branch HEAD 为
 `ecd1d9c90ecf5844223417ee118fd5292b556b4d`，PR merge execution revision 为
 `892e1cede80762f791564302c86b8afa42157575`。两份报告都记录 `failedRuns=0`、
 `droppedFrames=0`，样本数均为 `10/10/1/100/100/100`，且保留全部原始值：
@@ -223,7 +233,7 @@ raw JSON SHA-256 是 `050efdbdacb8df13c2a5f04fc6c18633a704f7410f4718723993710357
 该 run 的无关 Windows picker proof 后处理失败不改变两个独立 performance jobs 或
 报告身份；G5 picker/package 随后已由全绿 run `31902303937` 单独闭环。
 
-## Active Baseline Regression Evidence
+## Historical v1 Regression Evidence
 
 PR run `31902303937` 以 `performance-required` 重新采集两平台完整报告并对
 已激活 baseline 执行回归检查。GitHub run metadata 的 source head 为
@@ -242,9 +252,26 @@ Actions merge execution revision
 - 同一 run 的 `CI / result` job `95059146281` 成功；本次 workflow 变更进一步将
   `performance-required` 显式加入 aggregator 的 `needs` 与 fail-closed 判断。
 
-两个 budget check 均未发现超过 active 阈值的回归。本次记录是对现有 baseline
+两个 budget check 均未发现超过当时 active 阈值的回归。本次记录是对 v1 baseline
 的复核，不改写原始 activation provenance，也不是签名、clean-tag rehearsal
 或发布证据。
+
+## v2 Steady-State Boundary
+
+PR run `31952821895` 绑定 merge revision
+`0e5c25417fc3db7b326a1af7e0c7833bf4c099e9`。Windows report 的 cold start、RSS、
+artifact、tick 和 paint 全部通过，且 `failedRuns=0`、`droppedFrames=0`；仅
+`layoutMs` nearest-rank p95 为 `0.5185ms`，超过 v1 上限 `0.40917ms`。对 v1
+activation、run `31902303937`、run `31949361718` 和该失败报告逐进程复核后，确认
+每 10 帧的首帧占总样本 10%，其中约半数承担一次性布局成本，使高值恰好落在约 5%
+的 p95 断点。运行时代码和 collector 自 v1 activation 后均未变化，因此不能把再次
+采样碰巧通过当作修复。
+
+v2 用固定位置而非耗时值划分边界：每个 measured 进程的首个 Presented 只证明
+cold start，随后 10 个 Presented 才进入 tick/layout/paint p95。所有 event 仍先完成
+schema、identity、单调 frame ID、outcome/count 和 drop 校验；首帧 drop 仍阻断报告，
+第二帧及以后任何慢样本都必须保留。该语义变更已递增 workload ID，并要求双平台
+重新生成 raw report，禁止沿用或改写 v1 数值。
 
 ## Workflow Boundary
 
@@ -257,7 +284,8 @@ tag rehearsal 没有 caller result，因此仍自行调用 performance workflow�
 `macos-15` / `windows-2022` 上先运行
 `pnpm release:build` 物化 Native Host 输入，再构建 Notes candidate，拆开 native
 capture 与 budget check，并在 check 回归时仍上传完整 raw report。`require_active`
-或 `performance-required` 会在采集前验证两个平台没有 pending baseline。
+或 `performance-required` 会在采集前验证两个平台没有 pending baseline；v2 首次捕获
+只能由显式手动 workflow 以 `--allow-pending` 生成评审报告。
 
 该 workflow 当前没有伪装成 native benchmark：它不会把编译成功、启动存活、
 startup smoke、测试 fixture 或 artifact byte count 填入 cold start、RSS、tick、
@@ -266,7 +294,7 @@ layout、paint。release rehearsal 复用同一 workflow，并固定要求 activ
 
 ## Local Implementation Evidence
 
-2026-08-09 本地证据（不激活 baseline）：
+2026-08-09 v1 本地证据（不激活 baseline）：
 
 - `pnpm --filter @nexa/nui-host build` 刷新 Perry Native source closure；随后
   `pnpm --filter @nexa/example-reference-notes build` 重新 AOT/link Notes，binary
@@ -277,7 +305,7 @@ layout、paint。release rehearsal 复用同一 workflow，并固定要求 activ
   `1188.724ms`，5 秒 settle 后 macOS RSS `71925760` bytes。样本只作为本地
   integration smoke，不写入 `release/performance-budgets.json`。
 - `node --test tools/performance-budget.test.mjs tools/performance-collector.test.mjs`
-  通过 `27/27`；`cargo test --manifest-path packages/nui-host/Cargo.toml --locked
+  通过 `28/28`；`cargo test --manifest-path packages/nui-host/Cargo.toml --locked
 performance` 通过 `3/3`。测试覆盖 commit/GITHUB_SHA、artifact 前后 identity、
   duplicate frame/count consistency、relative executable、RSS timeout、TERM→SIGKILL
   和 workflow capture/check/upload 顺序。

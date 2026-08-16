@@ -793,7 +793,7 @@ pnpm --filter @nexa/cli smoke:package
 
 G0 基线命令的准确版本、runner 和 run 链接见[`BASELINE.md`](./BASELINE.md)。G5 CLI create-to-package 已在本地真实 Perry AOT/link 通过，并由 run `31902303937` 的 macOS/Windows required matrix 完成 hosted 验证。`pnpm test:perry` 证明 clean compile/link，不单独证明运行时 parity。
 
-2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix、Minimal TSX/Notes/FS/Dialog 与 Solid Tier-1 核心路径均通过；九包 tarball consumer 完成 typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。这些本地结果仍不替代 registry clean-user 或签名/发布证据；Windows、Clipboard/picker、clean launch 与 active performance 的直接 hosted 门禁已于 2026-08-16 由 run `31902303937` 另行关闭。
+2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix、Minimal TSX/Notes/FS/Dialog 与 Solid Tier-1 核心路径均通过；九包 tarball consumer 完成 typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。这些本地结果仍不替代 registry clean-user 或签名/发布证据；Windows、Clipboard/picker 与 clean launch 的直接 hosted 门禁已于 2026-08-16 由 run `31902303937` 另行关闭，v1 performance 则因 v2 采样语义变更等待重新激活。
 
 ### 10.2 计划新增的聚合命令
 
@@ -867,11 +867,11 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - final 先创建或核对 draft prerelease，fresh-download 已有远端 bytes 后只上传缺失且摘要一致的资产，禁止 `--clobber`，随后再次 fresh-download 验证 exact allowlist。只有 npm 九包 `technical-preview` 二次观测完全收敛后才公开 draft，并保存绑定 Release ID/URL、release/signing run、七资产摘要与九包 integrity 的 publication record；该 record 是 workflow artifact，不是第八个公开资产。
 - `release/readiness-policy.json` 的 checked-in execution 保持 `disabled/none`；只有 protected `release-evidence.yml` 组装的 phase-bound 外部证据 bundle 能变为 `enabled/bootstrap` 或 `enabled/final`。bootstrap bundle 在 final evaluator 下必须同时因 phase mismatch 与 registry pending 被拒绝。
 
-2026-08-16 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、active performance 与 G6-05 unsigned input jobs。该 PR run 不是 clean tag，也没有激活凭据或发布权限；因此它不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
+2026-08-16 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、当时的 v1 active performance 与 G6-05 unsigned input jobs。v2 性能合同需要新证据；该 PR run 不是 clean tag，也没有激活凭据或发布权限，因此它也不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
 
 ## 14. 性能与可观测性
 
-六项数值基线与回归阈值已在 `release/performance-budgets.json` 激活，完整来源、样本和复核方法见 [`PERFORMANCE.md`](./PERFORMANCE.md)。参考应用持续记录以下计数和 trace span：
+六项数值基线与回归阈值由 `release/performance-budgets.json` 管理；v1 hosted 证据已归档，v2 将 first-present 与 steady-state 帧分层后正在重新捕获双平台 baseline。完整来源、样本和复核方法见 [`PERFORMANCE.md`](./PERFORMANCE.md)。参考应用持续记录以下计数和 trace span：
 
 - startup 到 first present；
 - 每 tick 的 mutation 数、layout 节点数、semantic diff 数、display command 数；
@@ -880,11 +880,11 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - image/paragraph cache hit ratio；
 - idle memory、二进制体积和冷启动时间。
 
-G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 已评审并激活 12 个 baseline，run `31902303937` 的 active-budget 复核无回归，关闭 G6-07P。
+G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 曾激活 v1 baseline，run `31902303937` 完成 v1 active-budget 复核；run `31952821895` 暴露首帧混入 p95 的结构性边界后，v2 重新要求 hosted activation。
 
 ### 14.1 G6-07B 原生性能采集设计
 
-以下假设在本切片内冻结：workload 保持 `reference-notes-v1`；只有 GitHub-hosted `macos-15` / `windows-2022` 证据可以进入候选报告；开发机只允许运行合同测试，不能激活 baseline；性能探针必须由显式环境变量启用，普通 Notes 启动、输入和绘制路径不改变；采集器在取得 RSS 后终止专用子进程，该终止不计为应用失败。
+以下假设在本切片内冻结：workload 为 `reference-notes-v2`；只有 GitHub-hosted `macos-15` / `windows-2022` 证据可以进入候选报告；开发机只允许运行合同测试，不能激活 baseline；性能探针必须由显式环境变量启用，普通 Notes 启动、输入和绘制路径不改变；采集器在取得 RSS 后终止专用子进程，该终止不计为应用失败。
 
 数据流固定为：
 
@@ -908,9 +908,9 @@ Notes/Perry process
 
 collector 合同：
 
-- 读取 `release/performance-budgets.json`，严格执行 3 次 warmup、10 次 measured run，并按 `ceil(minimum frame samples / measured runs)` 分配每进程 presented 目标；不得通过 CLI 降低样本数或 5 秒 settle window。
+- 读取 `release/performance-budgets.json`，严格执行 3 次 warmup、10 次 measured run。每个 measured 进程的 presented 目标为 `1 startup + ceil(minimum frame samples / measured runs) steady-state`；不得通过 CLI 降低 startup、样本数或 5 秒 settle window。
 - parent 在 `spawn()` 前用 Node monotonic clock 取起点，以第一条 native `Presented` event 到达为 first-present；measured run 在该事件后等待至少 5 秒且不注入输入，再用 macOS `ps` 或 Windows PowerShell 读取该 PID 的 resident set。
-- warmup 样本全部丢弃；measured run 的 cold start/RSS 各保留一条，所有 successful presented record 的 duration 都保留。任一 timeout、malformed event、非零/异常提前退出、缺样本、drop 或 RSS 读取失败都阻止报告生成，不能筛除 outlier。
+- warmup 样本全部丢弃；measured run 的 cold start/RSS 各保留一条，第一个 successful Presented 固定归入 startup 且不进入帧 p95，随后所有 successful Presented duration 都保留。所有 event 包括 startup 都先验证 identity/outcome/drop；任一 timeout、malformed event、非零/异常提前退出、缺样本、drop 或 RSS 读取失败都阻止报告生成，不能按耗时筛除 outlier。
 - collector 必须核对实际 `process.platform/process.arch`、配置中的 runner image、与
   `GITHUB_SHA` 完全相等的 commit、`GITHUB_ACTIONS=true` 与
   `RUNNER_ENVIRONMENT=github-hosted`；候选报告绑定 commit、platform、runner、artifact
@@ -921,7 +921,7 @@ collector 合同：
 
 collector 模块的可测试边界固定为 `parseNativePerformanceEvent`（严格解析 prefix/schema/raw record）、`frameMetricSamples`（仅从完整 presented duration 派生三项样本）、`assertHostedRunner`（核对 hosted/OS/arch/image）、`readResidentSetBytes`（可注入 subprocess）和 `createPerformanceReport`（聚合 measured runs 并绑定 artifact identity）。真实 CLI 只负责参数解析、子进程生命周期与调用这些边界，测试不得依赖真实窗口或伪造计时常量来证明 hosted 采集成功。
 
-G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。G6-07P 的两平台 hosted 报告、人工评审、baseline activation 与后续 required 复核已分别由 runs `31895582357` / `31902303937` 完成。
+G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。v1 的 hosted 报告、人工评审、baseline activation 与 required 复核分别由 runs `31895582357` / `31902303937` 完成；v2 必须取得新的双平台报告后才可重新关闭 G6-07P。
 
 Technical Preview 发布门禁必须有可复现的 macOS/Windows 基线与回归阈值。
 

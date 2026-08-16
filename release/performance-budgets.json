@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
   "workload": {
-    "id": "reference-notes-v1",
+    "id": "reference-notes-v2",
     "definition": "docs/PERFORMANCE.md#reference-workload",
     "samplePolicy": {
       "warmupRuns": 3,
-      "measuredRuns": 10
+      "measuredRuns": 10,
+      "startupPresentsPerMeasuredRun": 1
     }
   },
   "metrics": {
@@ -63,58 +64,28 @@
       "runner": "macos-15",
       "baselines": {
         "coldStartMs": {
-          "status": "active",
-          "value": 608.5209584999975,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "idleRssBytes": {
-          "status": "active",
-          "value": 593264640,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "artifactBytes": {
-          "status": "active",
-          "value": 27159082,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "tickMs": {
-          "status": "active",
-          "value": 49.259417,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "layoutMs": {
-          "status": "active",
-          "value": 3.543917,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "paintMs": {
-          "status": "active",
-          "value": 47.430083,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/darwin-arm64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:44:41.832Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         }
       }
     },
@@ -122,58 +93,28 @@
       "runner": "windows-2022",
       "baselines": {
         "coldStartMs": {
-          "status": "active",
-          "value": 121.81270000000222,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "idleRssBytes": {
-          "status": "active",
-          "value": 154607616,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "artifactBytes": {
-          "status": "active",
-          "value": 18527300,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "tickMs": {
-          "status": "active",
-          "value": 12.3759,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "layoutMs": {
-          "status": "active",
-          "value": 0.3558,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         },
         "paintMs": {
-          "status": "active",
-          "value": 11.6221,
-          "evidence": {
-            "report": "release/performance/892e1cede80762f791564302c86b8afa42157575/win32-x64.json",
-            "commit": "892e1cede80762f791564302c86b8afa42157575",
-            "capturedAt": "2026-08-15T16:56:59.201Z"
-          }
+          "status": "pending",
+          "reason": "reference-notes-v2 requires hosted steady-state baseline capture"
         }
       }
     }
