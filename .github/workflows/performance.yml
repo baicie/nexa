@@ -45,8 +45,8 @@ jobs:
       - run: node --test tools/performance-budget.test.mjs tools/performance-collector.test.mjs
       - run: node tools/performance-budget.mjs validate
 
-  hosted-boundary:
-    name: Hosted capture boundary (${{ matrix.platform }})
+  candidate-producer:
+    name: Shared candidate producer (${{ matrix.platform }})
     needs: contracts
     timeout-minutes: 60
     strategy:
@@ -206,42 +206,171 @@ jobs:
       - name: Build the hosted distribution candidate
         run: pnpm --filter @nexa/example-reference-notes package
 
+      - name: Archive the shared performance candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.platform }}" == "win32-x64" ]]; then
+            artifact="reference-notes-windows-x64"
+          else
+            artifact="reference-notes-macos-arm64"
+          fi
+          test -d "dist/$artifact"
+          archive="$RUNNER_TEMP/performance-candidate-${{ matrix.platform }}.tar"
+          tar -C dist -cf "$archive" "$artifact"
+          test -s "$archive"
+
+      - name: Upload shared performance candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-candidate-${{ matrix.platform }}.tar
+          if-no-files-found: error
+
+  hosted-capture:
+    name: Hosted capture (${{ matrix.platform }}, replica ${{ matrix.replica }})
+    needs: candidate-producer
+    if: ${{ always() && needs.candidate-producer.result != 'cancelled' && needs.candidate-producer.result != 'skipped' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 1
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 2
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 3
+          - os: windows-2022
+            platform: win32-x64
+            replica: 1
+          - os: windows-2022
+            platform: win32-x64
+            replica: 2
+          - os: windows-2022
+            platform: win32-x64
+            replica: 3
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Download the shared performance candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-candidate-download
+
       - name: Capture native performance report
         id: capture
         shell: bash
         run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/performance-candidate-download/performance-candidate-${{ matrix.platform }}.tar"
+          extract="$RUNNER_TEMP/performance-candidate-extract"
+          mkdir -p "$extract"
+          test -s "$archive"
+          tar -C "$extract" -xf "$archive"
           if [[ "${{ matrix.platform }}" == "win32-x64" ]]; then
-            artifact="dist/reference-notes-windows-x64"
+            artifact="$extract/reference-notes-windows-x64"
             binary="$artifact/NexaNotes.exe"
           else
-            artifact="dist/reference-notes-macos-arm64"
+            artifact="$extract/reference-notes-macos-arm64"
             binary="$artifact/Nexa Notes.app/Contents/MacOS/NexaNotes"
           fi
           test -d "$artifact"
           test -f "$binary"
-          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}.json"
+          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json"
           node tools/performance-collector.mjs \
             --binary "$binary" \
             --artifact "$artifact" \
+            --archive "$archive" \
             --platform "${{ matrix.platform }}" \
             --runner-image "${{ matrix.os }}" \
+            --replica "${{ matrix.replica }}" \
             --commit "$GITHUB_SHA" \
             --output "$report"
-
-      - name: Check native performance report
-        shell: bash
-        run: |
-          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}.json"
-          test -f "$report"
-          node tools/performance-budget.mjs check \
-            --report "$report" \
-            --allow-pending \
-            --json
+          node tools/performance-budget.mjs validate-report --report "$report" --json
 
       - name: Upload raw performance report
         if: ${{ always() && steps.capture.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: performance-report-${{ matrix.platform }}${{ inputs.artifact_suffix }}
-          path: ${{ runner.temp }}/nexa-performance-${{ matrix.platform }}.json
+          name: performance-report-${{ matrix.platform }}-replica-${{ matrix.replica }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json
+          if-no-files-found: error
+
+  platform-aggregate:
+    name: Platform report set (${{ matrix.platform }})
+    needs: hosted-capture
+    if: ${{ always() && needs.hosted-capture.result != 'cancelled' && needs.hosted-capture.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+          - platform: win32-x64
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Download replica 1 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-1${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+      - name: Download replica 2 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-2${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+      - name: Download replica 3 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-3${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+
+      - name: Aggregate the complete platform report set
+        id: aggregate
+        shell: bash
+        run: |
+          set -euo pipefail
+          reports="$RUNNER_TEMP/performance-reports"
+          report_set="$reports/nexa-performance-${{ matrix.platform }}-report-set.json"
+          node tools/performance-budget.mjs aggregate \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-1.json" \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-2.json" \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-3.json" \
+            --output "$report_set" \
+            --json
+
+      - name: Check the complete platform report set
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_set="$RUNNER_TEMP/performance-reports/nexa-performance-${{ matrix.platform }}-report-set.json"
+          pending=()
+          if [[ "${{ inputs.require_active || 'false' }}" != "true" ]]; then
+            pending=(--allow-pending)
+          fi
+          node tools/performance-budget.mjs check-set \
+            --report-set "$report_set" \
+            "${pending[@]}" \
+            --json
+
+      - name: Upload complete platform report set
+        if: ${{ always() && steps.aggregate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-report-set-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
           if-no-files-found: error

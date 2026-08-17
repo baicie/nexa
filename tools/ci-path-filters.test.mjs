@@ -7,6 +7,9 @@ import { parse } from "yaml";
 import { PERRY_SOURCE_REVISION } from "../packages/cli/src/constants.mjs";
 
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const performanceWorkflow = parse(
+  readFileSync(new URL("../.github/workflows/performance.yml", import.meta.url), "utf8"),
+);
 const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
 const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
 const ffiWorkflowUrl = new URL("../.github/workflows/ffi.yml", import.meta.url);
@@ -344,6 +347,139 @@ test("hosted performance capture is opt-in and only required captures gate mergi
     workflow,
     /if \[\[ "\$PERFORMANCE_REQUIRED" == "true" && "\$PERFORMANCE_STATUS" != "success" \]\]; then/,
   );
+});
+
+test("performance candidates are built once per platform and uploaded as tar archives", () => {
+  const producer = performanceWorkflow.jobs["candidate-producer"];
+  assert.ok(producer, "performance.yml must define the candidate-producer job");
+  assert.deepEqual(producer.strategy.matrix.include, [
+    { os: "macos-15", platform: "darwin-arm64" },
+    { os: "windows-2022", platform: "win32-x64" },
+  ]);
+  assert.equal(producer["runs-on"], "${{ matrix.os }}");
+
+  const commands = producer.steps
+    .filter((step) => typeof step.run === "string")
+    .map((step) => step.run)
+    .join("\n");
+  assert.match(commands, /pnpm --filter @nexa\/example-reference-notes package/u);
+  assert.match(
+    commands,
+    /\btar\b/u,
+    "the distribution candidate must retain its file modes in tar",
+  );
+
+  const upload = producer.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+  assert.ok(upload, "the producer must upload the shared candidate");
+  assert.equal(
+    upload.with.name,
+    "performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
+  );
+  assert.match(upload.with.path, /\.tar$/u);
+});
+
+test("performance capture uses six hosted replicas of the shared candidate", () => {
+  const capture = performanceWorkflow.jobs["hosted-capture"];
+  assert.ok(capture, "performance.yml must define the hosted-capture job");
+  assert.equal(capture.needs, "candidate-producer");
+  assert.equal(
+    capture.if,
+    "${{ always() && needs.candidate-producer.result != 'cancelled' && needs.candidate-producer.result != 'skipped' }}",
+  );
+  assert.deepEqual(capture.strategy.matrix.include, [
+    { os: "macos-15", platform: "darwin-arm64", replica: 1 },
+    { os: "macos-15", platform: "darwin-arm64", replica: 2 },
+    { os: "macos-15", platform: "darwin-arm64", replica: 3 },
+    { os: "windows-2022", platform: "win32-x64", replica: 1 },
+    { os: "windows-2022", platform: "win32-x64", replica: 2 },
+    { os: "windows-2022", platform: "win32-x64", replica: 3 },
+  ]);
+  assert.equal(capture["runs-on"], "${{ matrix.os }}");
+
+  const download = capture.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/download-artifact@"),
+  );
+  assert.ok(download, "every replica must download the producer's candidate");
+  assert.equal(
+    download.with.name,
+    "performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
+  );
+
+  const commands = capture.steps
+    .filter((step) => typeof step.run === "string")
+    .map((step) => step.run)
+    .join("\n");
+  assert.match(commands, /tools\/performance-collector\.mjs/u);
+  assert.match(commands, /--replica "\$\{\{ matrix\.replica \}\}"/u);
+  assert.doesNotMatch(commands, /performance-budget\.mjs check/u);
+  assert.doesNotMatch(
+    commands,
+    /pnpm --filter @nexa\/example-reference-notes package|pnpm release:build|cargo build/u,
+    "capture replicas must measure the downloaded candidate without rebuilding it",
+  );
+
+  const upload = capture.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+  assert.ok(upload, "every replica must retain its complete raw report");
+  assert.equal(
+    upload.with.name,
+    "performance-report-${{ matrix.platform }}-replica-${{ matrix.replica }}${{ inputs.artifact_suffix }}",
+  );
+  assert.match(upload.with.path, /replica-\$\{\{ matrix\.replica \}\}\.json/u);
+});
+
+test("performance budgets are checked only after three reports are aggregated per platform", () => {
+  const aggregate = performanceWorkflow.jobs["platform-aggregate"];
+  assert.ok(aggregate, "performance.yml must define the platform-aggregate job");
+  assert.equal(aggregate.needs, "hosted-capture");
+  assert.equal(
+    aggregate.if,
+    "${{ always() && needs.hosted-capture.result != 'cancelled' && needs.hosted-capture.result != 'skipped' }}",
+  );
+  assert.equal(aggregate["runs-on"], "ubuntu-latest");
+  assert.deepEqual(aggregate.strategy.matrix.include, [
+    { platform: "darwin-arm64" },
+    { platform: "win32-x64" },
+  ]);
+
+  const downloads = aggregate.steps.filter(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/download-artifact@"),
+  );
+  assert.deepEqual(
+    downloads.map((step) => step.with.name),
+    [1, 2, 3].map(
+      (replica) =>
+        `performance-report-\${{ matrix.platform }}-replica-${replica}\${{ inputs.artifact_suffix }}`,
+    ),
+  );
+
+  const aggregateSteps = aggregate.steps.filter(
+    (step) => typeof step.run === "string" && step.run.includes("performance-budget.mjs aggregate"),
+  );
+  assert.equal(aggregateSteps.length, 1, "one aggregation must consume the platform reports");
+  assert.equal(
+    [...aggregateSteps[0].run.matchAll(/--report(?:\s|$)/gu)].length,
+    3,
+    "the platform aggregation must consume exactly three complete runner reports",
+  );
+  for (const replica of [1, 2, 3]) {
+    assert.match(aggregateSteps[0].run, new RegExp(`replica-${replica}\\.json`, "u"));
+  }
+  const checkSteps = aggregate.steps.filter(
+    (step) => typeof step.run === "string" && step.run.includes("performance-budget.mjs check-set"),
+  );
+  assert.equal(checkSteps.length, 1, "one report-set check must decide the platform result");
+  assert.match(checkSteps[0].run, /--report-set/u);
+
+  const reportSetUpload = aggregate.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+  assert.ok(reportSetUpload, "a successfully aggregated report set must be retained");
+  assert.equal(reportSetUpload.if, "${{ always() && steps.aggregate.outcome == 'success' }}");
+  assert.match(reportSetUpload.with.path, /performance-reports/u);
 });
 
 test("candidate release rehearsal is credential-free and gates only labeled pull requests", () => {

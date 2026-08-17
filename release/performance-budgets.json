@@ -1,12 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "workload": {
-    "id": "reference-notes-v2",
+    "id": "reference-notes-v3",
     "definition": "docs/PERFORMANCE.md#reference-workload",
     "samplePolicy": {
       "warmupRuns": 3,
       "measuredRuns": 10,
-      "startupPresentsPerMeasuredRun": 1
+      "startupPresentsPerMeasuredRun": 1,
+      "steadyPresentsPerMeasuredRun": 100,
+      "replicasPerPlatform": 3
     }
   },
   "metrics": {
@@ -37,7 +39,7 @@
     "tickMs": {
       "unit": "ms",
       "collection": "hosted-native",
-      "statistic": "p95",
+      "statistic": "median-of-process-p95",
       "minimumSamples": 1000,
       "maxRegressionPercent": 15,
       "description": "Full measured UI tick duration"
@@ -45,7 +47,7 @@
     "layoutMs": {
       "unit": "ms",
       "collection": "hosted-native",
-      "statistic": "p95",
+      "statistic": "median-of-process-p95",
       "minimumSamples": 1000,
       "maxRegressionPercent": 15,
       "description": "Layout phase duration"
@@ -53,7 +55,7 @@
     "paintMs": {
       "unit": "ms",
       "collection": "hosted-native",
-      "statistic": "p95",
+      "statistic": "median-of-process-p95",
       "minimumSamples": 1000,
       "maxRegressionPercent": 15,
       "description": "Paint phase duration"
@@ -64,58 +66,28 @@
       "runner": "macos-15",
       "baselines": {
         "coldStartMs": {
-          "status": "active",
-          "value": 222.8333330000023,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "idleRssBytes": {
-          "status": "active",
-          "value": 593289216,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "artifactBytes": {
-          "status": "active",
-          "value": 27159002,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "tickMs": {
-          "status": "active",
-          "value": 1.934543,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "layoutMs": {
-          "status": "active",
-          "value": 0.25125,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "paintMs": {
-          "status": "active",
-          "value": 0.14575,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/darwin-arm64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:27:45.739Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         }
       }
     },
@@ -123,58 +95,28 @@
       "runner": "windows-2022",
       "baselines": {
         "coldStartMs": {
-          "status": "active",
-          "value": 124.14789999999994,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "idleRssBytes": {
-          "status": "active",
-          "value": 154681344,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "artifactBytes": {
-          "status": "active",
-          "value": 18529860,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "tickMs": {
-          "status": "active",
-          "value": 0.617,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "layoutMs": {
-          "status": "active",
-          "value": 0.2208,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         },
         "paintMs": {
-          "status": "active",
-          "value": 0.1526,
-          "evidence": {
-            "report": "release/performance/184351135c649f83af07730bf337ff9b20f8b89f/win32-x64.json",
-            "commit": "184351135c649f83af07730bf337ff9b20f8b89f",
-            "capturedAt": "2026-08-16T16:38:08.451Z"
-          }
+          "status": "pending",
+          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
         }
       }
     }

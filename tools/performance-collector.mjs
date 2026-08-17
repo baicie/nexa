@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   measureArtifactBytes,
+  measureArtifactTreeSha256,
   validateFrozenPerformancePolicy,
   validatePerformanceReport,
 } from "./performance-budget.mjs";
@@ -24,6 +25,7 @@ const STDERR_LIMIT = 8_192;
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const DECIMAL_PATTERN = /^(?:0|[1-9]\d*)$/u;
+const POSITIVE_DECIMAL_PATTERN = /^[1-9]\d*$/u;
 const OUTCOMES = new Set(["noPresentRequested", "coalesced", "presented", "dropped"]);
 const DROP_STAGES = new Set([
   "acquire",
@@ -269,7 +271,21 @@ export function assertHostedRunner({
   ) {
     fail("native performance evidence requires a GitHub-hosted runner");
   }
-  return { provider: "github-actions", image: runnerImage, hosted: true };
+  const runId = environment.GITHUB_RUN_ID;
+  if (typeof runId !== "string" || !POSITIVE_DECIMAL_PATTERN.test(runId)) {
+    fail("GITHUB_RUN_ID must be a canonical positive decimal string");
+  }
+  const runAttempt = Number(environment.GITHUB_RUN_ATTEMPT);
+  if (!Number.isSafeInteger(runAttempt) || runAttempt < 1) {
+    fail("GITHUB_RUN_ATTEMPT must be a positive integer");
+  }
+  return {
+    provider: "github-actions",
+    image: runnerImage,
+    hosted: true,
+    runId,
+    runAttempt,
+  };
 }
 
 function parsePositiveIntegerOutput(result, label) {
@@ -332,6 +348,8 @@ function requireArtifactIdentity({
   artifactExecutable,
   artifactBytes,
   executableSha256,
+  artifactTreeSha256,
+  archiveSha256,
 }) {
   requireString(artifactName, "artifact name");
   if (artifactName.includes("/") || artifactName.includes("\\") || artifactName === ".") {
@@ -352,6 +370,12 @@ function requireArtifactIdentity({
   if (typeof executableSha256 !== "string" || !SHA256_PATTERN.test(executableSha256)) {
     fail("artifact executableSha256 must be a 64-character lowercase digest");
   }
+  if (typeof artifactTreeSha256 !== "string" || !SHA256_PATTERN.test(artifactTreeSha256)) {
+    fail("artifact treeSha256 must be a 64-character lowercase digest");
+  }
+  if (typeof archiveSha256 !== "string" || !SHA256_PATTERN.test(archiveSha256)) {
+    fail("artifact archiveSha256 must be a 64-character lowercase digest");
+  }
 }
 
 /** Assemble and revalidate a complete raw report from measured native runs. */
@@ -367,6 +391,9 @@ export function createPerformanceReport({
   artifactExecutable,
   artifactBytes,
   executableSha256,
+  artifactTreeSha256,
+  archiveSha256,
+  replica,
   runs,
   capturedAt = new Date().toISOString(),
 }) {
@@ -390,62 +417,76 @@ export function createPerformanceReport({
     artifactExecutable,
     artifactBytes,
     executableSha256,
+    artifactTreeSha256,
+    archiveSha256,
   });
   const measuredRuns = config.workload.samplePolicy.measuredRuns;
   if (!Array.isArray(runs) || runs.length !== measuredRuns) {
     fail(`report requires exactly ${measuredRuns} measured runs`);
   }
 
-  const samples = {
-    coldStartMs: [],
-    idleRssBytes: [],
-    artifactBytes: [artifactBytes],
-    tickMs: [],
-    layoutMs: [],
-    paintMs: [],
-  };
+  const replicas = config.workload.samplePolicy.replicasPerPlatform;
+  if (!Number.isSafeInteger(replica) || replica < 1 || replica > replicas) {
+    fail(`replica must be an integer between 1 and ${replicas}`);
+  }
+  const measuredProcesses = [];
   const startupPresents = config.workload.samplePolicy.startupPresentsPerMeasuredRun;
+  const steadyFrames = config.workload.samplePolicy.steadyPresentsPerMeasuredRun;
   let droppedFrames = 0;
   for (const [index, run] of runs.entries()) {
     requireObject(run, `measured run ${index + 1}`);
-    samples.coldStartMs.push(
-      requireNonNegativeNumber(run.coldStartMs, `measured run ${index + 1} coldStartMs`),
-    );
-    samples.idleRssBytes.push(
-      requireNonNegativeNumber(run.idleRssBytes, `measured run ${index + 1} idleRssBytes`),
-    );
     const frameSamples = frameMetricSamples(run.events, { startupPresents });
     droppedFrames += frameSamples.droppedFrames;
-    samples.tickMs.push(...frameSamples.tickMs);
-    samples.layoutMs.push(...frameSamples.layoutMs);
-    samples.paintMs.push(...frameSamples.paintMs);
+    if (frameSamples.droppedFrames !== 0) {
+      fail(
+        `measured run ${index + 1} contains ${frameSamples.droppedFrames} dropped frame records`,
+      );
+    }
+    for (const metricName of ["tickMs", "layoutMs", "paintMs"]) {
+      if (frameSamples[metricName].length !== steadyFrames) {
+        fail(
+          `measured run ${index + 1} requires exactly ${steadyFrames} steady presented ${metricName} samples; received ${frameSamples[metricName].length}`,
+        );
+      }
+    }
+    measuredProcesses.push({
+      index: index + 1,
+      coldStartMs: requireNonNegativeNumber(
+        run.coldStartMs,
+        `measured run ${index + 1} coldStartMs`,
+      ),
+      idleRssBytes: requireNonNegativeNumber(
+        run.idleRssBytes,
+        `measured run ${index + 1} idleRssBytes`,
+      ),
+      frames: {
+        tickMs: frameSamples.tickMs,
+        layoutMs: frameSamples.layoutMs,
+        paintMs: frameSamples.paintMs,
+      },
+    });
   }
   if (droppedFrames !== 0) fail(`measured runs contain ${droppedFrames} dropped frame records`);
-  const requiredFrames = Math.max(
-    config.metrics.tickMs.minimumSamples,
-    config.metrics.layoutMs.minimumSamples,
-    config.metrics.paintMs.minimumSamples,
-  );
-  if (samples.tickMs.length < requiredFrames) {
-    fail(
-      `report requires at least ${requiredFrames} steady presented frame samples; received ${samples.tickMs.length}`,
-    );
-  }
 
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    kind: "performance-runner-report",
     workload: config.workload.id,
     platform,
     commit,
     capturedAt,
+    replica,
     runner,
     artifact: {
       name: artifactName,
       executable: artifactExecutable,
+      bytes: artifactBytes,
       executableSha256,
+      treeSha256: artifactTreeSha256,
+      archiveSha256,
     },
     quality: { failedRuns: 0, droppedFrames: 0 },
-    samples,
+    measuredProcesses,
   };
   validatePerformanceReport(report, config);
   return report;
@@ -628,9 +669,10 @@ export async function collectNativeRun({
   }
 }
 
-function inspectPerformanceArtifact({ artifactPath, binaryPath }) {
+function inspectPerformanceArtifact({ artifactPath, binaryPath, archivePath }) {
   const artifactRoot = path.resolve(artifactPath);
   const executablePath = path.resolve(binaryPath);
+  const archiveFile = path.resolve(archivePath);
   const relativeExecutable = path.relative(artifactRoot, executablePath);
   if (
     relativeExecutable === "" ||
@@ -643,18 +685,31 @@ function inspectPerformanceArtifact({ artifactPath, binaryPath }) {
   if (executableStat.isSymbolicLink() || !executableStat.isFile()) {
     fail("native binary must be a regular file, not a symbolic link or special file");
   }
+  const archiveStat = lstatSync(archiveFile);
+  if (archiveStat.isSymbolicLink() || !archiveStat.isFile()) {
+    fail("performance candidate archive must be a regular file");
+  }
   return {
     artifactName: path.basename(artifactRoot),
     artifactExecutable: relativeExecutable.split(path.sep).join("/"),
     artifactBytes: measureArtifactBytes(artifactRoot),
     executableSha256: createHash("sha256").update(readFileSync(executablePath)).digest("hex"),
+    artifactTreeSha256: measureArtifactTreeSha256(artifactRoot),
+    archiveSha256: createHash("sha256").update(readFileSync(archiveFile)).digest("hex"),
   };
 }
 
 function assertArtifactIdentityUnchanged(before, after) {
   requireArtifactIdentity(before);
   requireArtifactIdentity(after);
-  for (const key of ["artifactName", "artifactExecutable", "artifactBytes", "executableSha256"]) {
+  for (const key of [
+    "artifactName",
+    "artifactExecutable",
+    "artifactBytes",
+    "executableSha256",
+    "artifactTreeSha256",
+    "archiveSha256",
+  ]) {
     if (before[key] !== after[key]) {
       fail(`artifact identity changed during native sampling (${key})`);
     }
@@ -675,9 +730,11 @@ export async function collectPerformanceReport({
   config,
   binaryPath,
   artifactPath,
+  archivePath,
   platform,
   commit,
   runnerImage,
+  replica,
   environment = process.env,
   runtimePlatform = process.platform,
   runtimeArch = process.arch,
@@ -695,17 +752,14 @@ export async function collectPerformanceReport({
   });
   const resolvedBinaryPath = path.resolve(binaryPath);
   const resolvedArtifactPath = path.resolve(artifactPath);
+  const resolvedArchivePath = path.resolve(archivePath);
   const initialArtifact = inspectArtifact({
     artifactPath: resolvedArtifactPath,
     binaryPath: resolvedBinaryPath,
+    archivePath: resolvedArchivePath,
   });
-  const requiredFrames = Math.max(
-    config.metrics.tickMs.minimumSamples,
-    config.metrics.layoutMs.minimumSamples,
-    config.metrics.paintMs.minimumSamples,
-  );
   const measuredRunCount = config.workload.samplePolicy.measuredRuns;
-  const steadyFrameTarget = Math.ceil(requiredFrames / measuredRunCount);
+  const steadyFrameTarget = config.workload.samplePolicy.steadyPresentsPerMeasuredRun;
   const measuredFrameTarget =
     steadyFrameTarget + config.workload.samplePolicy.startupPresentsPerMeasuredRun;
   const commonRunOptions = {
@@ -738,6 +792,7 @@ export async function collectPerformanceReport({
   const finalArtifact = inspectArtifact({
     artifactPath: resolvedArtifactPath,
     binaryPath: resolvedBinaryPath,
+    archivePath: resolvedArchivePath,
   });
   assertArtifactIdentityUnchanged(initialArtifact, finalArtifact);
 
@@ -746,6 +801,7 @@ export async function collectPerformanceReport({
     platform,
     commit,
     runnerImage,
+    replica,
     environment,
     runtimePlatform,
     runtimeArch,
@@ -766,7 +822,7 @@ function optionValue(argv, option) {
 function usage() {
   return [
     "Usage:",
-    "  node tools/performance-collector.mjs --binary FILE --artifact DIR --platform PLATFORM --runner-image IMAGE --commit SHA --output FILE [--config FILE]",
+    "  node tools/performance-collector.mjs --binary FILE --artifact DIR --archive FILE --platform PLATFORM --runner-image IMAGE --replica 1|2|3 --commit SHA --output FILE [--config FILE]",
   ].join("\n");
 }
 
@@ -784,8 +840,10 @@ export async function main(argv = process.argv.slice(2)) {
     const allowed = new Set([
       "--binary",
       "--artifact",
+      "--archive",
       "--platform",
       "--runner-image",
+      "--replica",
       "--commit",
       "--output",
       "--config",
@@ -796,26 +854,41 @@ export async function main(argv = process.argv.slice(2)) {
     }
     const binaryPath = optionValue(argv, "--binary");
     const artifactPath = optionValue(argv, "--artifact");
+    const archivePath = optionValue(argv, "--archive");
     const platform = optionValue(argv, "--platform");
     const runnerImage = optionValue(argv, "--runner-image");
+    const replicaValue = optionValue(argv, "--replica");
     const commit = optionValue(argv, "--commit");
     const outputPath = optionValue(argv, "--output");
-    if (!binaryPath || !artifactPath || !platform || !runnerImage || !commit || !outputPath) {
+    if (
+      !binaryPath ||
+      !artifactPath ||
+      !archivePath ||
+      !platform ||
+      !runnerImage ||
+      !replicaValue ||
+      !commit ||
+      !outputPath
+    ) {
       throw new Error(usage());
     }
+    if (!DECIMAL_PATTERN.test(replicaValue)) fail("--replica must be a positive integer");
+    const replica = Number(replicaValue);
     const configPath = optionValue(argv, "--config") ?? defaultConfigPath();
     const config = JSON.parse(readFileSync(configPath, "utf8"));
     const report = await collectPerformanceReport({
       config,
       binaryPath,
       artifactPath,
+      archivePath,
       platform,
       commit,
       runnerImage,
+      replica,
     });
     writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, { flag: "wx" });
     process.stdout.write(
-      `Captured ${report.workload} ${report.platform}: ${report.samples.tickMs.length} presented frames\n`,
+      `Captured ${report.workload} ${report.platform} replica ${report.replica}: ${report.measuredProcesses.length} measured processes\n`,
     );
     return 0;
   } catch (error) {

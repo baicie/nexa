@@ -570,22 +570,50 @@ test("isolated workflow and runbook encode fresh jobs, rollback, and no release 
   assert.match(runbook, /does not publish|不发布/iu);
 });
 
-test("nested rehearsal performance reports use a run-unique artifact suffix", () => {
+test("nested rehearsal performance artifacts use an invocation-unique suffix", () => {
   const rehearsal = parseYaml(
     readFileSync(new URL("../.github/workflows/release-rehearsal.yml", import.meta.url), "utf8"),
   );
   const performance = parseYaml(
     readFileSync(new URL("../.github/workflows/performance.yml", import.meta.url), "utf8"),
   );
-  const upload = performance.jobs["hosted-boundary"].steps.find(
+  const producer = performance.jobs["candidate-producer"];
+  const capture = performance.jobs["hosted-capture"];
+  const aggregate = performance.jobs["platform-aggregate"];
+  assert.ok(producer, "performance.yml must define the candidate-producer job");
+  assert.ok(capture, "performance.yml must define the hosted-capture job");
+  assert.ok(aggregate, "performance.yml must define the platform-aggregate job");
+
+  const candidateUpload = producer.steps.find(
     (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+  const candidateDownload = capture.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/download-artifact@"),
+  );
+  const rawUpload = capture.steps.find(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/upload-artifact@"),
+  );
+  const rawDownloads = aggregate.steps.filter(
+    (step) => typeof step.uses === "string" && step.uses.startsWith("actions/download-artifact@"),
   );
 
   assert.equal(performance.on.workflow_call.inputs.artifact_suffix.default, "");
   assert.equal(rehearsal.jobs.performance.with.artifact_suffix, "-rehearsal");
   assert.equal(
-    upload.with.name,
-    "performance-report-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
+    candidateUpload.with.name,
+    "performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}",
+  );
+  assert.equal(candidateDownload.with.name, candidateUpload.with.name);
+  assert.equal(
+    rawUpload.with.name,
+    "performance-report-${{ matrix.platform }}-replica-${{ matrix.replica }}${{ inputs.artifact_suffix }}",
+  );
+  assert.deepEqual(
+    rawDownloads.map((step) => step.with.name),
+    [1, 2, 3].map(
+      (replica) =>
+        `performance-report-\${{ matrix.platform }}-replica-${replica}\${{ inputs.artifact_suffix }}`,
+    ),
   );
 });
 
@@ -619,14 +647,8 @@ test("CI rehearsals reuse one active performance result while tag rehearsals cap
     rehearsal.jobs.consumer.if,
     "always() && needs.source.result == 'success' && needs.contracts.result == 'success' && needs.security.result == 'success' && needs.performance-gate.result == 'success'",
   );
-  assert.equal(
-    rehearsal.jobs["fresh-verify"].if,
-    "always() && needs.consumer.result == 'success'",
-  );
-  assert.equal(
-    rehearsal.jobs.launch.if,
-    "always() && needs.fresh-verify.result == 'success'",
-  );
+  assert.equal(rehearsal.jobs["fresh-verify"].if, "always() && needs.consumer.result == 'success'");
+  assert.equal(rehearsal.jobs.launch.if, "always() && needs.fresh-verify.result == 'success'");
   assert.ok(rehearsal.jobs.decision.needs.includes("performance-gate"));
   assert.equal(rehearsal.jobs.decision.needs.includes("performance"), false);
   const decision = rehearsal.jobs.decision.steps.find((step) =>

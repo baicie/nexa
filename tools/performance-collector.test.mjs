@@ -24,6 +24,8 @@ const hostedEnvironment = {
   GITHUB_ACTIONS: "true",
   RUNNER_ENVIRONMENT: "github-hosted",
   GITHUB_SHA: "a".repeat(40),
+  GITHUB_RUN_ID: "31970000000",
+  GITHUB_RUN_ATTEMPT: "1",
 };
 const hostedDarwinRuntime = { runtimePlatform: "darwin", runtimeArch: "arm64" };
 
@@ -140,15 +142,9 @@ test("frame samples sum all raw phases and exclude non-present outcomes", () => 
 test("steady frame samples reserve first present for cold start without filtering later slow frames", () => {
   const samples = frameMetricSamples(
     [
-      parseNativePerformanceEvent(
-        nativeEvent({ tickId: "1", frameId: "1", layout: "9000000" }),
-      ),
-      parseNativePerformanceEvent(
-        nativeEvent({ tickId: "2", frameId: "2", layout: "2000000" }),
-      ),
-      parseNativePerformanceEvent(
-        nativeEvent({ tickId: "3", frameId: "3", layout: "8000000" }),
-      ),
+      parseNativePerformanceEvent(nativeEvent({ tickId: "1", frameId: "1", layout: "9000000" })),
+      parseNativePerformanceEvent(nativeEvent({ tickId: "2", frameId: "2", layout: "2000000" })),
+      parseNativePerformanceEvent(nativeEvent({ tickId: "3", frameId: "3", layout: "8000000" })),
     ],
     { startupPresents: 1 },
   );
@@ -203,6 +199,9 @@ test("drop records are observable and cannot be silently converted to samples", 
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
         executableSha256: "b".repeat(64),
+        artifactTreeSha256: "c".repeat(64),
+        archiveSha256: "d".repeat(64),
+        replica: 1,
         runs: measuredRuns({
           overrides: { events: [parseNativePerformanceEvent(nativeEvent({ outcome: "dropped" }))] },
         }),
@@ -220,7 +219,13 @@ test("hosted runner assertion rejects local and mismatched platform evidence", (
       runtimePlatform: "darwin",
       runtimeArch: "arm64",
     }),
-    { provider: "github-actions", image: "macos-15", hosted: true },
+    {
+      provider: "github-actions",
+      image: "macos-15",
+      hosted: true,
+      runId: "31970000000",
+      runAttempt: 1,
+    },
   );
   assert.throws(
     () =>
@@ -258,6 +263,9 @@ test("hosted report commit must match the runner revision", () => {
     artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
     artifactBytes: 25_000_000,
     executableSha256: "c".repeat(64),
+    artifactTreeSha256: "d".repeat(64),
+    archiveSha256: "e".repeat(64),
+    replica: 1,
     runs: measuredRuns(),
   };
 
@@ -416,7 +424,7 @@ test("native run preserves both collection and termination failures", async () =
   );
 });
 
-test("report aggregation separates ten startup presents from 1000 steady frames", () => {
+test("report aggregation preserves ten process boundaries with 100 steady frames each", () => {
   const report = createPerformanceReport({
     config,
     platform: "darwin-arm64",
@@ -428,18 +436,25 @@ test("report aggregation separates ten startup presents from 1000 steady frames"
     artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
     artifactBytes: 25_000_000,
     executableSha256: "b".repeat(64),
+    artifactTreeSha256: "c".repeat(64),
+    archiveSha256: "d".repeat(64),
+    replica: 1,
     runs: measuredRuns(),
     capturedAt: "2026-08-09T02:00:00.000Z",
   });
 
   assert.equal(report.quality.failedRuns, 0);
   assert.equal(report.quality.droppedFrames, 0);
-  assert.equal(report.samples.coldStartMs.length, 10);
-  assert.equal(report.samples.idleRssBytes.length, 10);
-  assert.equal(report.samples.tickMs.length, 1_000);
-  assert.equal(report.samples.layoutMs.length, 1_000);
-  assert.equal(report.samples.paintMs.length, 1_000);
-  assert.ok(report.samples.layoutMs.every((sample) => sample === 3));
+  assert.equal(report.replica, 1);
+  assert.equal(report.measuredProcesses.length, 10);
+  assert.ok(
+    report.measuredProcesses.every((processReport) => processReport.frames.tickMs.length === 100),
+  );
+  assert.ok(
+    report.measuredProcesses.every((processReport) =>
+      processReport.frames.layoutMs.every((sample) => sample === 3),
+    ),
+  );
   assert.equal(report.artifact.executableSha256, "b".repeat(64));
   assert.doesNotThrow(() => validatePerformanceReport(report, config));
 });
@@ -458,6 +473,9 @@ test("report creation fails closed for missing measured runs or insufficient pre
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
         executableSha256: "b".repeat(64),
+        artifactTreeSha256: "c".repeat(64),
+        archiveSha256: "d".repeat(64),
+        replica: 1,
         runs: measuredRuns().slice(0, 9),
       }),
     /measured runs/u,
@@ -475,9 +493,12 @@ test("report creation fails closed for missing measured runs or insufficient pre
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 10,
         executableSha256: "b".repeat(64),
+        artifactTreeSha256: "c".repeat(64),
+        archiveSha256: "d".repeat(64),
+        replica: 1,
         runs: measuredRuns({ eventsPerRun: 100 }),
       }),
-    /1000.*presented/u,
+    /exactly 100.*steady presented/u,
   );
 });
 
@@ -488,9 +509,11 @@ test("collector executes configured warmups and measured runs with a fixed settl
     config,
     binaryPath: "/candidate/Nexa Notes.app/Contents/MacOS/NexaNotes",
     artifactPath: "/candidate/reference-notes-macos-arm64",
+    archivePath: "/candidate/reference-notes-macos-arm64.tar.gz",
     platform: "darwin-arm64",
     commit: "a".repeat(40),
     runnerImage: "macos-15",
+    replica: 1,
     environment: hostedEnvironment,
     runtimePlatform: "darwin",
     runtimeArch: "arm64",
@@ -501,6 +524,8 @@ test("collector executes configured warmups and measured runs with a fixed settl
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 25_000_000,
         executableSha256: "b".repeat(64),
+        artifactTreeSha256: "c".repeat(64),
+        archiveSha256: "d".repeat(64),
       };
     },
     runNative: async (options) => {
@@ -531,9 +556,13 @@ test("collector executes configured warmups and measured runs with a fixed settl
   assert.ok(calls.filter((call) => call.warmup).every((call) => call.frameTarget === 100));
   assert.ok(calls.filter((call) => !call.warmup).every((call) => call.frameTarget === 101));
   assert.ok(calls.filter((call) => !call.warmup).every((call) => call.settleMs === 5_000));
-  assert.equal(report.samples.coldStartMs.length, 10);
-  assert.ok(report.samples.coldStartMs.every((sample) => sample !== 999));
-  assert.ok(report.samples.layoutMs.every((sample) => sample === 3));
+  assert.equal(report.measuredProcesses.length, 10);
+  assert.ok(report.measuredProcesses.every((processReport) => processReport.coldStartMs !== 999));
+  assert.ok(
+    report.measuredProcesses.every((processReport) =>
+      processReport.frames.layoutMs.every((sample) => sample === 3),
+    ),
+  );
   assert.equal(lifecycle[0], "inspect");
   assert.equal(lifecycle.at(-1), "inspect");
   assert.equal(lifecycle.filter((stage) => stage === "inspect").length, 2);
@@ -546,9 +575,11 @@ test("collector rejects an artifact whose identity changes during native samplin
       config,
       binaryPath: "/candidate/Nexa Notes.app/Contents/MacOS/NexaNotes",
       artifactPath: "/candidate/reference-notes-macos-arm64",
+      archivePath: "/candidate/reference-notes-macos-arm64.tar.gz",
       platform: "darwin-arm64",
       commit: "a".repeat(40),
       runnerImage: "macos-15",
+      replica: 1,
       environment: hostedEnvironment,
       runtimePlatform: "darwin",
       runtimeArch: "arm64",
@@ -557,6 +588,8 @@ test("collector rejects an artifact whose identity changes during native samplin
         artifactExecutable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
         artifactBytes: 25_000_000,
         executableSha256: (inspections++ === 0 ? "b" : "c").repeat(64),
+        artifactTreeSha256: "d".repeat(64),
+        archiveSha256: "e".repeat(64),
       }),
       runNative: async (options) => ({
         coldStartMs: 100,

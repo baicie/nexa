@@ -8,12 +8,17 @@ import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
 import {
+  createPerformanceReportSet,
   evaluatePerformanceReport,
+  evaluatePerformanceReportSet,
   measureArtifactBytes,
+  measureArtifactTreeSha256,
+  summarizePerformanceReport,
   validateActiveBaselineEvidence,
   validateFrozenPerformancePolicy,
   validatePerformanceConfig,
   validatePerformanceReport,
+  validatePerformanceReportSet,
 } from "./performance-budget.mjs";
 
 const metricNames = [
@@ -129,7 +134,246 @@ function report(overrides = {}) {
   };
 }
 
-test("the release config covers every G6-07 metric with raw hosted v2 evidence", () => {
+function v3Config() {
+  const metric = (unit, collection, statistic, maxRegressionPercent, minimumSamples) => ({
+    unit,
+    collection,
+    statistic,
+    maxRegressionPercent,
+    minimumSamples,
+  });
+  const values = {
+    coldStartMs: 100,
+    idleRssBytes: 100_000_000,
+    artifactBytes: 25_000_000,
+    tickMs: 20,
+    layoutMs: 10,
+    paintMs: 10,
+  };
+  const baselines = Object.fromEntries(
+    metricNames.map((name) => [
+      name,
+      {
+        status: "active",
+        value: values[name],
+        evidence: {
+          reportSet: "report-set.json",
+          commit: "d".repeat(40),
+          capturedAt: "2026-08-17T01:00:00.000Z",
+        },
+      },
+    ]),
+  );
+  return {
+    schemaVersion: 2,
+    workload: {
+      id: "reference-notes-v3",
+      definition: "docs/PERFORMANCE.md#reference-workload",
+      samplePolicy: {
+        warmupRuns: 3,
+        measuredRuns: 10,
+        startupPresentsPerMeasuredRun: 1,
+        steadyPresentsPerMeasuredRun: 100,
+        replicasPerPlatform: 3,
+      },
+    },
+    metrics: {
+      coldStartMs: metric("ms", "hosted-native", "median", 20, 10),
+      idleRssBytes: metric("bytes", "hosted-native", "median", 20, 10),
+      artifactBytes: metric("bytes", "deterministic-artifact", "max", 5, 1),
+      tickMs: metric("ms", "hosted-native", "median-of-process-p95", 15, 1_000),
+      layoutMs: metric("ms", "hosted-native", "median-of-process-p95", 15, 1_000),
+      paintMs: metric("ms", "hosted-native", "median-of-process-p95", 15, 1_000),
+    },
+    platforms: {
+      "darwin-arm64": { runner: "macos-15", baselines },
+      "win32-x64": {
+        runner: "windows-2022",
+        baselines: JSON.parse(JSON.stringify(baselines)),
+      },
+    },
+  };
+}
+
+function v3Report({
+  replica = 1,
+  tickMs = 10,
+  slowProcessTickMs,
+  runAttempt = 1,
+  artifact = {},
+  quality = { failedRuns: 0, droppedFrames: 0 },
+} = {}) {
+  const measuredProcesses = Array.from({ length: 10 }, (_, processIndex) => {
+    const processTickMs = processIndex === 9 && slowProcessTickMs ? slowProcessTickMs : tickMs;
+    return {
+      index: processIndex + 1,
+      coldStartMs: 90 + processIndex,
+      idleRssBytes: 90_000_000 + processIndex,
+      frames: {
+        tickMs: Array(100).fill(processTickMs),
+        layoutMs: Array(100).fill(3),
+        paintMs: Array(100).fill(5),
+      },
+    };
+  });
+  return {
+    schemaVersion: 2,
+    kind: "performance-runner-report",
+    workload: "reference-notes-v3",
+    platform: "darwin-arm64",
+    commit: "d".repeat(40),
+    capturedAt: `2026-08-17T01:00:0${replica}.000Z`,
+    replica,
+    runner: {
+      provider: "github-actions",
+      image: "macos-15",
+      hosted: true,
+      runId: "31970000000",
+      runAttempt,
+    },
+    artifact: {
+      name: "reference-notes-macos-arm64",
+      executable: "Nexa Notes.app/Contents/MacOS/NexaNotes",
+      bytes: 25_000_000,
+      executableSha256: "a".repeat(64),
+      treeSha256: "b".repeat(64),
+      archiveSha256: "c".repeat(64),
+      ...artifact,
+    },
+    quality,
+    measuredProcesses,
+  };
+}
+
+function v3Entries(reports) {
+  return reports.map((input, index) => ({
+    path: `replica-${index + 1}.json`,
+    rawBytes: Buffer.from(`${JSON.stringify(input, null, 2)}\n`),
+  }));
+}
+
+test("v3 preserves process boundaries instead of pooling one slow process into p95", () => {
+  const config = v3Config();
+  const input = v3Report({ tickMs: 10, slowProcessTickMs: 100 });
+
+  assert.doesNotThrow(() => validatePerformanceReport(input, config));
+  const summary = summarizePerformanceReport(input, config);
+
+  assert.equal(summary.tickMs, 10);
+  assert.equal(summary.coldStartMs, 94.5);
+});
+
+test("v3 platform result is the median of three complete runner summaries", () => {
+  const config = v3Config();
+  const entries = v3Entries([
+    v3Report({ replica: 1, tickMs: 10 }),
+    v3Report({ replica: 2, tickMs: 11 }),
+    v3Report({ replica: 3, tickMs: 100 }),
+  ]);
+  const reportSet = createPerformanceReportSet({
+    config,
+    reportEntries: entries,
+    capturedAt: "2026-08-17T01:00:00.000Z",
+  });
+
+  assert.doesNotThrow(() =>
+    validatePerformanceReportSet(reportSet, config, { reportEntries: entries }),
+  );
+  const result = evaluatePerformanceReportSet(reportSet, config, { reportEntries: entries });
+
+  assert.equal(result.metrics.tickMs.observed, 11);
+  assert.equal(result.status, "pass");
+  assert.throws(
+    () => evaluatePerformanceReport(v3Report(), config),
+    /complete three-replica report set/u,
+  );
+
+  const changedEntries = entries.map((entry) => ({ ...entry }));
+  changedEntries[1].rawBytes = Buffer.from(
+    `${JSON.stringify(v3Report({ replica: 2, tickMs: 12 }), null, 2)}\n`,
+  );
+  assert.throws(
+    () => validatePerformanceReportSet(reportSet, config, { reportEntries: changedEntries }),
+    /does not match its complete raw reports/u,
+  );
+});
+
+test("v3 rejects inexact process counts, frame counts, quality, and mixed report sets", () => {
+  const config = v3Config();
+  const shortProcess = v3Report();
+  shortProcess.measuredProcesses[0].frames.tickMs.pop();
+  assert.throws(() => validatePerformanceReport(shortProcess, config), /exactly 100/u);
+
+  const extraProcess = v3Report();
+  extraProcess.measuredProcesses[0].frames.paintMs.push(5);
+  assert.throws(() => validatePerformanceReport(extraProcess, config), /exactly 100/u);
+
+  assert.throws(
+    () =>
+      validatePerformanceReport(v3Report({ quality: { failedRuns: 1, droppedFrames: 0 } }), config),
+    /failedRuns must be zero/u,
+  );
+
+  const duplicateReplica = v3Entries([
+    v3Report({ replica: 1 }),
+    v3Report({ replica: 1 }),
+    v3Report({ replica: 3 }),
+  ]);
+  assert.throws(
+    () =>
+      createPerformanceReportSet({
+        config,
+        reportEntries: duplicateReplica,
+        capturedAt: "2026-08-17T01:00:00.000Z",
+      }),
+    /replica/u,
+  );
+
+  const mixedAttempt = v3Entries([
+    v3Report({ replica: 1 }),
+    v3Report({ replica: 2, runAttempt: 2 }),
+    v3Report({ replica: 3 }),
+  ]);
+  assert.throws(
+    () =>
+      createPerformanceReportSet({
+        config,
+        reportEntries: mixedAttempt,
+        capturedAt: "2026-08-17T01:00:00.000Z",
+      }),
+    /runAttempt/u,
+  );
+
+  const mixedArtifact = v3Entries([
+    v3Report({ replica: 1 }),
+    v3Report({ replica: 2, artifact: { archiveSha256: "e".repeat(64) } }),
+    v3Report({ replica: 3 }),
+  ]);
+  assert.throws(
+    () =>
+      createPerformanceReportSet({
+        config,
+        reportEntries: mixedArtifact,
+        capturedAt: "2026-08-17T01:00:00.000Z",
+      }),
+    /archiveSha256|artifact identity/u,
+  );
+
+  const impossibleRunId = v3Report();
+  impossibleRunId.runner.runId = "0";
+  assert.throws(
+    () => validatePerformanceReport(impossibleRunId, config),
+    /canonical positive decimal/u,
+  );
+
+  const legacyShape = report({ workload: "reference-notes-v3" });
+  assert.throws(
+    () => validatePerformanceReport(legacyShape, config),
+    /schemaVersion must exactly match/u,
+  );
+});
+
+test("the release config freezes reference-notes-v3 while hosted baselines await capture", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
   );
@@ -140,8 +384,11 @@ test("the release config covers every G6-07 metric with raw hosted v2 evidence",
       evidenceRoot: repositoryRoot,
     }),
   );
-  assert.equal(config.workload.id, "reference-notes-v2");
+  assert.equal(config.schemaVersion, 2);
+  assert.equal(config.workload.id, "reference-notes-v3");
   assert.equal(config.workload.samplePolicy.startupPresentsPerMeasuredRun, 1);
+  assert.equal(config.workload.samplePolicy.steadyPresentsPerMeasuredRun, 100);
+  assert.equal(config.workload.samplePolicy.replicasPerPlatform, 3);
   for (const metricName of ["tickMs", "layoutMs", "paintMs"]) {
     assert.equal(config.metrics[metricName].minimumSamples, 1_000);
   }
@@ -152,32 +399,13 @@ test("the release config covers every G6-07 metric with raw hosted v2 evidence",
   }
   assert.deepEqual(Object.keys(config.platforms).sort(), ["darwin-arm64", "win32-x64"]);
   for (const platform of Object.values(config.platforms)) {
-    const evidence = new Set();
     const baselines = Object.values(platform.baselines);
     for (const baseline of baselines) {
-      assert.equal(baseline.status, "active");
-      assert.equal(Number.isFinite(baseline.value), true);
-      assert.equal(baseline.evidence.commit, "184351135c649f83af07730bf337ff9b20f8b89f");
-      evidence.add(JSON.stringify(baseline.evidence));
+      assert.equal(baseline.status, "pending");
+      assert.match(baseline.reason, /reference-notes-v3/u);
+      assert.equal("value" in baseline, false);
+      assert.equal("evidence" in baseline, false);
     }
-    assert.equal(evidence.size, 1);
-
-    const rawReport = JSON.parse(
-      readFileSync(path.join(repositoryRoot, baselines[0].evidence.report), "utf8"),
-    );
-    assert.deepEqual(
-      Object.fromEntries(
-        metricNames.map((metricName) => [metricName, rawReport.samples[metricName].length]),
-      ),
-      {
-        coldStartMs: 10,
-        idleRssBytes: 10,
-        artifactBytes: 1,
-        tickMs: 1_000,
-        layoutMs: 1_000,
-        paintMs: 1_000,
-      },
-    );
   }
 });
 
@@ -196,6 +424,27 @@ test("production capture policy is frozen while unit fixtures may stay small", (
   assert.throws(
     () => validateFrozenPerformancePolicy(mixedStartup),
     /startupPresentsPerMeasuredRun is frozen at 1/u,
+  );
+
+  const pooled = JSON.parse(JSON.stringify(config));
+  pooled.workload.samplePolicy.steadyPresentsPerMeasuredRun = 99;
+  assert.throws(
+    () => validateFrozenPerformancePolicy(pooled),
+    /steadyPresentsPerMeasuredRun is frozen at 100/u,
+  );
+
+  const singleReplica = JSON.parse(JSON.stringify(config));
+  singleReplica.workload.samplePolicy.replicasPerPlatform = 1;
+  assert.throws(
+    () => validateFrozenPerformancePolicy(singleReplica),
+    /replicasPerPlatform is frozen at 3/u,
+  );
+
+  const wrongColdStatistic = JSON.parse(JSON.stringify(config));
+  wrongColdStatistic.metrics.coldStartMs.statistic = "p95";
+  assert.throws(
+    () => validateFrozenPerformancePolicy(wrongColdStatistic),
+    /coldStartMs\.statistic is frozen at median/u,
   );
 });
 
@@ -224,6 +473,59 @@ test("active baseline evidence is a bound raw report, not an unchecked label", (
     () => validateActiveBaselineEvidence(config, "darwin-arm64", directory),
     /repository-relative/u,
   );
+});
+
+test("v3 active baselines bind the complete report set and every raw report byte", () => {
+  const directory = temporaryDirectory();
+  const config = v3Config();
+  const reports = [];
+  const reportEntries = [1, 2, 3].map((replica) => {
+    const input = v3Report({ replica, tickMs: 9 + replica });
+    reports.push(input);
+    const fileName = `replica-${replica}.json`;
+    const raw = `${JSON.stringify(input, null, 2)}\n`;
+    writeFileSync(path.join(directory, fileName), raw);
+    return {
+      path: fileName,
+      rawBytes: Buffer.from(raw),
+    };
+  });
+  const reportSet = createPerformanceReportSet({
+    config,
+    reportEntries,
+    capturedAt: "2026-08-17T01:00:00.000Z",
+  });
+  writeFileSync(path.join(directory, "report-set.json"), `${JSON.stringify(reportSet, null, 2)}\n`);
+  for (const metricName of metricNames) {
+    config.platforms["darwin-arm64"].baselines[metricName] = {
+      status: "active",
+      value: reportSet.summary.metrics[metricName],
+      evidence: {
+        reportSet: "report-set.json",
+        commit: reportSet.commit,
+        capturedAt: reportSet.capturedAt,
+      },
+    };
+  }
+
+  assert.doesNotThrow(() => validateActiveBaselineEvidence(config, "darwin-arm64", directory));
+
+  writeFileSync(path.join(directory, "replica-2.json"), `${JSON.stringify(reports[1])}\n`);
+  assert.throws(
+    () => validateActiveBaselineEvidence(config, "darwin-arm64", directory),
+    /SHA-256 does not match/u,
+  );
+});
+
+test("v3 active metrics cannot splice together different report sets", () => {
+  const config = v3Config();
+  config.platforms["darwin-arm64"].baselines.tickMs.evidence = {
+    reportSet: "other-report-set.json",
+    commit: "e".repeat(40),
+    capturedAt: "2026-08-17T02:00:00.000Z",
+  };
+
+  assert.throws(() => validatePerformanceConfig(config), /must reference one complete report set/u);
 });
 
 test("a hosted report is summarized deterministically and passes active budgets", () => {
@@ -340,6 +642,9 @@ test("artifact bytes are counted recursively and symbolic links are rejected", (
   writeFileSync(path.join(directory, "nested", "manifest.json"), Buffer.alloc(5));
 
   assert.equal(measureArtifactBytes(directory), 22);
+  const originalTree = measureArtifactTreeSha256(directory);
+  writeFileSync(path.join(directory, "nested", "manifest.json"), Buffer.alloc(5, 1));
+  assert.notEqual(measureArtifactTreeSha256(directory), originalTree);
 
   symlinkSync(path.join(directory, "app.bin"), path.join(directory, "nested", "alias"));
   assert.throws(() => measureArtifactBytes(directory), /symbolic links are not artifacts/u);
@@ -348,83 +653,83 @@ test("artifact bytes are counted recursively and symbolic links are rejected", (
 test("the CLI returns distinct pass, regression, and pending exit codes", () => {
   const directory = temporaryDirectory();
   const configPath = path.join(directory, "config.json");
-  const reportPath = path.join(directory, "report.json");
-  const baselineReportPath = path.join(directory, "baseline.json");
-  const config = JSON.parse(
-    readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
-  );
+  const config = v3Config();
   const darwinBaselines = config.platforms["darwin-arm64"].baselines;
-  const baselineValues = {
-    coldStartMs: 100,
-    idleRssBytes: 100_000_000,
-    artifactBytes: 25_000_000,
-    tickMs: 10,
-    layoutMs: 4,
-    paintMs: 5,
-  };
-  for (const [metricName, value] of Object.entries(baselineValues)) {
+  const writeRawReports = (prefix, reports) =>
+    reports.map((input) => {
+      const fileName = `${prefix}-replica-${input.replica}.json`;
+      const raw = `${JSON.stringify(input, null, 2)}\n`;
+      writeFileSync(path.join(directory, fileName), raw);
+      return {
+        path: fileName,
+        rawBytes: Buffer.from(raw),
+      };
+    });
+  const baselineEntries = writeRawReports(
+    "baseline",
+    [1, 2, 3].map((replica) => v3Report({ replica, tickMs: 20 })),
+  );
+  const baselineSet = createPerformanceReportSet({
+    config,
+    reportEntries: baselineEntries,
+    capturedAt: "2026-08-17T01:00:00.000Z",
+  });
+  writeFileSync(
+    path.join(directory, "baseline-set.json"),
+    `${JSON.stringify(baselineSet, null, 2)}\n`,
+  );
+  for (const [metricName, value] of Object.entries(baselineSet.summary.metrics)) {
     darwinBaselines[metricName] = {
       status: "active",
       value,
       evidence: {
-        report: "baseline.json",
-        commit: "b".repeat(40),
-        capturedAt: "2026-08-09T01:00:00.000Z",
+        reportSet: "baseline-set.json",
+        commit: "d".repeat(40),
+        capturedAt: baselineSet.capturedAt,
       },
     };
   }
-  const expandSamples = (input) => {
-    input.samples.coldStartMs = Array.from(
-      { length: 10 },
-      (_, index) => input.samples.coldStartMs[index % 5],
-    );
-    input.samples.idleRssBytes = Array.from(
-      { length: 10 },
-      (_, index) => input.samples.idleRssBytes[index % 5],
-    );
-    input.samples.tickMs = Array.from(
-      { length: config.metrics.tickMs.minimumSamples },
-      (_, index) => input.samples.tickMs[index % 5],
-    );
-    input.samples.layoutMs = Array.from(
-      { length: config.metrics.layoutMs.minimumSamples },
-      (_, index) => input.samples.layoutMs[index % 5],
-    );
-    input.samples.paintMs = Array.from(
-      { length: config.metrics.paintMs.minimumSamples },
-      (_, index) => input.samples.paintMs[index % 5],
-    );
-    return input;
-  };
-  const baselineReport = report({
-    samples: {
-      coldStartMs: Array(5).fill(100),
-      idleRssBytes: Array(5).fill(100_000_000),
-      artifactBytes: [25_000_000],
-      tickMs: Array(5).fill(10),
-      layoutMs: Array(5).fill(4),
-      paintMs: Array(5).fill(5),
-    },
-  });
-  expandSamples(baselineReport);
   writeFileSync(configPath, JSON.stringify(config));
-  writeFileSync(reportPath, JSON.stringify(expandSamples(report())));
-  writeFileSync(baselineReportPath, JSON.stringify(baselineReport));
+
+  const aggregate = (prefix, reports) => {
+    const entries = writeRawReports(prefix, reports);
+    const outputPath = path.join(directory, `${prefix}-set.json`);
+    const result = spawnSync(
+      process.execPath,
+      [
+        runnerPath,
+        "aggregate",
+        "--config",
+        configPath,
+        ...entries.flatMap((entry) => ["--report", path.join(directory, entry.path)]),
+        "--output",
+        outputPath,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    return outputPath;
+  };
+  const passingSetPath = aggregate(
+    "passing",
+    [1, 2, 3].map((replica) => v3Report({ replica, tickMs: 10 })),
+  );
 
   const passed = spawnSync(
     process.execPath,
-    [runnerPath, "check", "--config", configPath, "--report", reportPath, "--json"],
+    [runnerPath, "check-set", "--config", configPath, "--report-set", passingSetPath, "--json"],
     { encoding: "utf8" },
   );
   assert.equal(passed.status, 0, passed.stderr);
   assert.equal(JSON.parse(passed.stdout).status, "pass");
 
-  const regressed = expandSamples(report());
-  regressed.samples.tickMs = Array(config.metrics.tickMs.minimumSamples).fill(12);
-  writeFileSync(reportPath, JSON.stringify(regressed));
+  const regressedSetPath = aggregate(
+    "regressed",
+    [1, 2, 3].map((replica) => v3Report({ replica, tickMs: 30 })),
+  );
   const failed = spawnSync(
     process.execPath,
-    [runnerPath, "check", "--config", configPath, "--report", reportPath, "--json"],
+    [runnerPath, "check-set", "--config", configPath, "--report-set", regressedSetPath, "--json"],
     { encoding: "utf8" },
   );
   assert.equal(failed.status, 1, failed.stderr);
@@ -435,10 +740,9 @@ test("the CLI returns distinct pass, regression, and pending exit codes", () => 
     reason: "awaiting hosted capture",
   };
   writeFileSync(configPath, JSON.stringify(config));
-  writeFileSync(reportPath, JSON.stringify(expandSamples(report())));
   const pending = spawnSync(
     process.execPath,
-    [runnerPath, "check", "--config", configPath, "--report", reportPath, "--json"],
+    [runnerPath, "check-set", "--config", configPath, "--report-set", passingSetPath, "--json"],
     { encoding: "utf8" },
   );
   assert.equal(pending.status, 2, pending.stderr);
@@ -446,6 +750,17 @@ test("the CLI returns distinct pass, regression, and pending exit codes", () => 
 });
 
 test("the performance CLI rejects unknown, duplicate, and malformed options", () => {
+  const directory = temporaryDirectory();
+  const singleReportPath = path.join(directory, "single-runner.json");
+  writeFileSync(singleReportPath, `${JSON.stringify(v3Report(), null, 2)}\n`);
+  const singleRunnerGate = spawnSync(
+    process.execPath,
+    [runnerPath, "check", "--report", singleReportPath, "--allow-pending"],
+    { encoding: "utf8" },
+  );
+  assert.equal(singleRunnerGate.status, 1);
+  assert.match(singleRunnerGate.stderr, /complete three-replica report set/u);
+
   const unknown = spawnSync(
     process.execPath,
     [runnerPath, "status", "--platform", "darwin-arm64", "--require-actve"],
@@ -483,7 +798,10 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
     "utf8",
   );
   const workflow = parse(source);
-  const hosted = workflow.jobs["hosted-boundary"];
+  const producer = workflow.jobs["candidate-producer"];
+  const capture = workflow.jobs["hosted-capture"];
+  const aggregate = workflow.jobs["platform-aggregate"];
+  const hosted = producer;
 
   assert.deepEqual(hosted.strategy.matrix.include, [
     { os: "macos-15", platform: "darwin-arm64" },
@@ -622,21 +940,29 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
   assert.ok(macRuntimeIndex < notesPackageIndex);
   assert.ok(windowsCompilerIndex < notesPackageIndex);
   assert.ok(skiaStageIndex < notesPackageIndex);
-  assert.match(hostedCommands, /node tools\/performance-collector\.mjs/u);
-  assert.match(hostedCommands, /node tools\/performance-budget\.mjs check[\s\S]*--allow-pending/u);
-  const captureStep = hosted.steps.find((step) => step.id === "capture");
-  const checkStep = hosted.steps.find(
-    (step) => typeof step.run === "string" && step.run.includes("performance-budget.mjs check"),
+  assert.doesNotMatch(hostedCommands, /performance-collector\.mjs/u);
+  const captureCommands = capture.steps
+    .filter((step) => typeof step.run === "string")
+    .map((step) => step.run)
+    .join("\n");
+  assert.match(captureCommands, /node tools\/performance-collector\.mjs/u);
+  assert.match(captureCommands, /performance-budget\.mjs validate-report/u);
+  assert.doesNotMatch(captureCommands, /performance-budget\.mjs check-set/u);
+  const captureStep = capture.steps.find((step) => step.id === "capture");
+  const checkStep = aggregate.steps.find(
+    (step) => typeof step.run === "string" && step.run.includes("performance-budget.mjs check-set"),
   );
   assert.match(captureStep?.run ?? "", /performance-collector\.mjs/u);
   assert.doesNotMatch(captureStep?.run ?? "", /performance-budget\.mjs check/u);
   assert.notEqual(checkStep, undefined, "the native report must be checked after capture");
-  const rawReportUpload = hosted.steps.find(
+  const rawReportUpload = capture.steps.find(
     (step) =>
       typeof step.uses === "string" &&
       /^actions\/upload-artifact@[0-9a-f]{40}$/u.test(step.uses) &&
       typeof step.with?.path === "string" &&
-      step.with.path.includes("nexa-performance-${{ matrix.platform }}.json"),
+      step.with.path.includes(
+        "nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json",
+      ),
   );
   assert.notEqual(
     rawReportUpload,
