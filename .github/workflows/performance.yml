@@ -216,7 +216,12 @@ jobs:
             artifact="reference-notes-macos-arm64"
           fi
           test -d "dist/$artifact"
-          archive="$RUNNER_TEMP/performance-candidate-${{ matrix.platform }}.tar"
+          runner_temp="$RUNNER_TEMP"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          test -d "$runner_temp"
+          archive="$runner_temp/performance-candidate-${{ matrix.platform }}.tar"
           tar -C dist -cf "$archive" "$artifact"
           test -s "$archive"
 
@@ -272,8 +277,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="$RUNNER_TEMP/performance-candidate-download/performance-candidate-${{ matrix.platform }}.tar"
-          extract="$RUNNER_TEMP/performance-candidate-extract"
+          runner_temp="$RUNNER_TEMP"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          test -d "$runner_temp"
+          archive="$runner_temp/performance-candidate-download/performance-candidate-${{ matrix.platform }}.tar"
+          extract="$runner_temp/performance-candidate-extract"
           mkdir -p "$extract"
           test -s "$archive"
           tar -C "$extract" -xf "$archive"
@@ -286,7 +296,7 @@ jobs:
           fi
           test -d "$artifact"
           test -f "$binary"
-          report="$RUNNER_TEMP/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json"
+          report="$runner_temp/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json"
           node tools/performance-collector.mjs \
             --binary "$binary" \
             --artifact "$artifact" \

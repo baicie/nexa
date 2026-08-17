@@ -941,6 +941,16 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
   assert.ok(windowsCompilerIndex < notesPackageIndex);
   assert.ok(skiaStageIndex < notesPackageIndex);
   assert.doesNotMatch(hostedCommands, /performance-collector\.mjs/u);
+  const archiveStep = hosted.steps.find(
+    (step) => step.name === "Archive the shared performance candidate",
+  );
+  assert.equal(archiveStep?.shell, "bash");
+  assert.match(
+    archiveStep?.run ?? "",
+    /if \[\[ "\$\{\{ runner\.os \}\}" == "Windows" \]\]; then[\s\S]*cygpath -u "\$RUNNER_TEMP"/u,
+    "the Windows producer must translate RUNNER_TEMP before passing an archive path to tar",
+  );
+  assert.match(archiveStep?.run ?? "", /archive="\$runner_temp\/performance-candidate-/u);
   const captureCommands = capture.steps
     .filter((step) => typeof step.run === "string")
     .map((step) => step.run)
@@ -954,6 +964,14 @@ test("the dedicated workflow keeps native capture on pinned macOS and Windows ho
   );
   assert.match(captureStep?.run ?? "", /performance-collector\.mjs/u);
   assert.doesNotMatch(captureStep?.run ?? "", /performance-budget\.mjs check/u);
+  assert.match(
+    captureStep?.run ?? "",
+    /if \[\[ "\$\{\{ runner\.os \}\}" == "Windows" \]\]; then[\s\S]*cygpath -u "\$RUNNER_TEMP"/u,
+    "Windows capture must translate every downloaded, extracted, and report path used by bash",
+  );
+  assert.match(captureStep?.run ?? "", /archive="\$runner_temp\/performance-candidate-download/u);
+  assert.match(captureStep?.run ?? "", /extract="\$runner_temp\/performance-candidate-extract"/u);
+  assert.match(captureStep?.run ?? "", /report="\$runner_temp\/nexa-performance-/u);
   assert.notEqual(checkStep, undefined, "the native report must be checked after capture");
   const rawReportUpload = capture.steps.find(
     (step) =>
