@@ -10,8 +10,9 @@
 GitHub-hosted replica，以及绑定 3 份 raw report 真实字节的 report set 完成
 采集、评审、归档和激活。v1/v2 已评审 raw report 继续作为历史证据保留，
 但不能跨 workload 或采样语义复用；本地 AOT smoke 仍不能替代 hosted
-原生证据。G6-07P 仍等待 baseline active 状态下的新 `performance-required`
-hosted run。
+原生证据。PR run `31994708107` attempt 1 已在 baseline active 状态下完成新的
+`performance-required` 双平台三副本复核，11/11 performance jobs、12 项预算和
+最终 `CI / result` 全部成功，因此 G6-07P 已关闭。
 
 ## Reference Workload
 
@@ -494,6 +495,57 @@ GitHub digest、candidate tar digest、raw JSON digest 与 report-set JSON diges
 归档后的两个 `check-set`、两个 `status --require-active` 和冻结配置校验均返回
 `0`。该 capture/activation 只建立 v3 baseline；它不是 active-baseline required
 复核、clean tag、签名、公证、registry 或发布证据，因此不能单独关闭 G6-07P、
+G6-08P 或 G6-09P。
+
+### v3 active-baseline required 复核
+
+PR run `31994708107` attempt 1 由唯一标签 `performance-required` 触发，source
+head 为 `85e4383fc2aacd030b78c77bcde2fa3da460ff63`，六份 raw report 和两个
+report set 绑定 Actions merge execution revision
+`19d8f2894671c082a3f5b6f3883cffa4d03a38a9`。合同 job `95284592689`、macOS /
+Windows producer jobs `95284732150` / `95284732183`、六个 capture jobs 和两个
+aggregate jobs 共 11/11 成功；最终 `CI / result` job `95290266484` 也成功。
+两个 producer 的 `Report baseline status` 均在 `--require-active` 下成功，两个
+aggregate 的 `check-set` 均未使用 `--allow-pending`。
+
+六个独立 hosted capture 与 standalone raw artifact 已复核如下；每份 standalone
+raw 和 report-set artifact 内的同名文件逐字节相同，均记录 run ID
+`31994708107`、attempt `1`、execution revision、`failedRuns=0`、
+`droppedFrames=0`、10 个 measured process 和每进程三类各 100 个 steady frame：
+
+| Platform       | Replica |   Capture job | Runner                      | Raw artifact | Raw JSON SHA-256                                                   |
+| -------------- | ------: | ------------: | --------------------------- | -----------: | ------------------------------------------------------------------ |
+| `darwin-arm64` |       1 | `95288439592` | `GitHub Actions 1000026376` | `9276938247` | `3cb465371e667c227a39ccbeca77dafb3726291c62d63189fff4e02513810068` |
+| `darwin-arm64` |       2 | `95288439611` | `GitHub Actions 1000026378` | `9276941242` | `e70ea220cfb7108e61edb9bb384438690c5e0e737b6ffd31c28668a160655cbf` |
+| `darwin-arm64` |       3 | `95288439756` | `GitHub Actions 1000026379` | `9276940052` | `48d6e11de5e8ab871d05ae57fe9228c72291010d091bd28f90c989451199a87d` |
+| `win32-x64`    |       1 | `95288439763` | `GitHub Actions 1000026377` | `9276941166` | `192cbe26904e53263e748da39c0ea3fdb3ba9e51dd498215ce0955565e7a5861` |
+| `win32-x64`    |       2 | `95288439591` | `GitHub Actions 1000026374` | `9276941560` | `6416df1f0256785ced2d9b85d3538aebd04c0f11b048bdbd7befd30f4e68db3f` |
+| `win32-x64`    |       3 | `95288439623` | `GitHub Actions 1000026375` | `9276942442` | `e7abae9962515c345332ec1f3f9ddec1c3138c5d5ad44e5227cb95b985ea8e3c` |
+
+macOS aggregate job `95288650779` 上传 report-set artifact `9276947581`，GitHub
+ZIP digest 为
+`sha256:135a40da399c4ea3c8bec655493ecae731d7322b2d462122aecfd64a61434d7e`，
+report-set JSON SHA-256 为
+`29325b714de7a9900812240e35feddca1f18ec50432b9f8ebac0aacb3784ae23`。
+Windows aggregate job `95288650762` 上传 artifact `9276946786`，GitHub ZIP
+digest 为
+`sha256:edaf2e38b2e240d23deaa154600e89f5d1abbe1c3f9b94648207f6a3a88d4728`，
+report-set JSON SHA-256 为
+`46f1e7267925eb23514f450d889c857c448ddabd15c23615b30dfcab234f8130`。
+共享候选 artifact `9276758175` / `9276918879` 的 tar SHA-256 分别为
+`e4a77ab42893a241e3fb45b7560a0fe4e82e3af85d5668863245d72959dbdb13` /
+`4712922101ced961ae707f53043f8bbc811bc7dc87bb83e60b9ee8f6bb1ee833`，
+与各平台三份 raw 中的 `artifact.archiveSha256` 一致。
+
+required run 的平台结果全部为 `pass`：
+
+| Platform       |        `coldStartMs` | `idleRssBytes` | `artifactBytes` |             `tickMs` |  `layoutMs` |  `paintMs` |
+| -------------- | -------------------: | -------------: | --------------: | -------------------: | ----------: | ---------: |
+| `darwin-arm64` |  `265.8537704999999` |    `592601088` |      `27159002` | `1.5693139999999999` | `0.2243335` | `0.150729` |
+| `win32-x64`    | `128.42485000000124` |    `154599424` |      `18529348` |             `0.5255` |    `0.2283` |   `0.1188` |
+
+该 run 只关闭 v3 active-baseline 的 G6-07P 回归门禁。它不是 clean tag，也没有
+激活签名/公证凭据、访问 registry 或执行 publication，因此不关闭 G6-06P、
 G6-08P 或 G6-09P。
 
 ## Workflow Boundary

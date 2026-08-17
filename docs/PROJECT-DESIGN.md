@@ -1,6 +1,6 @@
 # Nexa UI 项目详细设计
 
-- 状态：Desktop Notes MVP 直接平台验收已完成（PR run `31902303937` 通过 UIA/NSAccessibility、双平台真实 picker/clean-runner 与供应链门禁；run `31991801398` 已激活 v3 三副本性能 baseline，等待 active required 复核）；Technical Preview 仍等待 clean-tag promotion、registry clean-user、真实签名/公证、发布演练与独立审批
+- 状态：Desktop Notes MVP 直接平台验收已完成（PR run `31902303937` 通过 UIA/NSAccessibility、双平台真实 picker/clean-runner 与供应链门禁；run `31991801398` 已激活 v3 三副本性能 baseline，run `31994708107` 已完成 active required 复核）；Technical Preview 仍等待 clean-tag promotion、registry clean-user、真实签名/公证、发布演练与独立审批
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 日期：2026-08-17
@@ -867,7 +867,7 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - final 先创建或核对 draft prerelease，fresh-download 已有远端 bytes 后只上传缺失且摘要一致的资产，禁止 `--clobber`，随后再次 fresh-download 验证 exact allowlist。只有 npm 九包 `technical-preview` 二次观测完全收敛后才公开 draft，并保存绑定 Release ID/URL、release/signing run、七资产摘要与九包 integrity 的 publication record；该 record 是 workflow artifact，不是第八个公开资产。
 - `release/readiness-policy.json` 的 checked-in execution 保持 `disabled/none`；只有 protected `release-evidence.yml` 组装的 phase-bound 外部证据 bundle 能变为 `enabled/bootstrap` 或 `enabled/final`。bootstrap bundle 在 final evaluator 下必须同时因 phase mismatch 与 registry pending 被拒绝。
 
-2026-08-17 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、当时的 v1 active performance 与 G6-05 unsigned input jobs。v2 run `31958001217` 作为历史 steady-state 证据保留；run `31991801398` attempt 1 在 source head `8302b89200698df6a6ead7772928107ba4d56eee` / merge revision `2c91ac02340245e5bad206bc1e9fe0d8b96b88fd` 上完成 v3 双平台各三份 hosted raw、两个 report set 的逐字节评审和 baseline activation，G6-07P 等待 active 状态下的新 required run。这些 PR run 都不是 clean tag，也没有激活凭据或发布权限，因此不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
+2026-08-17 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、当时的 v1 active performance 与 G6-05 unsigned input jobs。v2 run `31958001217` 作为历史 steady-state 证据保留；run `31991801398` attempt 1 在 source head `8302b89200698df6a6ead7772928107ba4d56eee` / merge revision `2c91ac02340245e5bad206bc1e9fe0d8b96b88fd` 上完成 v3 双平台各三份 hosted raw、两个 report set 的逐字节评审和 baseline activation。随后 `performance-required` run `31994708107` attempt 1 在 source head `85e4383fc2aacd030b78c77bcde2fa3da460ff63` / execution revision `19d8f2894671c082a3f5b6f3883cffa4d03a38a9` 上完成 11/11 performance jobs、两个 active `check-set` 和最终 result job `95290266484`，关闭 G6-07P。这些 PR run 都不是 clean tag，也没有激活凭据或发布权限，因此不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
 
 ## 14. 性能与可观测性
 
@@ -880,7 +880,7 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - image/paragraph cache hit ratio；
 - idle memory、二进制体积和冷启动时间。
 
-G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 曾激活 v1 baseline，run `31902303937` 完成 v1 active-budget 复核；run `31952821895` 暴露首帧混入 p95 的结构性边界后，run `31958001217` 以固定 startup 边界和每平台 1000 个 steady frame 激活 v2 baseline。v3 进一步保留每进程边界，并要求每平台三个独立 hosted replica 和完整 report set；run `31991801398` 已完成 v3 capture/activation，G6-07P 只能由该 baseline active 后的新 hosted required run 关闭。
+G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 曾激活 v1 baseline，run `31902303937` 完成 v1 active-budget 复核；run `31952821895` 暴露首帧混入 p95 的结构性边界后，run `31958001217` 以固定 startup 边界和每平台 1000 个 steady frame 激活 v2 baseline。v3 进一步保留每进程边界，并要求每平台三个独立 hosted replica 和完整 report set；run `31991801398` 已完成 v3 capture/activation，run `31994708107` 已在该 baseline active 后完成新的 hosted required 复核并关闭 G6-07P。
 
 ### 14.1 G6-07B 原生性能采集设计
 
@@ -928,7 +928,7 @@ collector 合同：
 
 collector 模块的可测试边界固定为 `parseNativePerformanceEvent`（严格解析 prefix/schema/raw record）、`frameMetricSamples`（仅从完整 presented duration 派生三项样本）、`assertHostedRunner`（核对 hosted/OS/arch/image）、`readResidentSetBytes`（可注入 subprocess）和 `createPerformanceReport`（聚合 measured runs 并绑定 artifact identity）。真实 CLI 只负责参数解析、子进程生命周期与调用这些边界，测试不得依赖真实窗口或伪造计时常量来证明 hosted 采集成功。
 
-G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。v1 的 hosted 报告、人工评审、baseline activation 与 required 复核分别由 runs `31895582357` / `31902303937` 完成；v2 的双平台 raw report 和 activation 由 run `31958001217` 完成并作为历史证据保留。v3 只接受每平台三份完整 runner report 的 report set；run `31991801398` attempt 1 已完成 capture、逐字节评审、归档和 activation，G6-07P 等待 v3 baseline active 后的新 `performance-required` hosted 复核。
+G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。v1 的 hosted 报告、人工评审、baseline activation 与 required 复核分别由 runs `31895582357` / `31902303937` 完成；v2 的双平台 raw report 和 activation 由 run `31958001217` 完成并作为历史证据保留。v3 只接受每平台三份完整 runner report 的 report set；run `31991801398` attempt 1 已完成 capture、逐字节评审、归档和 activation，run `31994708107` attempt 1 已完成 v3 baseline active 后的 `performance-required` hosted 复核。
 
 Technical Preview 发布门禁必须有可复现的 macOS/Windows 基线与回归阈值。
 
