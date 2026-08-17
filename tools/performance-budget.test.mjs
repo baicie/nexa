@@ -418,6 +418,32 @@ test("the release config freezes reference-notes-v3 with reviewed active report 
   }
 });
 
+test("repository checkout preserves report-set evidence bytes on every platform", () => {
+  const config = JSON.parse(
+    readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
+  );
+  const evidencePaths = [];
+  for (const platform of Object.values(config.platforms)) {
+    const reportSetPath = platform.baselines.coldStartMs.evidence.reportSet;
+    const reportSet = JSON.parse(readFileSync(path.join(repositoryRoot, reportSetPath), "utf8"));
+    evidencePaths.push(
+      reportSetPath,
+      ...reportSet.reports.map(({ path: reportPath }) =>
+        path.posix.join(path.posix.dirname(reportSetPath), reportPath),
+      ),
+    );
+  }
+
+  for (const evidencePath of evidencePaths) {
+    const attributes = spawnSync("git", ["check-attr", "text", "eol", "--", evidencePath], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    assert.equal(attributes.status, 0, attributes.stderr);
+    assert.equal(attributes.stdout, `${evidencePath}: text: set\n${evidencePath}: eol: lf\n`);
+  }
+});
+
 test("production capture policy is frozen while unit fixtures may stay small", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),

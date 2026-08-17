@@ -1,0 +1,2 @@
+# Performance report sets hash exact JSON bytes, so Windows checkouts must not rewrite LF.
+release/performance/**/*.json text eol=lf
