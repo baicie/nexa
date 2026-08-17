@@ -15,7 +15,7 @@ const policyFiles = [
   "release/performance-budgets.json",
 ];
 
-test("preflight aggregates every external release blocker without mutating policy", () => {
+test("preflight aggregates external blockers while reporting active performance", () => {
   const before = policyFiles.map((file) => readFileSync(path.join(root, file), "utf8"));
   const report = collectReleasePreflight({
     root,
@@ -55,15 +55,8 @@ test("preflight aggregates every external release blocker without mutating polic
   );
   assert.deepEqual(Object.keys(report.performance), ["darwin-arm64", "win32-x64"]);
   for (const platform of Object.values(report.performance)) {
-    assert.equal(platform.status, "pending");
-    assert.deepEqual(platform.pending, [
-      "coldStartMs",
-      "idleRssBytes",
-      "artifactBytes",
-      "tickMs",
-      "layoutMs",
-      "paintMs",
-    ]);
+    assert.equal(platform.status, "active");
+    assert.deepEqual(platform.pending, []);
   }
   assert.deepEqual(
     policyFiles.map((file) => readFileSync(path.join(root, file), "utf8")),

@@ -373,7 +373,7 @@ test("v3 rejects inexact process counts, frame counts, quality, and mixed report
   );
 });
 
-test("the release config freezes reference-notes-v3 while hosted baselines await capture", () => {
+test("the release config freezes reference-notes-v3 with reviewed active report sets", () => {
   const config = JSON.parse(
     readFileSync(new URL("../release/performance-budgets.json", import.meta.url), "utf8"),
   );
@@ -398,13 +398,22 @@ test("the release config freezes reference-notes-v3 while hosted baselines await
     assert.equal(config.metrics[name].collection, "hosted-native");
   }
   assert.deepEqual(Object.keys(config.platforms).sort(), ["darwin-arm64", "win32-x64"]);
-  for (const platform of Object.values(config.platforms)) {
-    const baselines = Object.values(platform.baselines);
-    for (const baseline of baselines) {
-      assert.equal(baseline.status, "pending");
-      assert.match(baseline.reason, /reference-notes-v3/u);
-      assert.equal("value" in baseline, false);
-      assert.equal("evidence" in baseline, false);
+  for (const [platformName, platform] of Object.entries(config.platforms)) {
+    const evidenceRecords = Object.values(platform.baselines).map(({ evidence }) => evidence);
+    assert.equal(new Set(evidenceRecords.map((evidence) => JSON.stringify(evidence))).size, 1);
+    const [evidence] = evidenceRecords;
+    assert.match(evidence.reportSet, new RegExp(`/${platformName}/`, "u"));
+    const reportSet = JSON.parse(
+      readFileSync(path.join(repositoryRoot, evidence.reportSet), "utf8"),
+    );
+    assert.equal(reportSet.platform, platformName);
+    assert.equal(evidence.commit, reportSet.commit);
+    assert.equal(evidence.capturedAt, reportSet.capturedAt);
+    for (const metricName of metricNames) {
+      const baseline = platform.baselines[metricName];
+      assert.equal(baseline.status, "active");
+      assert.equal(baseline.value, reportSet.summary.metrics[metricName]);
+      assert.equal("reason" in baseline, false);
     }
   }
 });

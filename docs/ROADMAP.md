@@ -1,6 +1,6 @@
 # Nexa UI 路线图
 
-- 状态：Desktop Notes MVP 的 Windows UIA、双平台真实 picker/clean-runner、供应链与 v2 性能验收已完成；Technical Preview 仍等待 clean-tag MVP promotion、registry clean-user、真实签名/公证、发布演练与独立审批
+- 状态：Desktop Notes MVP 的 Windows UIA、双平台真实 picker/clean-runner、供应链与 v3 三副本性能 baseline activation 已完成；G6-07P 仍等待 active-baseline required 复核，Technical Preview 仍等待 clean-tag MVP promotion、registry clean-user、真实签名/公证、发布演练与独立审批
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
 - 当前目标：[`Desktop Notes MVP`](./MVP.md)
@@ -386,7 +386,7 @@ G2A、G2B、G2C 可在 G1 合同冻结后并行。G3 输入必须等待 Runtime 
 - [x] G6-04：run `31902303937` 的 10 个 hosted security jobs 通过 npm registry audit、四份 Cargo lock advisory、四份 deny、license/Action SHA policy 和 secret scan。
 - [x] G6-05：checksum、CycloneDX 1.6 dependency graph 和 SLSA provenance 的生成/离线 fresh verify 合同已覆盖当前 9 个 npm 根、2 个 Cargo Host 根与 Windows unified static closure 根。
 - [ ] G6-06：policy/runbook 与 SHA-256-bound reviewed executor 已在本地实现并通过 fake-tool contracts；execution/credential activation 仍 disabled，owner/protected Environment/真实凭据未配置，双平台 hosted staging evidence pending。
-- [x] G6-07：run `31952821895` 证明 v1 将 first-present 混入 p95 会产生结构性波动；v2 已固定分离 startup/steady-state，并由 run `31958001217` 的 `macos-15` / `windows-2022` 完整 raw report 完成双平台 activation 与严格 active-budget 复算。
+- [x] G6-07：v1/v2 已留作历史采样证据；`reference-notes-v3` 冻结每进程 p95 边界、每平台 3 个独立 hosted replica、共享候选制品和 raw-byte-bound report set。run `31991801398` attempt 1 已完成双平台 capture、逐字节评审与 activation；生产 budget 不接受单 runner 报告，G6-07P 等待 active-baseline required 复核。
 - [ ] G6-08：本地 candidate 已完成 fresh verify、5 秒 native launch 与隔离篡改 rollback；双平台 clean-tag hosted staging 仍被 G6-06 签名前置条件和外部审批阻断。
 - [ ] G6-09：首次 registry 循环已在本地拆成 one-time bootstrap staging 与 registry-gated final promotion；final-only 七资产 GitHub Release draft/reconcile/attest/npm 后公开/publication-record 合同已实现。真实 registry publication、双平台 signed artifact、GitHub Release 和 12 条最终成功标准仍未闭环。
 
@@ -402,7 +402,7 @@ Solid Tier-1 本地合同为 `node --test tools/solid-notes-e2e.test.mjs`、`nod
 
 **G6 外部 readiness 聚合预检（2026-08-11）**：`pnpm release:preflight` / `tools/release-preflight.mjs` 复用 canonical release、signing 与 performance validator，在不写 policy/evidence、不访问 registry 或凭据的前提下输出 schema v1。它要求 clean `refs/tags/v0.1.0`、phase-bound external gates 与受保护签名/发布证据；当前分支即使已通过平台、安全和性能 job，仍必须因签名、clean-tag rehearsal、registry 和 publication 门禁退出 blocked。
 
-**G6 hosted 状态复核（2026-08-16）**：PR run `31902303937` 共 41/41 jobs 成功，source head 为 `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`，Actions merge execution revision 为 `991b28142783833c14be659125c4564d14219cc5`。它关闭 G3B-05、G5-03P/G5-04P、G5-09/MVP-01、G6-04P 和当时的 v1 G6-07P 门禁，`CI / result` job `95059146281` 成功。随后 run `31958001217` 绑定 source head `3051815dd70118c292ad7f64d1c34b0f728182c7` / merge revision `184351135c649f83af07730bf337ff9b20f8b89f`，performance jobs `95191688326` / `95191688333` 取得样本数均为 `10/10/1/1000/1000/1000`、failed/drop 均为 0 的 v2 报告并完成 activation；G6-07P 等待 baseline active 后的最终 hosted required 复核。两个 run 都不是 clean tag，且没有激活凭据、签名/公证、registry publication 或 GitHub Release，因此 N-10/N-11/MVP-02 与 G6-06P/G6-08P/G6-09P 仍保持 pending。
+**G6 hosted 状态复核（2026-08-17）**：PR run `31902303937` 共 41/41 jobs 成功，source head 为 `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd`，Actions merge execution revision 为 `991b28142783833c14be659125c4564d14219cc5`。它关闭 G3B-05、G5-03P/G5-04P、G5-09/MVP-01、G6-04P 和当时的 v1 G6-07P 门禁，`CI / result` job `95059146281` 成功。v2 run `31958001217` 作为历史 steady-state 证据保留；当前 v3 capture run `31991801398` attempt 1 绑定 source head `8302b89200698df6a6ead7772928107ba4d56eee` / merge revision `2c91ac02340245e5bad206bc1e9fe0d8b96b88fd`，11/11 performance jobs 取得六份 `10 process x 100 steady frame`、failed/drop 均为 0 的 raw report 和两个 raw-byte-bound report set，完成双平台 activation。G6-07P 等待 baseline active 后的新 hosted required 复核。这些 run 都不是 clean tag，且没有激活凭据、签名/公证、registry publication 或 GitHub Release，因此 N-10/N-11/MVP-02 与 G6-06P/G6-08P/G6-09P 仍保持 pending。
 
 ## 5. 并行执行建议
 

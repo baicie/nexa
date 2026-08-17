@@ -66,28 +66,58 @@
       "runner": "macos-15",
       "baselines": {
         "coldStartMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 295.58864549999953,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         },
         "idleRssBytes": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 592650240,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         },
         "artifactBytes": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 27159002,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         },
         "tickMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 2.7703335,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         },
         "layoutMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 0.48343749999999996,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         },
         "paintMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 0.28893749999999996,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
         }
       }
     },
@@ -95,28 +125,58 @@
       "runner": "windows-2022",
       "baselines": {
         "coldStartMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 130.51700000000164,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         },
         "idleRssBytes": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 154599424,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         },
         "artifactBytes": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 18529860,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         },
         "tickMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 0.5083500000000001,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         },
         "layoutMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 0.23695,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         },
         "paintMs": {
-          "status": "pending",
-          "reason": "awaiting three-replica reference-notes-v3 hosted capture"
+          "status": "active",
+          "value": 0.12090000000000001,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
         }
       }
     }

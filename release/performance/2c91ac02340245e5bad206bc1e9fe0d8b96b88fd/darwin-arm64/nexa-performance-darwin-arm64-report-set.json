@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "kind": "performance-report-set",
+  "workload": "reference-notes-v3",
+  "platform": "darwin-arm64",
+  "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+  "capturedAt": "2026-08-17T04:08:07.214Z",
+  "runner": {
+    "provider": "github-actions",
+    "image": "macos-15",
+    "hosted": true,
+    "runId": "31991801398",
+    "runAttempt": 1
+  },
+  "artifact": {
+    "name": "reference-notes-macos-arm64",
+    "executable": "Nexa Notes.app/Contents/MacOS/NexaNotes",
+    "bytes": 27159002,
+    "executableSha256": "ad9bd0f8d81631f7f46f1364a6056e3024c46d3396823e170e64158375921144",
+    "treeSha256": "2362d65250a76e50c91afd4b26d23a5244c9a39ccdf255ab31b1908ce3944dff",
+    "archiveSha256": "a65a4dc98b77337fdc00228069af10acd7ccf0b00903c101a3e17f1ff0e62403"
+  },
+  "reports": [
+    {
+      "replica": 1,
+      "path": "nexa-performance-darwin-arm64-replica-1.json",
+      "sha256": "499358d6a8bbc576e45083a0f79cb807e41de75d28be087680b4c6427212f506",
+      "capturedAt": "2026-08-17T04:07:37.254Z"
+    },
+    {
+      "replica": 2,
+      "path": "nexa-performance-darwin-arm64-replica-2.json",
+      "sha256": "312edd110ef93b78a2c02a27bf713668e7369c7f3fcd3be29d2da32a9a0c4231",
+      "capturedAt": "2026-08-17T04:07:48.405Z"
+    },
+    {
+      "replica": 3,
+      "path": "nexa-performance-darwin-arm64-replica-3.json",
+      "sha256": "d6f21184ba079cafeca13075fdc62a2fa0d9b54bb32b8ab29620985bae9da1b8",
+      "capturedAt": "2026-08-17T04:07:46.073Z"
+    }
+  ],
+  "summary": {
+    "method": "median-of-three-runner-summaries",
+    "runners": [
+      {
+        "replica": 1,
+        "metrics": {
+          "coldStartMs": 266.88497899999675,
+          "idleRssBytes": 592330752,
+          "artifactBytes": 27159002,
+          "tickMs": 1.8896245,
+          "layoutMs": 0.255604,
+          "paintMs": 0.16149950000000002
+        }
+      },
+      {
+        "replica": 2,
+        "metrics": {
+          "coldStartMs": 963.0997294999997,
+          "idleRssBytes": 592650240,
+          "artifactBytes": 27159002,
+          "tickMs": 4.5043755,
+          "layoutMs": 0.540771,
+          "paintMs": 0.3891875
+        }
+      },
+      {
+        "replica": 3,
+        "metrics": {
+          "coldStartMs": 295.58864549999953,
+          "idleRssBytes": 593731584,
+          "artifactBytes": 27159002,
+          "tickMs": 2.7703335,
+          "layoutMs": 0.48343749999999996,
+          "paintMs": 0.28893749999999996
+        }
+      }
+    ],
+    "metrics": {
+      "coldStartMs": 295.58864549999953,
+      "idleRssBytes": 592650240,
+      "artifactBytes": 27159002,
+      "tickMs": 2.7703335,
+      "layoutMs": 0.48343749999999996,
+      "paintMs": 0.28893749999999996
+    }
+  }
+}

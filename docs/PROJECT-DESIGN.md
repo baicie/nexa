@@ -1,9 +1,9 @@
 # Nexa UI 项目详细设计
 
-- 状态：Desktop Notes MVP 直接平台验收已完成（PR run `31902303937` 通过 UIA/NSAccessibility、双平台真实 picker/clean-runner、供应链与 active 性能门禁）；Technical Preview 仍等待 clean-tag promotion、registry clean-user、真实签名/公证、发布演练与独立审批
+- 状态：Desktop Notes MVP 直接平台验收已完成（PR run `31902303937` 通过 UIA/NSAccessibility、双平台真实 picker/clean-runner 与供应链门禁；run `31991801398` 已激活 v3 三副本性能 baseline，等待 active required 复核）；Technical Preview 仍等待 clean-tag promotion、registry clean-user、真实签名/公证、发布演练与独立审批
 - 规划输入：`mvp@f3afbeb`
 - 最新证据：[`BASELINE.md`](./BASELINE.md)
-- 日期：2026-08-16
+- 日期：2026-08-17
 - 关联决策：ADR-004、ADR-005、ADR-006、ADR-007、ADR-008、ADR-009、ADR-010、ADR-011、ADR-012、ADR-013、ADR-014、ADR-015
 - 当前目标：[`MVP.md`](./MVP.md)
 - 配套计划：[`ROADMAP.md`](./ROADMAP.md)、[`../TODO.md`](../TODO.md)、[`REFERENCE-APP.md`](./REFERENCE-APP.md)
@@ -793,7 +793,7 @@ pnpm --filter @nexa/cli smoke:package
 
 G0 基线命令的准确版本、runner 和 run 链接见[`BASELINE.md`](./BASELINE.md)。G5 CLI create-to-package 已在本地真实 Perry AOT/link 通过，并由 run `31902303937` 的 macOS/Windows required matrix 完成 hosted 验证。`pnpm test:perry` 证明 clean compile/link，不单独证明运行时 parity。
 
-2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix、Minimal TSX/Notes/FS/Dialog 与 Solid Tier-1 核心路径均通过；九包 tarball consumer 完成 typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。这些本地结果仍不替代 registry clean-user 或签名/发布证据；Windows、Clipboard/picker 与 clean launch 的直接 hosted 门禁已于 2026-08-16 由 run `31902303937` 另行关闭，v2 performance baseline 则由 run `31958001217` 的双平台 steady-state 报告完成激活。
+2026-08-10 本地收口验证：`pnpm test:workspace`、`pnpm test:release`、完整 `pnpm build`、Rust workspace tests、五入口 Perry AOT matrix、Minimal TSX/Notes/FS/Dialog 与 Solid Tier-1 核心路径均通过；九包 tarball consumer 完成 typecheck、Node ESM import、doctor、Perry AOT、双 Host 链接、package 与 evidence verify。这些本地结果仍不替代 registry clean-user 或签名/发布证据；Windows、Clipboard/picker 与 clean launch 的直接 hosted 门禁已于 2026-08-16 由 run `31902303937` 另行关闭。v1/v2 performance 证据作为历史采样合同保留，当前每平台三副本的 `reference-notes-v3` 已由 run `31991801398` attempt 1 完成 capture、评审和 baseline activation。
 
 ### 10.2 计划新增的聚合命令
 
@@ -867,11 +867,11 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - final 先创建或核对 draft prerelease，fresh-download 已有远端 bytes 后只上传缺失且摘要一致的资产，禁止 `--clobber`，随后再次 fresh-download 验证 exact allowlist。只有 npm 九包 `technical-preview` 二次观测完全收敛后才公开 draft，并保存绑定 Release ID/URL、release/signing run、七资产摘要与九包 integrity 的 publication record；该 record 是 workflow artifact，不是第八个公开资产。
 - `release/readiness-policy.json` 的 checked-in execution 保持 `disabled/none`；只有 protected `release-evidence.yml` 组装的 phase-bound 外部证据 bundle 能变为 `enabled/bootstrap` 或 `enabled/final`。bootstrap bundle 在 final evaluator 下必须同时因 phase mismatch 与 registry pending 被拒绝。
 
-2026-08-16 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、当时的 v1 active performance 与 G6-05 unsigned input jobs。run `31958001217` 又在 source head `3051815dd70118c292ad7f64d1c34b0f728182c7` / merge revision `184351135c649f83af07730bf337ff9b20f8b89f` 上取得并复核 v2 双平台 steady-state 报告，激活当前 performance baseline。这些 PR run 都不是 clean tag，也没有激活凭据或发布权限，因此不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
+2026-08-17 hosted 边界：run `31902303937` 在 source head `e56bb9e2c531e9cd3d97837465eca92d5e2c31dd` / Actions merge execution revision `991b28142783833c14be659125c4564d14219cc5` 上完成直接平台、安全、当时的 v1 active performance 与 G6-05 unsigned input jobs。v2 run `31958001217` 作为历史 steady-state 证据保留；run `31991801398` attempt 1 在 source head `8302b89200698df6a6ead7772928107ba4d56eee` / merge revision `2c91ac02340245e5bad206bc1e9fe0d8b96b88fd` 上完成 v3 双平台各三份 hosted raw、两个 report set 的逐字节评审和 baseline activation，G6-07P 等待 active 状态下的新 required run。这些 PR run 都不是 clean tag，也没有激活凭据或发布权限，因此不是 MVP schema-v5 promotion、signed staging、clean-tag rehearsal、registry proof 或 Technical Preview publication 证据。
 
 ## 14. 性能与可观测性
 
-六项数值基线与回归阈值由 `release/performance-budgets.json` 管理；v1 hosted 证据作为旧采样合同归档，v2 将 first-present 与 steady-state 帧分层，并已用 run `31958001217` 的 `macos-15` / `windows-2022` 完整 raw report 激活双平台 baseline。完整来源、样本、digest 和复核方法见 [`PERFORMANCE.md`](./PERFORMANCE.md)。参考应用持续记录以下计数和 trace span：
+六项数值基线与回归阈值由 `release/performance-budgets.json` 管理；v1/v2 hosted 证据作为旧采样合同归档，v3 保留 startup/steady-state 分层，并将帧统计冻结为“每进程 nearest-rank p95 后取 10 进程中位数”，平台结果再取 3 个独立 runner summary 的中位数。run `31991801398` attempt 1 的六份 raw 和两个 report set 已归档并激活当前双平台 baseline。完整来源、样本、digest 和复核方法见 [`PERFORMANCE.md`](./PERFORMANCE.md)。参考应用持续记录以下计数和 trace span：
 
 - startup 到 first present；
 - 每 tick 的 mutation 数、layout 节点数、semantic diff 数、display command 数；
@@ -880,11 +880,11 @@ export type HostResult<T> = { ok: true; value: T } | { ok: false; error: NexaErr
 - image/paragraph cache hit ratio；
 - idle memory、二进制体积和冷启动时间。
 
-G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 曾激活 v1 baseline，run `31902303937` 完成 v1 active-budget 复核；run `31952821895` 暴露首帧混入 p95 的结构性边界后，run `31958001217` 以固定 startup 边界和每平台 1000 个 steady frame 激活 v2 baseline。G6-07P 还要求在 baseline 已 active 的后续 hosted required run 中完成复核。
+G2C-07 已交付每 tick/frame 的 mutation、layout node、semantic diff、display command、paint/present 计数及真实执行阶段耗时；G6-07A/B 已交付六项预算 schema、校验器、artifact bytes 测量、Notes 原生探针与 hosted collector。run `31895582357` 的 macOS/Windows raw report 曾激活 v1 baseline，run `31902303937` 完成 v1 active-budget 复核；run `31952821895` 暴露首帧混入 p95 的结构性边界后，run `31958001217` 以固定 startup 边界和每平台 1000 个 steady frame 激活 v2 baseline。v3 进一步保留每进程边界，并要求每平台三个独立 hosted replica 和完整 report set；run `31991801398` 已完成 v3 capture/activation，G6-07P 只能由该 baseline active 后的新 hosted required run 关闭。
 
 ### 14.1 G6-07B 原生性能采集设计
 
-以下假设在本切片内冻结：workload 为 `reference-notes-v2`；只有 GitHub-hosted `macos-15` / `windows-2022` 证据可以进入候选报告；开发机只允许运行合同测试，不能激活 baseline；性能探针必须由显式环境变量启用，普通 Notes 启动、输入和绘制路径不改变；采集器在取得 RSS 后终止专用子进程，该终止不计为应用失败。
+以下假设在本切片内冻结：workload 为 `reference-notes-v3`；只有 GitHub-hosted `macos-15` / `windows-2022` 证据可以进入候选报告；开发机只允许运行合同测试，不能激活 baseline；每平台只构建一份共享候选 tar，必须在 3 个独立 hosted job 上分别采集完整 raw report；性能探针必须由显式环境变量启用，普通 Notes 启动、输入和绘制路径不改变；采集器在取得 RSS 后终止专用子进程，该终止不计为应用失败。
 
 数据流固定为：
 
@@ -893,9 +893,10 @@ Notes/Perry process
   -> NuiHost FrameMetricsObserver (successful present 后 publish)
   -> prefixed native JSON line on stdout
   -> Node collector monotonic timestamp + platform RSS reader
-  -> complete six-metric raw report
-  -> performance-budget validator
-  -> candidate artifact + active baseline regression check
+  -> schema-v2 runner report x 3 independent hosted replicas
+  -> raw-byte-bound platform report set
+  -> aggregate + check-set
+  -> active baseline regression result
 ```
 
 原生探针合同：
@@ -908,20 +909,26 @@ Notes/Perry process
 
 collector 合同：
 
-- 读取 `release/performance-budgets.json`，严格执行 3 次 warmup、10 次 measured run 和至少 1000 个 steady-state frame。每个 measured 进程的 presented 目标为 `1 startup + ceil(minimum frame samples / measured runs) steady-state`；不得通过 CLI 降低 startup、样本数或 5 秒 settle window。
+- 读取 `release/performance-budgets.json`，严格执行每平台 3 个 replica，且每 replica 3 次 warmup、10 次 measured run、每进程精确 100 个 steady-state frame。每个 measured 进程的 presented 目标为 `1 startup + steadyPresentsPerMeasuredRun`；不得通过 CLI 降低 startup、样本数或 5 秒 settle window。
 - parent 在 `spawn()` 前用 Node monotonic clock 取起点，以第一条 native `Presented` event 到达为 first-present；measured run 在该事件后等待至少 5 秒且不注入输入，再用 macOS `ps` 或 Windows PowerShell 读取该 PID 的 resident set。
 - warmup 样本全部丢弃；measured run 的 cold start/RSS 各保留一条，第一个 successful Presented 固定归入 startup 且不进入帧 p95，随后所有 successful Presented duration 都保留。所有 event 包括 startup 都先验证 identity/outcome/drop；任一 timeout、malformed event、非零/异常提前退出、缺样本、drop 或 RSS 读取失败都阻止报告生成，不能按耗时筛除 outlier。
 - collector 必须核对实际 `process.platform/process.arch`、配置中的 runner image、与
-  `GITHUB_SHA` 完全相等的 commit、`GITHUB_ACTIONS=true` 与
-  `RUNNER_ENVIRONMENT=github-hosted`；候选报告绑定 commit、platform、runner、artifact
-  regular-file bytes 和主可执行文件 SHA-256。artifact identity 在首次 spawn 前和
-  最后一次 measured run 后都必须一致；presented frame 的 session 固定、frame ID
-  唯一且严格递增，outcome counts 必须精确匹配。
-- workflow 只能上传完整 raw report 和 budget-check 结果；baseline 为 pending 时使用 `--allow-pending` 供评审，但 `require_active` 仍必须返回非零。不得自动修改 baseline 或触发发布。
+  `GITHUB_SHA` 完全相等的 commit、`GITHUB_ACTIONS=true`、
+  `RUNNER_ENVIRONMENT=github-hosted`、规范正十进制 `GITHUB_RUN_ID`、正整数
+  `GITHUB_RUN_ATTEMPT` 和 replica `1/2/3`；候选报告绑定 commit、platform、runner、
+  artifact regular-file bytes、archive/tree 和主可执行文件 SHA-256。artifact identity
+  在首次 spawn 前和最后一次 measured run 后都必须一致；presented frame 的 session
+  固定、frame ID 唯一且严格递增，outcome counts 必须精确匹配。
+- 每个 runner 的 frame 值先按进程取 nearest-rank p95，再取 10 个进程 p95
+  的中位数；平台值再取 3 个 runner summary 的中位数。report set 绑定每份
+  raw JSON 的真实字节和 SHA-256，单报告不能执行 schema v2 budget gate。
+- workflow 分开 `aggregate` 与 `check-set`；只要成功聚合就上传完整 report-set
+  artifact，回归不得删除 raw 证据。baseline 为 pending 时使用 `--allow-pending`
+  供评审，但 `require_active` 仍必须返回非零。不得自动修改 baseline 或触发发布。
 
 collector 模块的可测试边界固定为 `parseNativePerformanceEvent`（严格解析 prefix/schema/raw record）、`frameMetricSamples`（仅从完整 presented duration 派生三项样本）、`assertHostedRunner`（核对 hosted/OS/arch/image）、`readResidentSetBytes`（可注入 subprocess）和 `createPerformanceReport`（聚合 measured runs 并绑定 artifact identity）。真实 CLI 只负责参数解析、子进程生命周期与调用这些边界，测试不得依赖真实窗口或伪造计时常量来证明 hosted 采集成功。
 
-G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。v1 的 hosted 报告、人工评审、baseline activation 与 required 复核分别由 runs `31895582357` / `31902303937` 完成；v2 的双平台 raw report、人工复核、activation 与严格 active-budget 复算由 run `31958001217` 及其归档报告完成，G6-07P 等待下一次 `performance-required` hosted 复核。
+G6-07B 的本地完成标准是：native event 单元测试、collector 聚合/异常测试和 workflow 合同测试全部通过，macOS/Windows job 都实际调用 collector 并校验完整报告。v1 的 hosted 报告、人工评审、baseline activation 与 required 复核分别由 runs `31895582357` / `31902303937` 完成；v2 的双平台 raw report 和 activation 由 run `31958001217` 完成并作为历史证据保留。v3 只接受每平台三份完整 runner report 的 report set；run `31991801398` attempt 1 已完成 capture、逐字节评审、归档和 activation，G6-07P 等待 v3 baseline active 后的新 `performance-required` hosted 复核。
 
 Technical Preview 发布门禁必须有可复现的 macOS/Windows 基线与回归阈值。
 
