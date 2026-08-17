@@ -1,0 +1,239 @@
+name: Release readiness evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      publication_phase:
+        description: "Assemble bootstrap gates or the complete final gate set"
+        required: true
+        default: final
+        type: choice
+        options:
+          - bootstrap
+          - final
+      mvp_run_id:
+        description: "Successful mvp-evidence.yml run for this exact tag"
+        required: true
+        type: string
+      rehearsal_run_id:
+        description: "Successful release-rehearsal.yml tag run for this exact tag"
+        required: true
+        type: string
+      signing_run_id:
+        description: "Successful signing.yml run for this exact tag"
+        required: true
+        type: string
+      registry_run_id:
+        description: "Successful bootstrap registry-evidence.yml run; required only for final"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  bundle:
+    name: Assemble protected readiness bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: technical-preview-release-evidence
+    env:
+      MVP_RUN_ID: ${{ inputs.mvp_run_id }}
+      REHEARSAL_RUN_ID: ${{ inputs.rehearsal_run_id }}
+      SIGNING_RUN_ID: ${{ inputs.signing_run_id }}
+      REGISTRY_RUN_ID: ${{ inputs.registry_run_id }}
+      PUBLICATION_PHASE: ${{ inputs.publication_phase }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Validate static fail-closed policy and source tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/release-readiness.mjs validate
+          node tools/action-sha-policy.mjs
+          if [[ "$PUBLICATION_PHASE" == "bootstrap" ]]; then
+            if [[ -n "$REGISTRY_RUN_ID" ]]; then
+              echo "registry_run_id must be empty for bootstrap evidence" >&2
+              exit 64
+            fi
+          elif [[ "$PUBLICATION_PHASE" == "final" ]]; then
+            if [[ ! "$REGISTRY_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+              echo "registry_run_id must be a positive run ID for final evidence" >&2
+              exit 64
+            fi
+          else
+            echo "publication_phase must be bootstrap or final" >&2
+            exit 64
+          fi
+          if [[ "$GITHUB_REF" != "refs/tags/v0.1.0" ]]; then
+            echo "Readiness evidence requires refs/tags/v0.1.0, got $GITHUB_REF" >&2
+            exit 64
+          fi
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+      - name: Download hosted MVP proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: mvp-evidence
+          path: ${{ runner.temp }}/external-proof/mvp
+          run-id: ${{ inputs.mvp_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Download rehearsal decision proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nexa-release-decision-${{ github.sha }}
+          path: ${{ runner.temp }}/external-proof/rehearsal
+          run-id: ${{ inputs.rehearsal_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Download signed custody proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-release-artifacts
+          path: ${{ runner.temp }}/external-proof/signing
+          run-id: ${{ inputs.signing_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Download registry clean-user proof
+        if: inputs.publication_phase == 'final'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: registry-evidence
+          path: ${{ runner.temp }}/external-proof/registry
+          run-id: ${{ inputs.registry_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Fetch and bind every external gate run
+        shell: bash
+        run: |
+          set -euo pipefail
+          input_root="$RUNNER_TEMP/nexa-readiness-input"
+          mkdir -p "$input_root/proof/registry" "$input_root/runs"
+
+          cp "$RUNNER_TEMP/external-proof/mvp/mvp-evidence.json" "$input_root/proof/mvp-evidence.json"
+          cp "$RUNNER_TEMP/external-proof/rehearsal/rehearsal-decision.json" "$input_root/proof/rehearsal-decision.json"
+          cp "$RUNNER_TEMP/external-proof/signing/signed-release-artifacts.manifest.json" "$input_root/proof/signed-release-artifacts.manifest.json"
+          node tools/mvp-evidence.mjs verify "$input_root/proof/mvp-evidence.json"
+          node tools/release-rehearsal.mjs enforce \
+            --decision "$input_root/proof/rehearsal-decision.json" \
+            --mode tag \
+            --ref "$GITHUB_REF" \
+            --revision "$GITHUB_SHA"
+          node tools/publish-release.mjs verify-signed \
+            --signed-artifacts "$RUNNER_TEMP/external-proof/signing" \
+            --revision "$GITHUB_SHA" \
+            --signed-run-id "$SIGNING_RUN_ID"
+          if [[ "$PUBLICATION_PHASE" == "final" ]]; then
+            for registry_file in consumer-package.json pnpm-lock.yaml registry-evidence.json; do
+              source="$RUNNER_TEMP/external-proof/registry/$registry_file"
+              test -f "$source"
+              test ! -L "$source"
+              cp --no-dereference "$source" "$input_root/proof/registry/$registry_file"
+            done
+            node tools/registry-evidence.mjs verify \
+              --evidence "$input_root/proof/registry/registry-evidence.json" \
+              --revision "$GITHUB_SHA" \
+              --ref "$GITHUB_REF" \
+              --phase bootstrap
+          fi
+
+          declare -A run_ids=(
+            [mvp]="$MVP_RUN_ID"
+            [contracts]="$REHEARSAL_RUN_ID"
+            [security]="$REHEARSAL_RUN_ID"
+            [performance]="$REHEARSAL_RUN_ID"
+            [consumer]="$REHEARSAL_RUN_ID"
+            [signing]="$SIGNING_RUN_ID"
+            [rehearsal]="$REHEARSAL_RUN_ID"
+            [registry]="$REGISTRY_RUN_ID"
+          )
+          declare -A workflows=(
+            [mvp]=".github/workflows/mvp-evidence.yml"
+            [contracts]=".github/workflows/release-rehearsal.yml"
+            [security]=".github/workflows/release-rehearsal.yml"
+            [performance]=".github/workflows/release-rehearsal.yml"
+            [consumer]=".github/workflows/release-rehearsal.yml"
+            [signing]=".github/workflows/signing.yml"
+            [rehearsal]=".github/workflows/release-rehearsal.yml"
+            [registry]=".github/workflows/registry-evidence.yml"
+          )
+          declare -A proofs=(
+            [mvp]="proof/mvp-evidence.json"
+            [contracts]="proof/rehearsal-decision.json"
+            [security]="proof/rehearsal-decision.json"
+            [performance]="proof/rehearsal-decision.json"
+            [consumer]="proof/rehearsal-decision.json"
+            [signing]="proof/signed-release-artifacts.manifest.json"
+            [rehearsal]="proof/rehearsal-decision.json"
+            [registry]="proof/registry/registry-evidence.json"
+          )
+
+          gates=(mvp contracts security performance consumer signing rehearsal)
+          if [[ "$PUBLICATION_PHASE" == "final" ]]; then
+            gates+=(registry)
+          fi
+          for gate in "${gates[@]}"; do
+            run_id="${run_ids[$gate]}"
+            if [[ ! "$run_id" =~ ^[1-9][0-9]*$ ]]; then
+              echo "$gate run ID must be a positive integer" >&2
+              exit 64
+            fi
+            run_metadata="runs/$gate.json"
+            proof="${proofs[$gate]}"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" > "$input_root/$run_metadata"
+            events=workflow_dispatch
+            if [[ "$gate" == contracts || "$gate" == security || "$gate" == performance || "$gate" == consumer || "$gate" == rehearsal ]]; then
+              events=workflow_dispatch,push
+            fi
+            node tools/release-readiness-bundle.mjs validate-run \
+              --run "$input_root/$run_metadata" \
+              --revision "$GITHUB_SHA" \
+              --workflow "${workflows[$gate]}" \
+              --events "$events" \
+              --label "$gate run"
+            node tools/release-readiness-bundle.mjs record \
+              --gate "$gate" \
+              --revision "$GITHUB_SHA" \
+              --ref "$GITHUB_REF" \
+              --run "$input_root/$run_metadata" \
+              --proof "$input_root/$proof" \
+              --artifact "$proof" \
+              --job "$gate gate" \
+              --output "$input_root/$gate.json"
+          done
+      - name: Assemble and independently verify dynamic policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/release-readiness-bundle.mjs assemble \
+            --source "$RUNNER_TEMP/nexa-readiness-input" \
+            --output "$RUNNER_TEMP/nexa-readiness-evidence" \
+            --revision "$GITHUB_SHA" \
+            --ref "$GITHUB_REF" \
+            --phase "$PUBLICATION_PHASE"
+          node tools/release-readiness.mjs readiness \
+            --policy "$RUNNER_TEMP/nexa-readiness-evidence/readiness-policy.json" \
+            --root "$RUNNER_TEMP/nexa-readiness-evidence" \
+            --revision "$GITHUB_SHA" \
+            --ref "$GITHUB_REF" \
+            --phase "$PUBLICATION_PHASE"
+      - name: Upload immutable readiness evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-readiness-evidence-${{ inputs.publication_phase }}
+          path: ${{ runner.temp }}/nexa-readiness-evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

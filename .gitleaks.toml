@@ -1,0 +1,8 @@
+title = "Nexa UI gitleaks policy"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic credential used only to prove the negative fixture path"
+paths = ['''tools/fixtures/security/secret\.txt''']

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "platforms": [
+    { "id": "macos", "primaryModifier": "Meta" },
+    { "id": "windows", "primaryModifier": "Control" }
+  ],
+  "singleLine": {
+    "initial": "你",
+    "preedit": "們",
+    "commit": "們",
+    "expected": "你們"
+  },
+  "multiline": {
+    "initial": "你們\n你們\n你們",
+    "preedit": "✍🏽‍✍️",
+    "replacementPreedit": "é",
+    "commit": "✍🏽‍✍️"
+  },
+  "clipboard": {
+    "initial": "你們\n✍🏽‍✍️é你",
+    "selection": { "anchor": 5, "focus": 1 },
+    "selectedText": "們\n✍🏽‍✍️é",
+    "afterCut": "你你",
+    "shortcuts": ["Copy", "Cut", "Paste"]
+  }
+}

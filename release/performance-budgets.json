@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 2,
+  "workload": {
+    "id": "reference-notes-v3",
+    "definition": "docs/PERFORMANCE.md#reference-workload",
+    "samplePolicy": {
+      "warmupRuns": 3,
+      "measuredRuns": 10,
+      "startupPresentsPerMeasuredRun": 1,
+      "steadyPresentsPerMeasuredRun": 100,
+      "replicasPerPlatform": 3
+    }
+  },
+  "metrics": {
+    "coldStartMs": {
+      "unit": "ms",
+      "collection": "hosted-native",
+      "statistic": "median",
+      "minimumSamples": 10,
+      "maxRegressionPercent": 20,
+      "description": "Process spawn to the benchmark's first-present marker"
+    },
+    "idleRssBytes": {
+      "unit": "bytes",
+      "collection": "hosted-native",
+      "statistic": "median",
+      "minimumSamples": 10,
+      "maxRegressionPercent": 20,
+      "description": "Resident set after the idle settle window"
+    },
+    "artifactBytes": {
+      "unit": "bytes",
+      "collection": "deterministic-artifact",
+      "statistic": "max",
+      "minimumSamples": 1,
+      "maxRegressionPercent": 5,
+      "description": "Regular-file bytes in the unsigned distribution artifact"
+    },
+    "tickMs": {
+      "unit": "ms",
+      "collection": "hosted-native",
+      "statistic": "median-of-process-p95",
+      "minimumSamples": 1000,
+      "maxRegressionPercent": 15,
+      "description": "Full measured UI tick duration"
+    },
+    "layoutMs": {
+      "unit": "ms",
+      "collection": "hosted-native",
+      "statistic": "median-of-process-p95",
+      "minimumSamples": 1000,
+      "maxRegressionPercent": 15,
+      "description": "Layout phase duration"
+    },
+    "paintMs": {
+      "unit": "ms",
+      "collection": "hosted-native",
+      "statistic": "median-of-process-p95",
+      "minimumSamples": 1000,
+      "maxRegressionPercent": 15,
+      "description": "Paint phase duration"
+    }
+  },
+  "platforms": {
+    "darwin-arm64": {
+      "runner": "macos-15",
+      "baselines": {
+        "coldStartMs": {
+          "status": "active",
+          "value": 295.58864549999953,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        },
+        "idleRssBytes": {
+          "status": "active",
+          "value": 592650240,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        },
+        "artifactBytes": {
+          "status": "active",
+          "value": 27159002,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        },
+        "tickMs": {
+          "status": "active",
+          "value": 2.7703335,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        },
+        "layoutMs": {
+          "status": "active",
+          "value": 0.48343749999999996,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        },
+        "paintMs": {
+          "status": "active",
+          "value": 0.28893749999999996,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/darwin-arm64/nexa-performance-darwin-arm64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:07.214Z"
+          }
+        }
+      }
+    },
+    "win32-x64": {
+      "runner": "windows-2022",
+      "baselines": {
+        "coldStartMs": {
+          "status": "active",
+          "value": 130.51700000000164,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        },
+        "idleRssBytes": {
+          "status": "active",
+          "value": 154599424,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        },
+        "artifactBytes": {
+          "status": "active",
+          "value": 18529860,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        },
+        "tickMs": {
+          "status": "active",
+          "value": 0.5083500000000001,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        },
+        "layoutMs": {
+          "status": "active",
+          "value": 0.23695,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        },
+        "paintMs": {
+          "status": "active",
+          "value": 0.12090000000000001,
+          "evidence": {
+            "reportSet": "release/performance/2c91ac02340245e5bad206bc1e9fe0d8b96b88fd/win32-x64/nexa-performance-win32-x64-report-set.json",
+            "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+            "capturedAt": "2026-08-17T04:08:05.332Z"
+          }
+        }
+      }
+    }
+  }
+}

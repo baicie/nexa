@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "digest": "sha256",
+  "outputs": {
+    "checksums": "SHA256SUMS",
+    "sbom": "sbom.cdx.json",
+    "provenance": "provenance.intoto.jsonl"
+  },
+  "sbom": {
+    "format": "CycloneDX",
+    "specVersion": "1.6",
+    "dependencyGraphRequired": true,
+    "ecosystems": ["npm", "cargo"]
+  },
+  "provenance": {
+    "statementType": "https://in-toto.io/Statement/v1",
+    "predicateType": "https://slsa.dev/provenance/v1"
+  }
+}

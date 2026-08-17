@@ -1,3 +1,7 @@
 # Layout Playground
 
-Deferred — exercise Flexbox subset after Slice 4.
+Exercises Taffy Flexbox: Column / Row / gap / padding / Scroll.
+
+```bash
+perry compile main.tsx -o layout-playground && ./layout-playground
+```

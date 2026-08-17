@@ -1,0 +1,67 @@
+{
+  "generatedBy": "tools/protocol-codegen.mjs",
+  "source": ["protocol/common.json", "protocol/system-host.json"],
+  "abiVersion": "0.5",
+  "functions": [
+    {
+      "name": "js_nexa_clipboard_read_text",
+      "params": [],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_clipboard_write_text",
+      "params": ["string"],
+      "returns": "i32"
+    },
+    {
+      "name": "js_nexa_clipboard_read_text_v1",
+      "params": [],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_clipboard_write_text_v1",
+      "params": ["string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_cancel_task_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_close_resource_v1",
+      "params": ["u32", "u32"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_reset_session_v1",
+      "params": [],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_read_text_file_v1",
+      "params": ["string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_write_text_file_v1",
+      "params": ["string", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_await_task_v1",
+      "params": ["u32", "u32"],
+      "returns": "promise<string>"
+    },
+    {
+      "name": "js_nexa_open_file_dialog_v1",
+      "params": ["string", "string", "string"],
+      "returns": "string"
+    },
+    {
+      "name": "js_nexa_save_file_dialog_v1",
+      "params": ["string", "string", "string"],
+      "returns": "string"
+    }
+  ]
+}

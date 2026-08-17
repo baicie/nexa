@@ -1,12 +1,14 @@
 [package]
 name = "nui-core"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 description = "Nexa Native UI Core — node tree, mutation, style, layout, event, paint, scheduler"
 
 [dependencies]
+nui-protocol = { path = "../../protocol", version = "0.1.0" }
 
 [lints]
 workspace = true

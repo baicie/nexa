@@ -4,12 +4,24 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: read
+
+env:
+  G0_QUALITY_RUN_ID: "30878535145"
+  G0_QUALITY_SHA: 35912970ce3bfffa891b1eff1008ebe041bb33c1
+  G0_NATIVE_RUN_ID: "30878586130"
+  G0_NATIVE_SHA: 35912970ce3bfffa891b1eff1008ebe041bb33c1
+
 jobs:
   adr:
-    name: ADR present
+    name: Evidence and ADRs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check documentation links and source contracts
+        run: node tools/docs-contract.test.mjs
       - name: Require ADR-004
         run: |
           test -f docs/decisions/ADR-004-framework-adapters-native-host-mvp.md
@@ -20,3 +32,87 @@ jobs:
             echo "Move ADR.md into docs/decisions/ — root ADR.md is not allowed."
             exit 1
           fi
+      - name: Verify G0 baseline evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          verify_run() {
+            local run_json="$1"
+            local sha="$2"
+            local name="$3"
+            local path="$4"
+            local event="$5"
+            jq -e \
+              --arg sha "$sha" \
+              --arg name "$name" \
+              --arg path "$path" \
+              --arg event "$event" \
+              '.head_sha == $sha and .name == $name and .path == $path and
+               .event == $event and .status == "completed" and .conclusion == "success"' \
+              <<<"$run_json" >/dev/null
+          }
+
+          require_successful_job() {
+            local jobs_json="$1"
+            local job_name="$2"
+            jq -er --arg name "$job_name" \
+              '[.jobs[] | select(.name == $name and .status == "completed" and .conclusion == "success")]
+               | select(length == 1) | .[0].id' \
+              <<<"$jobs_json"
+          }
+
+          require_baseline_job_link() {
+            local run_id="$1"
+            local jobs_json="$2"
+            local job_name="$3"
+            local job_id
+            job_id="$(require_successful_job "$jobs_json" "$job_name")"
+            grep -Fq \
+              "https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id/job/$job_id" \
+              docs/BASELINE.md
+          }
+
+          test -f docs/BASELINE.md
+          grep -Fq "(./BASELINE.md)" docs/README.md
+          grep -Fq "$G0_QUALITY_SHA" docs/BASELINE.md
+          grep -Fq "$G0_NATIVE_SHA" docs/BASELINE.md
+          grep -Fq "actions/runs/$G0_QUALITY_RUN_ID" docs/BASELINE.md
+          grep -Fq "actions/runs/$G0_NATIVE_RUN_ID" docs/BASELINE.md
+
+          quality_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$G0_QUALITY_RUN_ID")"
+          verify_run \
+            "$quality_run" "$G0_QUALITY_SHA" "CI" ".github/workflows/ci.yml" "pull_request"
+          quality_jobs="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$G0_QUALITY_RUN_ID/jobs?per_page=100"
+          )"
+
+          for job_name in \
+            "TypeScript / quality" \
+            "FFI / nui-host" \
+            "FFI / system-host" \
+            "Rust / fmt" \
+            "Rust / clippy" \
+            "Rust / test" \
+            "Rust / build" \
+            "result"; do
+            require_baseline_job_link "$G0_QUALITY_RUN_ID" "$quality_jobs" "$job_name"
+          done
+
+          for framework in solid vue react svelte; do
+            for runner in macos-15 windows-2022; do
+              require_successful_job \
+                "$quality_jobs" "Perry frameworks / AOT ($framework, $runner)" >/dev/null
+            done
+          done
+
+          native_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$G0_NATIVE_RUN_ID")"
+          verify_run \
+            "$native_run" "$G0_NATIVE_SHA" "Native smoke" ".github/workflows/native-smoke.yml" \
+            "workflow_dispatch"
+          native_jobs="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$G0_NATIVE_RUN_ID/jobs?per_page=100"
+          )"
+          require_baseline_job_link "$G0_NATIVE_RUN_ID" "$native_jobs" "smoke (macos-latest)"
+          require_baseline_job_link "$G0_NATIVE_RUN_ID" "$native_jobs" "smoke (windows-latest)"

@@ -1,0 +1,8 @@
+# The repository maintainer owns all paths by default.
+* @baicie
+
+# Release-sensitive paths remain explicit so ownership cannot drift silently.
+/.github/workflows/ @baicie
+/.github/CODEOWNERS @baicie
+/protocol/ @baicie
+/packages/cli/ @baicie

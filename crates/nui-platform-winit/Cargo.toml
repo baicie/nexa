@@ -1,13 +1,24 @@
 [package]
 name = "nui-platform-winit"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 description = "Winit window and input backend for Nexa UI (macOS/Windows MVP)"
 
 [dependencies]
+accesskit = "0.24.1"
+accesskit_winit = { version = "0.33.2", default-features = false, features = ["rwh_06"] }
 nui-core = { path = "../nui-core" }
+softbuffer = { workspace = true }
+winit = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+accessibility = "0.2.0"
+core-foundation = "0.10.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

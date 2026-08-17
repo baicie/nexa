@@ -1,7 +1,10 @@
-# Todo List (Slice 4)
+# Todo List (Slice 4 + Input)
 
-Acceptance target after Counter TSX is green:
+Minimal TSX Todo with `For` / `Scroll` / **`Input`**.
 
-- dynamic insert/remove
-- Taffy Flexbox
-- Scroll
+```bash
+perry compile main.tsx -o todo && ./todo
+```
+
+- Type in the field, press **Enter** or **Add** to append
+- Toggle / Remove mutate the list signal without rebuilding the window

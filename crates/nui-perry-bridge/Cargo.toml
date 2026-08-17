@@ -1,13 +1,26 @@
 [package]
 name = "nui-perry-bridge"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Perry FFI bridge isolating Perry ABI from NUI Core"
+description = "NUI Host engine for Perry FFI (Perry ABI stays in packages/nui-host)"
 
 [dependencies]
+nui-app-runtime = { path = "../nui-app-runtime" }
 nui-core = { path = "../nui-core" }
+nui-protocol = { path = "../../protocol" }
+nui-layout-taffy = { path = "../nui-layout-taffy" }
+nui-platform-winit = { path = "../nui-platform-winit" }
+nui-render-skia = { path = "../nui-render-skia" }
+nui-system-core = { path = "../nui-system-core" }
+nui-text = { path = "../nui-text" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+font-test-data = "=0.6.1"
 
 [lints]
 workspace = true

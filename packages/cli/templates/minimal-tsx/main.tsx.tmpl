@@ -1,0 +1,17 @@
+import { Button, Column, Text, Window, mount, signal } from "@nexa/ui";
+
+function App() {
+  const count = signal(0);
+
+  return (
+    <Window title="{{DISPLAY_NAME}}">
+      <Column width={360} padding={24} gap={16}>
+        <Text fontSize={28}>{{DISPLAY_NAME}}</Text>
+        <Text>Count: {count}</Text>
+        <Button onClick={() => count.value++}>Increment</Button>
+      </Column>
+    </Window>
+  );
+}
+
+mount(App);

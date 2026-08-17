@@ -1,7 +1,38 @@
 {
   "name": "@nexa/adapter-solid",
   "version": "0.1.0",
-  "private": true,
-  "description": "Solid → NUI Host adapter (Slice 5 — deferred)",
-  "scripts": {}
+  "description": "Solid Universal Renderer -> NUI Host (Tier-1 Technical Preview adapter)",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    }
+  },
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/adapter-solid"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  }
 }

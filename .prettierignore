@@ -1,3 +1,6 @@
 # Ignore lockfiles and large decision docs from format gate.
 pnpm-lock.yaml
 docs/decisions/**
+
+# Preserve reviewed hosted performance reports byte-for-byte.
+release/performance/**

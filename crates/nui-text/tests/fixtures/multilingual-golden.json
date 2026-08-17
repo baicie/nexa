@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "latin-narrow-wrap",
+      "text": "ABC ABC",
+      "fontSize": 20.0,
+      "maxWidth": 80.0,
+      "defaultDirection": "ltr",
+      "expected": {
+        "size64": [5120, 2560],
+        "lines": [
+          {
+            "source": "ABC ",
+            "content": "ABC ",
+            "breakKind": "soft",
+            "advance64": 5120,
+            "overflows": false,
+            "clusters": [
+              { "source": "A", "direction": "ltr", "x64": 0, "width64": 1280 },
+              { "source": "B", "direction": "ltr", "x64": 1280, "width64": 1280 },
+              { "source": "C", "direction": "ltr", "x64": 2560, "width64": 1280 },
+              { "source": " ", "direction": "ltr", "x64": 3840, "width64": 1280 }
+            ],
+            "runs": [
+              {
+                "source": "ABC ",
+                "font": "Ahem Golden",
+                "direction": "ltr",
+                "script": "Latin",
+                "glyphs": [
+                  { "id": 35, "clusterUtf8": 0, "x64": 0, "y64": 1024 },
+                  { "id": 36, "clusterUtf8": 1, "x64": 1280, "y64": 1024 },
+                  { "id": 37, "clusterUtf8": 2, "x64": 2560, "y64": 1024 },
+                  { "id": 3, "clusterUtf8": 3, "x64": 3840, "y64": 1024 }
+                ]
+              }
+            ]
+          },
+          {
+            "source": "ABC",
+            "content": "ABC",
+            "breakKind": "end",
+            "advance64": 3840,
+            "overflows": false,
+            "clusters": [
+              { "source": "A", "direction": "ltr", "x64": 0, "width64": 1280 },
+              { "source": "B", "direction": "ltr", "x64": 1280, "width64": 1280 },
+              { "source": "C", "direction": "ltr", "x64": 2560, "width64": 1280 }
+            ],
+            "runs": [
+              {
+                "source": "ABC",
+                "font": "Ahem Golden",
+                "direction": "ltr",
+                "script": "Latin",
+                "glyphs": [
+                  { "id": 35, "clusterUtf8": 4, "x64": 0, "y64": 2304 },
+                  { "id": 36, "clusterUtf8": 5, "x64": 1280, "y64": 2304 },
+                  { "id": 37, "clusterUtf8": 6, "x64": 2560, "y64": 2304 }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "cjk-narrow-wrap",
+      "text": "你們你",
+      "fontSize": 20.0,
+      "maxWidth": 20.0,
+      "defaultDirection": "ltr",
+      "expected": {
+        "size64": [1280, 5518],
+        "lines": [
+          {
+            "source": "你",
+            "content": "你",
+            "breakKind": "soft",
+            "advance64": 1280,
+            "overflows": false,
+            "clusters": [{ "source": "你", "direction": "ltr", "x64": 0, "width64": 1280 }],
+            "runs": [
+              {
+                "source": "你",
+                "font": "Noto Serif TC Golden",
+                "direction": "ltr",
+                "script": "Han",
+                "glyphs": [{ "id": 8, "clusterUtf8": 0, "x64": 0, "y64": 1473 }]
+              }
+            ]
+          },
+          {
+            "source": "們",
+            "content": "們",
+            "breakKind": "soft",
+            "advance64": 1280,
+            "overflows": false,
+            "clusters": [{ "source": "們", "direction": "ltr", "x64": 0, "width64": 1280 }],
+            "runs": [
+              {
+                "source": "們",
+                "font": "Noto Serif TC Golden",
+                "direction": "ltr",
+                "script": "Han",
+                "glyphs": [{ "id": 11, "clusterUtf8": 3, "x64": 0, "y64": 3313 }]
+              }
+            ]
+          },
+          {
+            "source": "你",
+            "content": "你",
+            "breakKind": "end",
+            "advance64": 1280,
+            "overflows": false,
+            "clusters": [{ "source": "你", "direction": "ltr", "x64": 0, "width64": 1280 }],
+            "runs": [
+              {
+                "source": "你",
+                "font": "Noto Serif TC Golden",
+                "direction": "ltr",
+                "script": "Han",
+                "glyphs": [{ "id": 8, "clusterUtf8": 6, "x64": 0, "y64": 5152 }]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mixed-arabic-rtl",
+      "text": "A مرحبا A",
+      "fontSize": 20.0,
+      "maxWidth": null,
+      "defaultDirection": "ltr",
+      "expected": {
+        "size64": [7813, 2703],
+        "lines": [
+          {
+            "source": "A مرحبا A",
+            "content": "A مرحبا A",
+            "breakKind": "end",
+            "advance64": 7813,
+            "overflows": false,
+            "clusters": [
+              { "source": "A", "direction": "ltr", "x64": 0, "width64": 1280 },
+              { "source": " ", "direction": "ltr", "x64": 1280, "width64": 1280 },
+              { "source": "ا", "direction": "rtl", "x64": 2560, "width64": 372 },
+              { "source": "ب", "direction": "rtl", "x64": 2932, "width64": 439 },
+              { "source": "ح", "direction": "rtl", "x64": 3372, "width64": 703 },
+              { "source": "ر", "direction": "rtl", "x64": 4074, "width64": 507 },
+              { "source": "م", "direction": "rtl", "x64": 4581, "width64": 672 },
+              { "source": " ", "direction": "ltr", "x64": 5253, "width64": 1280 },
+              { "source": "A", "direction": "ltr", "x64": 6533, "width64": 1280 }
+            ],
+            "runs": [
+              {
+                "source": "A ",
+                "font": "Ahem Golden",
+                "direction": "ltr",
+                "script": "Latin",
+                "glyphs": [
+                  { "id": 35, "clusterUtf8": 0, "x64": 0, "y64": 1759 },
+                  { "id": 3, "clusterUtf8": 1, "x64": 1280, "y64": 1759 }
+                ]
+              },
+              {
+                "source": "مرحبا",
+                "font": "Noto Sans Arabic Golden",
+                "direction": "rtl",
+                "script": "Arabic",
+                "glyphs": [
+                  { "id": 46, "clusterUtf8": 10, "x64": 2560, "y64": 1759 },
+                  { "id": 103, "clusterUtf8": 8, "x64": 2932, "y64": 1759 },
+                  { "id": 414, "clusterUtf8": 6, "x64": 3372, "y64": 1759 },
+                  { "id": 972, "clusterUtf8": 4, "x64": 4074, "y64": 1759 },
+                  { "id": 766, "clusterUtf8": 2, "x64": 4581, "y64": 1759 }
+                ]
+              },
+              {
+                "source": " ",
+                "font": "Ahem Golden",
+                "direction": "ltr",
+                "script": "Arabic",
+                "glyphs": [{ "id": 3, "clusterUtf8": 12, "x64": 5253, "y64": 1759 }]
+              },
+              {
+                "source": "A",
+                "font": "Ahem Golden",
+                "direction": "ltr",
+                "script": "Latin",
+                "glyphs": [{ "id": 35, "clusterUtf8": 13, "x64": 6533, "y64": 1759 }]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "emoji-zwj-zero-width",
+      "text": "✍🏽‍✍️",
+      "fontSize": 20.0,
+      "maxWidth": 0.0,
+      "defaultDirection": "ltr",
+      "expected": {
+        "size64": [3188, 1500],
+        "lines": [
+          {
+            "source": "✍🏽‍✍️",
+            "content": "✍🏽‍✍️",
+            "breakKind": "end",
+            "advance64": 3188,
+            "overflows": true,
+            "clusters": [{ "source": "✍🏽‍✍️", "direction": "ltr", "x64": 0, "width64": 3188 }],
+            "runs": [
+              {
+                "source": "✍🏽‍✍️",
+                "font": "Noto Handwriting Golden",
+                "direction": "ltr",
+                "script": "Common",
+                "glyphs": [
+                  { "id": 10, "clusterUtf8": 0, "x64": 0, "y64": 1188 },
+                  { "id": 1, "clusterUtf8": 0, "x64": 1594, "y64": 1188 },
+                  { "id": 7, "clusterUtf8": 0, "x64": 1594, "y64": 1188 },
+                  { "id": 1, "clusterUtf8": 0, "x64": 3188, "y64": 1188 }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

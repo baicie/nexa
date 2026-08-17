@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexa-ui.dev/schema/app-manifest-v1.json",
+  "title": "Nexa App Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "requiredProtocol",
+    "permissions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://nexa-ui.dev/schema/app-manifest-v1.json"
+    },
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 255,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(?!.*[\\uD800-\\uDFFF])(?=.*\\S)[^\\u0000-\\u001F\\u007F\\u0080-\\u009F]+$"
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^(0|[1-9]\\d{0,17})\\.(0|[1-9]\\d{0,17})\\.(0|[1-9]\\d{0,17})(?:-((?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$"
+    },
+    "requiredProtocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["major", "minor"],
+      "properties": {
+        "major": { "type": "integer", "const": 1 },
+        "minor": { "type": "integer", "minimum": 0, "maximum": 0 }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "system.ClipboardRead",
+          "system.ClipboardWrite",
+          "system.DialogOpen",
+          "system.DialogSave",
+          "system.FsRead",
+          "system.FsWrite"
+        ]
+      }
+    }
+  }
+}

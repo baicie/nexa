@@ -1,0 +1,14 @@
+[package]
+name = "nui-app-runtime"
+version.workspace = true
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Application Runtime: scheduler, tasks, lifecycle (ADR-006 §3.5) — skeleton"
+
+[dependencies]
+nui-core = { path = "../nui-core" }
+
+[lints]
+workspace = true

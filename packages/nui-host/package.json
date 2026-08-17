@@ -1,0 +1,310 @@
+{
+  "name": "@nexa/nui-host",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Perry native library exposing the Nexa UI Host Protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "perry": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "perry",
+    "perryts",
+    "nexa",
+    "nui"
+  ],
+  "dependencies": {
+    "@nexa/protocol": "workspace:*",
+    "@nexa/system-host": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/nui-host"
+  },
+  "perry": {
+    "nativeLibrary": {
+      "abiVersion": "0.5",
+      "functions": [
+        {
+          "name": "js_nui_create_node",
+          "params": [
+            "f64"
+          ],
+          "returns": "u64"
+        },
+        {
+          "name": "js_nui_create_text",
+          "params": [
+            "string"
+          ],
+          "returns": "u64"
+        },
+        {
+          "name": "js_nui_insert",
+          "params": [
+            "u64",
+            "u64",
+            "u64"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_remove",
+          "params": [
+            "u64"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_set_text",
+          "params": [
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_set_number",
+          "params": [
+            "u64",
+            "f64",
+            "f64"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_click_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_register_input",
+          "params": [
+            "u64",
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_change_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_add_submit_listener",
+          "params": [
+            "u64",
+            "ptr"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_set_image",
+          "params": [
+            "u64",
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_commit",
+          "params": [],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_run",
+          "params": [
+            "string"
+          ],
+          "returns": "void"
+        },
+        {
+          "name": "js_nui_handshake_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_create_node_v1",
+          "params": [
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_add_event_listener_v1",
+          "params": [
+            "u32",
+            "u32",
+            "u32",
+            "ptr"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_remove_event_listener_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_commit_v1",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_run_v1",
+          "params": [
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_clear_property_v1",
+          "params": [
+            "u32",
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_set_semantics_v1",
+          "params": [
+            "u32",
+            "u32",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_reset_session_v1",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_get_text_input_state_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_replace_text_input_v1",
+          "params": [
+            "u32",
+            "u32",
+            "u32",
+            "u32",
+            "string"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_get_composition_bounds_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_clear_semantics_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        },
+        {
+          "name": "js_nui_register_button_v1",
+          "params": [
+            "u32",
+            "u32"
+          ],
+          "returns": "string"
+        }
+      ],
+      "targets": {
+        "macos": {
+          "crate": "dist/native/repo/packages/nui-host",
+          "lib": "libperry_ext_nui_host.a",
+          "cargo_features": [],
+          "libs": [
+            "c++"
+          ],
+          "frameworks": [
+            "AppKit",
+            "ApplicationServices",
+            "Carbon",
+            "CoreFoundation",
+            "CoreGraphics",
+            "CoreText",
+            "CoreVideo",
+            "Foundation",
+            "IOKit",
+            "Metal",
+            "QuartzCore",
+            "Security"
+          ]
+        },
+        "linux": {
+          "crate": "dist/native/repo/packages/nui-host",
+          "lib": "libperry_ext_nui_host.a",
+          "cargo_features": [],
+          "libs": [
+            "stdc++",
+            "freetype",
+            "fontconfig",
+            "wayland-client"
+          ]
+        },
+        "windows": {
+          "crate": "dist/native/repo/packages/nui-host",
+          "lib": "perry_ext_nui_host.lib",
+          "cargo_features": [],
+          "libDirs": [
+            "target/perry-native/windows/skia-binaries"
+          ],
+          "libs": [
+            "skia",
+            "skia-bindings",
+            "usp10",
+            "ole32",
+            "user32",
+            "gdi32",
+            "fontsub",
+            "advapi32",
+            "imm32",
+            "uxtheme"
+          ]
+        }
+      }
+    }
+  }
+}

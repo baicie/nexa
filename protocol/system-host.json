@@ -1,0 +1,946 @@
+{
+  "schemaVersion": 1,
+  "namespace": "system",
+  "featureNamespace": "system",
+  "features": [
+    {
+      "bit": 2,
+      "name": "tasks",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "bit": 3,
+      "name": "resources",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "bit": 4,
+      "name": "permissions",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "types": [],
+  "commands": [
+    {
+      "id": 1,
+      "name": "ClipboardReadText",
+      "params": [],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.ClipboardRead"],
+      "createsTaskKind": "system.ClipboardReadText",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 2,
+      "name": "ClipboardWriteText",
+      "params": [{ "name": "text", "type": "string", "optional": false }],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.ClipboardWrite"],
+      "createsTaskKind": "system.ClipboardWriteText",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 3,
+      "name": "CancelTask",
+      "params": [
+        {
+          "name": "task",
+          "type": "common.HandleRef",
+          "handleKind": "common.Task",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": ["transport.handle_ref", "transport.structured_errors", "system.tasks"],
+      "requiredPermissions": [],
+      "createsTaskKind": null,
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "CloseResource",
+      "params": [
+        {
+          "name": "resource",
+          "type": "common.HandleRef",
+          "handleKind": "common.NativeResource",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.resources"
+      ],
+      "requiredPermissions": [],
+      "createsTaskKind": null,
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "ResetSession",
+      "params": [],
+      "returns": { "type": "void", "result": true },
+      "requiresFeatures": ["transport.structured_errors"],
+      "requiredPermissions": [],
+      "createsTaskKind": null,
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 6,
+      "name": "ReadTextFile",
+      "params": [{ "name": "path", "type": "string", "optional": false }],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.FsRead"],
+      "createsTaskKind": "system.ReadTextFile",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 7,
+      "name": "WriteTextFile",
+      "params": [
+        { "name": "path", "type": "string", "optional": false },
+        { "name": "text", "type": "string", "optional": false }
+      ],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.FsWrite"],
+      "createsTaskKind": "system.WriteTextFile",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 8,
+      "name": "AwaitTask",
+      "params": [
+        {
+          "name": "task",
+          "type": "common.HandleRef",
+          "handleKind": "common.Task",
+          "optional": false
+        }
+      ],
+      "returns": { "type": "string", "result": true },
+      "requiresFeatures": ["transport.handle_ref", "transport.structured_errors", "system.tasks"],
+      "requiredPermissions": [],
+      "createsTaskKind": null,
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 9,
+      "name": "OpenFileDialog",
+      "params": [
+        { "name": "title", "type": "string", "optional": false },
+        { "name": "defaultPath", "type": "string", "optional": false },
+        { "name": "filtersJson", "type": "string", "optional": false }
+      ],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.DialogOpen"],
+      "createsTaskKind": "system.OpenFileDialog",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 10,
+      "name": "SaveFileDialog",
+      "params": [
+        { "name": "title", "type": "string", "optional": false },
+        { "name": "defaultPath", "type": "string", "optional": false },
+        { "name": "filtersJson", "type": "string", "optional": false }
+      ],
+      "returns": {
+        "type": "common.HandleRef",
+        "handleKind": "common.Task",
+        "result": true
+      },
+      "requiresFeatures": [
+        "transport.handle_ref",
+        "transport.structured_errors",
+        "system.tasks",
+        "system.permissions"
+      ],
+      "requiredPermissions": ["system.DialogSave"],
+      "createsTaskKind": "system.SaveFileDialog",
+      "createsResourceKind": null,
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "permissions": [
+    {
+      "id": 1,
+      "name": "ClipboardRead",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 2,
+      "name": "ClipboardWrite",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 3,
+      "name": "FsRead",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "FsWrite",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "DialogOpen",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 6,
+      "name": "DialogSave",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "taskKinds": [
+    {
+      "id": 1,
+      "name": "ClipboardReadText",
+      "handleKind": "common.Task",
+      "resultType": "string",
+      "requiredPermission": "system.ClipboardRead",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 2,
+      "name": "ClipboardWriteText",
+      "handleKind": "common.Task",
+      "resultType": "void",
+      "requiredPermission": "system.ClipboardWrite",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 3,
+      "name": "ReadTextFile",
+      "handleKind": "common.Task",
+      "resultType": "string",
+      "requiredPermission": "system.FsRead",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "WriteTextFile",
+      "handleKind": "common.Task",
+      "resultType": "void",
+      "requiredPermission": "system.FsWrite",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "OpenFileDialog",
+      "handleKind": "common.Task",
+      "resultType": "string",
+      "requiredPermission": "system.DialogOpen",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 6,
+      "name": "SaveFileDialog",
+      "handleKind": "common.Task",
+      "resultType": "string",
+      "requiredPermission": "system.DialogSave",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "resourceKinds": [
+    {
+      "id": 1,
+      "name": "Window",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 2,
+      "name": "File",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 3,
+      "name": "FileWatcher",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 4,
+      "name": "Process",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 5,
+      "name": "HttpRequest",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "id": 6,
+      "name": "Socket",
+      "handleKind": "common.NativeResource",
+      "closeCommand": "system.CloseResource",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "ffiFunctions": [
+    {
+      "abiIndex": 0,
+      "library": "system",
+      "name": "js_nexa_clipboard_read_text",
+      "command": "system.ClipboardReadText",
+      "params": [],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "legacy_sentinel",
+      "status": "legacy",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": { "major": 1, "minor": 0 },
+        "removed": null,
+        "replacement": "system.ClipboardReadText"
+      }
+    },
+    {
+      "abiIndex": 1,
+      "library": "system",
+      "name": "js_nexa_clipboard_write_text",
+      "command": "system.ClipboardWriteText",
+      "params": [{ "name": "text", "type": "string", "mapping": "text.value" }],
+      "fixedMappings": [],
+      "returns": "i32",
+      "resultCodec": "legacy_sentinel",
+      "status": "legacy",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": { "major": 1, "minor": 0 },
+        "removed": null,
+        "replacement": "system.ClipboardWriteText"
+      }
+    },
+    {
+      "abiIndex": 2,
+      "library": "system",
+      "name": "js_nexa_clipboard_read_text_v1",
+      "command": "system.ClipboardReadText",
+      "params": [],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 3,
+      "library": "system",
+      "name": "js_nexa_clipboard_write_text_v1",
+      "command": "system.ClipboardWriteText",
+      "params": [{ "name": "text", "type": "string", "mapping": "text.value" }],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 4,
+      "library": "system",
+      "name": "js_nexa_cancel_task_v1",
+      "command": "system.CancelTask",
+      "params": [
+        { "name": "taskSlot", "type": "u32", "mapping": "task.slot" },
+        { "name": "taskGeneration", "type": "u32", "mapping": "task.generation" }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 5,
+      "library": "system",
+      "name": "js_nexa_close_resource_v1",
+      "command": "system.CloseResource",
+      "params": [
+        { "name": "resourceSlot", "type": "u32", "mapping": "resource.slot" },
+        {
+          "name": "resourceGeneration",
+          "type": "u32",
+          "mapping": "resource.generation"
+        }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 6,
+      "library": "system",
+      "name": "js_nexa_reset_session_v1",
+      "command": "system.ResetSession",
+      "params": [],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 7,
+      "library": "system",
+      "name": "js_nexa_read_text_file_v1",
+      "command": "system.ReadTextFile",
+      "params": [{ "name": "path", "type": "string", "mapping": "path.value" }],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 8,
+      "library": "system",
+      "name": "js_nexa_write_text_file_v1",
+      "command": "system.WriteTextFile",
+      "params": [
+        { "name": "path", "type": "string", "mapping": "path.value" },
+        { "name": "text", "type": "string", "mapping": "text.value" }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 9,
+      "library": "system",
+      "name": "js_nexa_await_task_v1",
+      "command": "system.AwaitTask",
+      "params": [
+        { "name": "taskSlot", "type": "u32", "mapping": "task.slot" },
+        { "name": "taskGeneration", "type": "u32", "mapping": "task.generation" }
+      ],
+      "fixedMappings": [],
+      "returns": "promise<string>",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 10,
+      "library": "system",
+      "name": "js_nexa_open_file_dialog_v1",
+      "command": "system.OpenFileDialog",
+      "params": [
+        { "name": "title", "type": "string", "mapping": "title.value" },
+        { "name": "defaultPath", "type": "string", "mapping": "defaultPath.value" },
+        { "name": "filtersJson", "type": "string", "mapping": "filtersJson.value" }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "abiIndex": 11,
+      "library": "system",
+      "name": "js_nexa_save_file_dialog_v1",
+      "command": "system.SaveFileDialog",
+      "params": [
+        { "name": "title", "type": "string", "mapping": "title.value" },
+        { "name": "defaultPath", "type": "string", "mapping": "defaultPath.value" },
+        { "name": "filtersJson", "type": "string", "mapping": "filtersJson.value" }
+      ],
+      "fixedMappings": [],
+      "returns": "string",
+      "resultCodec": "nexa_result_json_v1",
+      "status": "v1",
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ],
+  "errors": [
+    {
+      "domain": "system",
+      "code": 33554433,
+      "name": "INVALID_ARGUMENT",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["parameter", "expected", "actual"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554434,
+      "name": "INVALID_KIND",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["expectedKind", "actualKind", "slot", "generation"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554435,
+      "name": "WRONG_OWNER",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["expectedOwner", "actualOwner", "slot", "generation"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554436,
+      "name": "STALE_HANDLE",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["slot", "generation", "currentGeneration"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554437,
+      "name": "INVALID_STATE",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["state", "operation", "slot", "generation"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554438,
+      "name": "NOT_FOUND",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["resource", "identifier"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554439,
+      "name": "PERMISSION_DENIED",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["permission", "command", "source"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554440,
+      "name": "CANCELLED",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["reason", "owner", "taskKind"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554441,
+      "name": "PLATFORM_FAILURE",
+      "retryable": true,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["platform", "operation"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554442,
+      "name": "INTERNAL_FAILURE",
+      "retryable": false,
+      "severity": "FatalRuntime",
+      "contextKeys": ["invariant", "phase"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    },
+    {
+      "domain": "system",
+      "code": 33554443,
+      "name": "INVALID_DATA",
+      "retryable": false,
+      "severity": "RecoverableOperation",
+      "contextKeys": ["format", "identifier"],
+      "lifecycle": {
+        "status": "active",
+        "introduced": { "major": 1, "minor": 0 },
+        "deprecated": null,
+        "removed": null,
+        "replacement": null
+      }
+    }
+  ]
+}

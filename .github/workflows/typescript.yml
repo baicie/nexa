@@ -5,17 +5,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  typecheck:
-    name: typecheck & format
+  quality:
+    name: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - name: Install Linux native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libwayland-dev
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: "pnpm"
@@ -23,8 +30,49 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build clean workspace package artifacts
+        run: pnpm release:build
+
+      - name: Validate workspace matrix
+        run: pnpm workspace:validate
+
+      - name: Check generated protocol drift
+        run: pnpm protocol:check
+
       - name: Format
         run: pnpm format:check
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  cli-windows:
+    name: CLI (Windows)
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build clean workspace package artifacts
+        run: pnpm release:build
+
+      - name: CLI contracts
+        run: pnpm --filter @nexa/cli test

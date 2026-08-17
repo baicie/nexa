@@ -1,0 +1,35 @@
+{
+  "name": "@nexa/example-perry-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 2: Perry TS Counter via NUI Host FFI",
+  "type": "module",
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.ts -o perry-counter",
+    "start": "perry compile main.ts -o perry-counter && ./perry-counter",
+    "typecheck": "echo 'Perry Counter typecheck deferred to perry compile'"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ]
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "open": ["nexa-ui-dialog-open.txt", null],
+  "save": ["nexa-ui-dialog-save.txt"]
+}

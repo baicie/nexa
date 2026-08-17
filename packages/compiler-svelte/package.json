@@ -2,6 +2,18 @@
   "name": "@nexa/compiler-svelte",
   "version": "0.1.0",
   "private": true,
-  "description": "Svelte compiler backend for NUI Host (deferred)",
-  "scripts": {}
+  "description": "Svelte compiler backend targeting NUI Host (Slice 8)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./compile": "./src/compile.ts"
+  },
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*",
+    "svelte": "^5.55.7"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
 }

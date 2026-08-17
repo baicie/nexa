@@ -1,0 +1,47 @@
+[package]
+name = "semantic-accessibility-smoke"
+version.workspace = true
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Real desktop accessibility client smoke for the semantic E2E fixture"
+
+[[bin]]
+name = "semantic-accessibility-smoke"
+path = "src/main.rs"
+
+[dependencies]
+nui-app-runtime = { path = "../../../crates/nui-app-runtime" }
+nui-core = { path = "../../../crates/nui-core" }
+nui-platform-winit = { path = "../../../crates/nui-platform-winit" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "=0.6.4", default-features = false }
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = [
+    "NSAccessibility",
+    "NSAccessibilityConstants",
+    "NSApplication",
+    "NSAccessibilityProtocols",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = [
+    "NSArray",
+    "NSObject",
+    "NSString",
+] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Accessibility",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[lints]
+workspace = true

@@ -1,0 +1,46 @@
+{
+  "name": "@nexa/example-vue-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 6: Vue 3 createRenderer Counter → NUI Host",
+  "type": "module",
+  "dependencies": {
+    "@nexa/adapter-vue": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "@vue/runtime-core": "^3.5.22",
+    "@vue/reactivity": "^3.5.22",
+    "@vue/shared": "^3.5.22"
+  },
+  "scripts": {
+    "build": "node ../../tools/perry-compile.mjs --manifest app.manifest.json -- main.ts -o vue-counter",
+    "start": "pnpm build && ./vue-counter",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host",
+      "@vue/runtime-core",
+      "@vue/reactivity",
+      "@vue/shared"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/adapter-vue"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@vue/runtime-core",
+        "@vue/reactivity",
+        "@vue/shared"
+      ]
+    }
+  }
+}

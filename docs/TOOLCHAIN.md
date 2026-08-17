@@ -1,0 +1,43 @@
+# Nexa UI 工具链与版本策略
+
+本项目将“开发/CI 工具链”与“库的最低兼容版本”分开管理。工具链升级必须在同一个 Pull Request 中更新版本声明、锁文件和基线证据。
+
+## 固定版本
+
+| 工具      | 固定位置                            | 当前版本                                   | 说明                                                             |
+| --------- | ----------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| Node.js   | CI `node-version`                   | 22.x                                       | CI 使用 Node 22 LTS；本地至少满足根 `engines`                    |
+| pnpm      | 根 `packageManager`                 | 10.34.3                                    | `pnpm/action-setup` 只读取此处，不重复声明版本                   |
+| Rust      | `rust-toolchain.toml`               | 1.88.0                                     | 开发与 required CI 使用精确版本，并安装 rustfmt、Clippy          |
+| Rust MSRV | 根 `workspace.package.rust-version` | 1.88                                       | 兼容性下限，不用于替代固定的开发工具链                           |
+| Perry CLI | 根 `devDependencies`                | 0.5.1220                                   | 通过 `pnpm exec perry` 调用，禁止依赖全局浮动版本                |
+| Perry FFI | 两个 FFI `Cargo.toml`               | `06137858dc8c6f80975238377138f2f948d6ef88` | 对应 Perry `v0.5.1220`，两个 nativeLibrary 必须使用同一 revision |
+
+`packages/nui-host/Cargo.lock`、`packages/system-host/Cargo.lock` 与 `packages/cli/src/windows-static-closure/Cargo.lock` 都必须提交。它们是独立 staticlib crate/组合闭包的可重复依赖快照，不受根 `Cargo.lock` 覆盖；Windows 闭包模板随 CLI 发布，因此 security、Dependabot、SBOM 与实际 consumer 构建审计同一份权威源。该闭包只启用 Technical Preview 参考应用使用的 Perry `core`、Host Promise 所需 `async-runtime` 与协议校验所需 `regex-engine` feature，并由 hosted AOT/launch 门禁验证。
+
+Windows `nexa dev/build/package` 使用 Rust 1.95.0 从已安装 Host 的 vendored source 为当前应用重建统一闭包，并显式固定 `x86_64-pc-windows-msvc` Cargo target，避免用户级 `[build] target` 改变产物布局。闭包构建使用 Nexa 独占的 Cargo home；CLI 只接受固定 Perry revision 中 `exception.rs` 的已知原始哈希或上游 `4f397c7ae0b9349d3eddf32b873c5a753cffa3fd` 回补后的哈希，并在编译前幂等修复 MSVC `_setjmp` 的 `Frame` 槽，其他内容一律失败。CLI 校验 Cargo 本次产出的 `skia.lib` 与 `skia-bindings.lib`，再通过 MSVC `link.exe` 与 `lld-link` 都支持的 `LINK=/LIBPATH:...` 注入搜索目录；调用环境原本没有 `LIB` 时仍保持缺失，让 Perry 正常发现 MSVC CRT 与 Windows SDK，因此干净 consumer 不依赖仓库内 staging 工具。配置 `NEXA_WINDOWS_RUNTIME_ROOT` 时只在活锁持有期间复用共享 Cargo source cache 与 target；若发现死亡进程、空文件或截断元数据遗留锁，CLI 保留原锁字节并切换到本次调用独占的 `recovery-*` cache 与 target，避免条件删除竞态。
+
+仓库 `.npmrc` 固定官方 npm registry。Perry CLI 依赖按平台分包，镜像缺少任一 optional package 都会产生“wrapper 已安装但 CLI 不可执行”的假安装。
+
+## 本地验证
+
+```bash
+pnpm install --frozen-lockfile
+pnpm exec perry --version
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo check --manifest-path packages/nui-host/Cargo.toml --locked
+cargo check --manifest-path packages/system-host/Cargo.toml --locked
+cargo metadata --manifest-path packages/cli/src/windows-static-closure/Cargo.toml --locked --no-deps
+```
+
+Perry CLI 必须输出 `0.5.1220`。两条独立 Cargo 命令必须从已提交 lock 构建，不能回退到 `main` 或在 CI 中隐式更新依赖。
+
+## 升级流程
+
+1. 选择一个已发布的 Perry CLI 版本，并解析其 Git tag revision。
+2. 同时更新根 Perry CLI 版本、两个 `perry-ffi` revision、Windows 闭包 revision 和三份独立 Cargo lock。
+3. 更新 Rust 工具链时保留 MSRV 声明；MSRV 变化必须单独说明兼容性影响。
+4. 运行上述完整验证以及 Minimal TSX Perry smoke。
+5. 在 `docs/BASELINE.md` 记录 runner、版本、结果与 CI 链接后再合并。

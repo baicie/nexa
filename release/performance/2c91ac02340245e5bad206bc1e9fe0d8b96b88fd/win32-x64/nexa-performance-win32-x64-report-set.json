@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "kind": "performance-report-set",
+  "workload": "reference-notes-v3",
+  "platform": "win32-x64",
+  "commit": "2c91ac02340245e5bad206bc1e9fe0d8b96b88fd",
+  "capturedAt": "2026-08-17T04:08:05.332Z",
+  "runner": {
+    "provider": "github-actions",
+    "image": "windows-2022",
+    "hosted": true,
+    "runId": "31991801398",
+    "runAttempt": 1
+  },
+  "artifact": {
+    "name": "reference-notes-windows-x64",
+    "executable": "NexaNotes.exe",
+    "bytes": 18529860,
+    "executableSha256": "128bef8577b58ba583666151b54090d953baa27a548fdc2258e2e889bd6f44be",
+    "treeSha256": "0bf9266d99d381ec84b8b27bab4e267dc59bc2cd58a601ca1e368056859f5f54",
+    "archiveSha256": "e46a31de0581e73751f9203d1866e563a9154531427666b3204956cf0c513994"
+  },
+  "reports": [
+    {
+      "replica": 1,
+      "path": "nexa-performance-win32-x64-replica-1.json",
+      "sha256": "786cbaecb81db113230f7ed0b084dc52cb2e138d70dae7b4e5ba62bb0b139f83",
+      "capturedAt": "2026-08-17T04:07:46.775Z"
+    },
+    {
+      "replica": 2,
+      "path": "nexa-performance-win32-x64-replica-2.json",
+      "sha256": "21c2cb5b4b080545310403e5fe8a2b24a52119d65a293a2a511094c57a8e90cb",
+      "capturedAt": "2026-08-17T04:07:44.571Z"
+    },
+    {
+      "replica": 3,
+      "path": "nexa-performance-win32-x64-replica-3.json",
+      "sha256": "8c60ca6836be3cbe80d31d8190cf8d9ee26d8933f37affe17cfd87ef5e3bb9aa",
+      "capturedAt": "2026-08-17T04:07:44.976Z"
+    }
+  ],
+  "summary": {
+    "method": "median-of-three-runner-summaries",
+    "runners": [
+      {
+        "replica": 1,
+        "metrics": {
+          "coldStartMs": 130.51700000000164,
+          "idleRssBytes": 154611712,
+          "artifactBytes": 18529860,
+          "tickMs": 0.5083500000000001,
+          "layoutMs": 0.2384,
+          "paintMs": 0.1298
+        }
+      },
+      {
+        "replica": 2,
+        "metrics": {
+          "coldStartMs": 125.94389999999999,
+          "idleRssBytes": 154599424,
+          "artifactBytes": 18529860,
+          "tickMs": 0.5014,
+          "layoutMs": 0.23695,
+          "paintMs": 0.1171
+        }
+      },
+      {
+        "replica": 3,
+        "metrics": {
+          "coldStartMs": 134.21000000000095,
+          "idleRssBytes": 154599424,
+          "artifactBytes": 18529860,
+          "tickMs": 0.57385,
+          "layoutMs": 0.221,
+          "paintMs": 0.12090000000000001
+        }
+      }
+    ],
+    "metrics": {
+      "coldStartMs": 130.51700000000164,
+      "idleRssBytes": 154599424,
+      "artifactBytes": 18529860,
+      "tickMs": 0.5083500000000001,
+      "layoutMs": 0.23695,
+      "paintMs": 0.12090000000000001
+    }
+  }
+}

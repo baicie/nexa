@@ -1,0 +1,67 @@
+{
+  "name": "@nexa/example-reference-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop Notes MVP reference application",
+  "type": "module",
+  "dependencies": {
+    "@nexa/clipboard": "workspace:*",
+    "@nexa/dialog": "workspace:*",
+    "@nexa/fs": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "@nexa/ui": "workspace:*",
+    "@nexa/adapter-solid": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.3",
+    "@babel/preset-typescript": "^7.27.1",
+    "@perryts/perry": "0.5.1220",
+    "babel-preset-solid": "^1.9.9"
+  },
+  "scripts": {
+    "build": "node ../../tools/reference-notes-build.mjs",
+    "solid:babel": "babel solid-app.tsx --out-file dist-solid/solid-app.js --extensions .tsx,.ts,.jsx,.js && babel solid-main.tsx --out-file dist-solid/solid-main.js --extensions .tsx,.ts,.jsx,.js && babel state.ts --out-file dist-solid/state.js --extensions .tsx,.ts,.jsx,.js",
+    "solid:build": "pnpm solid:babel && node ../../tools/perry-compile.mjs --manifest app.manifest.json -- dist-solid/solid-main.js -o reference-notes-solid",
+    "package": "node ../../tools/reference-notes-package.mjs",
+    "smoke:dialog": "node ../../tools/reference-notes-dialog-runtime-smoke.mjs",
+    "smoke:clipboard": "node ../../tools/reference-notes-clipboard-runtime-smoke.mjs",
+    "smoke:fs": "node ../../tools/reference-notes-fs-runtime-smoke.mjs",
+    "smoke:picker": "node ../../tools/reference-notes-dialog-picker-smoke.mjs",
+    "start": "node ../../tools/reference-notes-build.mjs --run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/adapter-solid",
+      "@nexa/fs",
+      "@nexa/dialog",
+      "@nexa/clipboard",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host",
+      "solid-js"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/ui",
+        "@nexa/adapter-solid"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/adapter-solid",
+        "@nexa/fs",
+        "@nexa/dialog",
+        "@nexa/clipboard",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "solid-js"
+      ]
+    }
+  }
+}

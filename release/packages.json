@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "policy": "npm-first Technical Preview; registry publication still requires an explicit release action",
+  "npm": {
+    "public": [
+      {
+        "name": "@nexa/cli",
+        "path": "packages/cli",
+        "surface": "command",
+        "commands": ["nexa"],
+        "exports": false
+      },
+      { "name": "@nexa/ui", "path": "packages/ui", "surface": "user-api", "exports": true },
+      {
+        "name": "@nexa/adapter-solid",
+        "path": "packages/adapter-solid",
+        "surface": "framework-adapter",
+        "tier": "tier-1",
+        "exports": true
+      },
+      { "name": "@nexa/fs", "path": "packages/fs", "surface": "user-api", "exports": true },
+      { "name": "@nexa/dialog", "path": "packages/dialog", "surface": "user-api", "exports": true },
+      {
+        "name": "@nexa/clipboard",
+        "path": "packages/clipboard",
+        "surface": "user-api",
+        "exports": true
+      },
+      {
+        "name": "@nexa/protocol",
+        "path": "packages/protocol",
+        "surface": "runtime-support",
+        "exports": true
+      },
+      {
+        "name": "@nexa/nui-host",
+        "path": "packages/nui-host",
+        "surface": "runtime-support",
+        "exports": true
+      },
+      {
+        "name": "@nexa/system-host",
+        "path": "packages/system-host",
+        "surface": "runtime-support",
+        "exports": true
+      }
+    ],
+    "private": [
+      { "name": "@nexa/adapter-react", "path": "packages/adapter-react" },
+      { "name": "@nexa/adapter-vue", "path": "packages/adapter-vue" },
+      { "name": "@nexa/compiler-svelte", "path": "packages/compiler-svelte" },
+      { "name": "@nexa/system", "path": "packages/system" }
+    ]
+  },
+  "rust": {
+    "public": [],
+    "delivery": {
+      "kind": "vendored-source-in-host-packages",
+      "hosts": ["@nexa/nui-host", "@nexa/system-host"]
+    },
+    "private": [
+      { "name": "nui-protocol", "path": "protocol" },
+      { "name": "nui-app-runtime", "path": "crates/nui-app-runtime" },
+      { "name": "nui-core", "path": "crates/nui-core" },
+      { "name": "nui-layout-taffy", "path": "crates/nui-layout-taffy" },
+      { "name": "nui-perry-bridge", "path": "crates/nui-perry-bridge" },
+      { "name": "nui-platform-winit", "path": "crates/nui-platform-winit" },
+      { "name": "nui-render-skia", "path": "crates/nui-render-skia" },
+      { "name": "nui-system-core", "path": "crates/nui-system-core" },
+      { "name": "nui-text", "path": "crates/nui-text" },
+      { "name": "rust-counter", "path": "examples/rust-counter" },
+      { "name": "semantic-accessibility-smoke", "path": "examples/semantic-e2e/native" },
+      { "name": "perry-ext-nui_host", "path": "packages/nui-host" },
+      { "name": "perry-ext-nexa_system_host", "path": "packages/system-host" }
+    ]
+  }
+}

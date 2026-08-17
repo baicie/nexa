@@ -1,0 +1,642 @@
+name: Reference Notes package
+
+on:
+  workflow_call:
+    inputs:
+      collect_mvp_proof:
+        description: "Upload revision-bound launch proof for the parent MVP workflow"
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: build and archive (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022]
+    env:
+      PERRY_NO_CACHE: "1"
+      PERRY_NO_AUTO_OPTIMIZE: "1"
+      RUSTUP_TOOLCHAIN: "1.95.0"
+      PERRY_WORKSPACE_ROOT: ${{ github.workspace }}/.perry-source
+      PERRY_RUNTIME_DIR: ${{ github.workspace }}/.perry-source/target/release
+      PERRY_LIB_DIR: ${{ github.workspace }}/.perry-source/target/release
+      NEXA_WINDOWS_RUNTIME_ROOT: ${{ github.workspace }}/.nexa-windows-runtime
+      SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
+      SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check out pinned Perry source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: PerryTS/perry
+          ref: 06137858dc8c6f80975238377138f2f948d6ef88
+          path: .perry-source
+          persist-credentials: false
+
+      - name: Install Perry-compatible Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
+        with:
+          toolchain: 1.95.0
+
+      - name: Initialize MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Download verified Windows Skia archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "skia-bindings-windows-x64.tar.gz"
+          curl.exe --location --fail --silent --show-error --retry 3 --output $archive $env:SKIA_WINDOWS_ARCHIVE_URL
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
+            throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
+          }
+          $fileUrl = "file://" + $archive.Replace('\', '/')
+          "NEXA_WINDOWS_SKIA_ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build clean workspace package artifacts
+        run: pnpm release:build
+
+      - name: Stage verified Windows Skia for Reference Notes
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          node tools/stage-windows-skia.mjs
+          --project "examples/reference-notes"
+          --archive "$env:NEXA_WINDOWS_SKIA_ARCHIVE"
+          --sha256 "$env:SKIA_WINDOWS_ARCHIVE_SHA256"
+
+      - name: Build pinned Perry full unwind runtime closure (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CARGO_PROFILE_RELEASE_PANIC: unwind
+          PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
+        run: |
+          set -euo pipefail
+          rustc --version
+          actual_revision="$(git -C "$PERRY_WORKSPACE_ROOT" rev-parse HEAD)"
+          test "$actual_revision" = "$PERRY_SOURCE_REVISION"
+          cargo build \
+            --locked \
+            --release \
+            --manifest-path "$PERRY_WORKSPACE_ROOT/Cargo.toml" \
+            --target-dir "$PERRY_WORKSPACE_ROOT/target" \
+            -p perry-runtime-static \
+            -p perry-stdlib-static
+          test -s "$PERRY_RUNTIME_DIR/libperry_runtime.a"
+          test -s "$PERRY_LIB_DIR/libperry_stdlib.a"
+
+      - name: Build patched Perry compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CARGO_PROFILE_RELEASE_PANIC: unwind
+          PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
+        run: |
+          rustc --version
+          $actualRevision = (git -C $env:PERRY_WORKSPACE_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Could not resolve the Perry source revision" }
+          if ($actualRevision -ne $env:PERRY_SOURCE_REVISION) {
+            throw "Perry source revision mismatch: expected $env:PERRY_SOURCE_REVISION, got $actualRevision"
+          }
+
+          $patch = Join-Path $env:GITHUB_WORKSPACE "patches/perry/0001-windows-reject-duplicate-symbols.patch"
+          git -C $env:PERRY_WORKSPACE_ROOT apply --check $patch
+          if ($LASTEXITCODE -ne 0) { throw "The Perry duplicate-symbol patch no longer applies cleanly" }
+          git -C $env:PERRY_WORKSPACE_ROOT apply $patch
+          if ($LASTEXITCODE -ne 0) { throw "Could not apply the Perry duplicate-symbol patch" }
+          $changedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT diff --name-only)
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect the tracked Perry patch changes" }
+          $untrackedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT ls-files --others)
+          if (
+            $LASTEXITCODE -ne 0 -or
+            $untrackedPaths.Count -ne 0 -or
+            $changedPaths.Count -ne 1 -or
+            $changedPaths[0] -ne "crates/perry/src/commands/compile/link/platform_cmd.rs"
+          ) {
+            throw "The Perry patch changed files outside the Windows linker command"
+          }
+          git -C $env:PERRY_WORKSPACE_ROOT apply --reverse --check $patch
+          if ($LASTEXITCODE -ne 0) { throw "The applied Perry patch does not match the reviewed patch" }
+
+          cargo build `
+            --locked `
+            --release `
+            --manifest-path (Join-Path $env:PERRY_WORKSPACE_ROOT "Cargo.toml") `
+            --target-dir (Join-Path $env:PERRY_WORKSPACE_ROOT "target") `
+            -p perry
+          if ($LASTEXITCODE -ne 0) { throw "Could not build the patched Perry compiler" }
+
+          $compiler = (Resolve-Path -LiteralPath (Join-Path $env:PERRY_WORKSPACE_ROOT "target/release/perry.exe")).Path
+          $nativeVersion = (& $compiler --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $nativeVersion -ne "perry 0.5.1220") {
+            throw "Unexpected patched Perry version: $nativeVersion"
+          }
+          $npmVersion = (& pnpm exec perry --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $npmVersion -ne "perry 0.5.1220") {
+            throw "Unexpected npm Perry version: $npmVersion"
+          }
+          Write-Host "Patched Perry: $nativeVersion; npm Perry: $npmVersion"
+          "NEXA_PERRY_BIN=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Toolchain versions
+        run: |
+          node --version
+          pnpm --version
+          rustc --version
+          pnpm exec perry --version
+
+      - name: Run CLI create-to-package smoke
+        run: node tools/cli-create-package-smoke.mjs --artifact-output "${{ runner.temp }}/nexa-generic-artifact"
+        timeout-minutes: 15
+
+      - name: Run trusted native filesystem Promise smoke
+        run: pnpm --filter @nexa/example-reference-notes smoke:fs
+        timeout-minutes: 10
+
+      - name: Run trusted native Clipboard Promise smoke
+        run: pnpm --filter @nexa/example-reference-notes smoke:clipboard
+        timeout-minutes: 10
+
+      - name: Run trusted native Dialog Promise smoke
+        run: pnpm --filter @nexa/example-reference-notes smoke:dialog
+        timeout-minutes: 10
+
+      - name: Run real native Dialog picker probe
+        run: pnpm --filter @nexa/example-reference-notes smoke:picker
+        timeout-minutes: 10
+
+      - name: Record revision-bound native FS and real-picker proof
+        if: inputs.collect_mvp_proof
+        run: >-
+          node tools/reference-notes-native-runtime-proof.mjs collect
+          --filesystem "examples/reference-notes/reference-notes-fs-runtime-smoke${{ runner.os == 'Windows' && '.exe' || '' }}"
+          --picker "examples/reference-notes/reference-notes-dialog-picker-smoke${{ runner.os == 'Windows' && '.exe' || '' }}"
+          --output "${{ runner.temp }}/reference-notes-native-runtime-${{ runner.os == 'macOS' && 'darwin-arm64' || 'win32-x64' }}.json"
+
+      - name: Upload revision-bound native runtime proof
+        if: inputs.collect_mvp_proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: reference-notes-native-runtime-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/reference-notes-native-runtime-*.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Package unsigned Notes artifact
+        run: pnpm --filter @nexa/example-reference-notes package
+
+      - name: Create canonical unsigned signing archive
+        run: >-
+          node tools/unsigned-signing-input.mjs archive
+          --source "dist/reference-notes-${{ runner.os == 'macOS' && 'macos-arm64' || 'windows-x64' }}"
+          --output "${{ runner.temp }}/nexa-unsigned-signing-platform"
+          --platform "${{ runner.os == 'macOS' && 'darwin' || 'win32' }}"
+          --arch "${{ runner.os == 'macOS' && 'arm64' || 'x64' }}"
+
+      - name: Archive macOS distributions
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          generic="$RUNNER_TEMP/nexa-generic-artifact"
+          notes="$(find dist -mindepth 1 -maxdepth 1 -type d -name 'reference-notes-macos-*' -print -quit)"
+          test -d "$generic"
+          test -n "$notes"
+
+          transport="$RUNNER_TEMP/nexa-transport"
+          mkdir -p "$transport"
+          tar -czf "$transport/generic.tar.gz" -C "$(dirname "$generic")" "$(basename "$generic")"
+          tar -czf "$transport/reference-notes.tar.gz" -C "$(dirname "$notes")" "$(basename "$notes")"
+
+      - name: Archive Windows distributions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $generic = Join-Path $env:RUNNER_TEMP "nexa-generic-artifact"
+          $notes = @(Get-ChildItem -Path dist -Directory -Filter "reference-notes-windows-*")
+          if (-not (Test-Path -LiteralPath $generic -PathType Container)) {
+            throw "Generic Windows artifact was not exported"
+          }
+          if ($notes.Count -ne 1) {
+            throw "Expected one Windows Notes artifact, found $($notes.Count)"
+          }
+
+          $transport = Join-Path $env:RUNNER_TEMP "nexa-transport"
+          New-Item -ItemType Directory -Force -Path $transport | Out-Null
+          tar.exe --create --gzip --file (Join-Path $transport "generic.tar.gz") --directory (Split-Path $generic -Parent) (Split-Path $generic -Leaf)
+          if ($LASTEXITCODE -ne 0) { throw "Could not archive the generic Windows artifact" }
+          tar.exe --create --gzip --file (Join-Path $transport "reference-notes.tar.gz") --directory (Split-Path $notes[0].FullName -Parent) $notes[0].Name
+          if ($LASTEXITCODE -ne 0) { throw "Could not archive the Windows Notes artifact" }
+
+      - name: Upload unsigned transport archives
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-packages-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/nexa-transport/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload canonical platform signing archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nexa-unsigned-signing-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-unsigned-signing-platform/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  signing_input:
+    name: Assemble revision-bound unsigned signing input
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install locked dependency graph tooling
+        run: pnpm install --frozen-lockfile
+      - name: Download both canonical platform archives
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: nexa-unsigned-signing-*-${{ github.sha }}
+          path: ${{ runner.temp }}/nexa-unsigned-signing-platforms
+          merge-multiple: true
+      - name: Generate and independently verify G6-05 input evidence
+        run: |
+          node tools/unsigned-signing-input.mjs assemble \
+            --input "$RUNNER_TEMP/nexa-unsigned-signing-platforms" \
+            --output "$RUNNER_TEMP/nexa-unsigned-signing-input" \
+            --revision "$GITHUB_SHA"
+          node tools/unsigned-signing-input.mjs verify \
+            --bundle "$RUNNER_TEMP/nexa-unsigned-signing-input" \
+            --revision "$GITHUB_SHA"
+      - name: Upload immutable unsigned signing input
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-signing-input
+          path: ${{ runner.temp }}/nexa-unsigned-signing-input
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  launch:
+    name: download, validate, and launch (${{ matrix.os }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022]
+    steps:
+      - name: Download revision-bound native runtime proof
+        if: inputs.collect_mvp_proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: reference-notes-native-runtime-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/nexa-native-runtime-proof
+      - name: Download unsigned transport archives
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nexa-packages-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/nexa-transport
+
+      - name: Validate and launch downloaded macOS distributions
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          transport="$RUNNER_TEMP/nexa-transport"
+          launch_root="$RUNNER_TEMP/nexa-launch"
+          generic_extract="$launch_root/generic"
+          notes_extract="$launch_root/reference-notes"
+          mkdir -p "$generic_extract" "$notes_extract"
+          tar -xzf "$transport/generic.tar.gz" -C "$generic_extract"
+          tar -xzf "$transport/reference-notes.tar.gz" -C "$notes_extract"
+
+          generic_root="$generic_extract/nexa-generic-artifact"
+          notes_roots="$(find "$notes_extract" -mindepth 1 -maxdepth 1 -type d -name 'reference-notes-macos-*' -print)"
+          test "$(find "$generic_extract" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" = 1
+          test "$(printf '%s\n' "$notes_roots" | sed '/^$/d' | wc -l | tr -d ' ')" = 1
+          notes_root="$notes_roots"
+          test -d "$generic_root"
+          test ! -L "$generic_root"
+          test -d "$notes_root"
+          test ! -L "$notes_root"
+
+          generic_bundle="$generic_root/smoke-app.app"
+          generic_executable="$generic_bundle/Contents/MacOS/smoke-app"
+          generic_manifest="$generic_bundle/Contents/Resources/app.manifest.json"
+          generic_metadata="$generic_bundle/Contents/Resources/nexa-build.json"
+          generic_asset="$generic_bundle/Contents/Resources/assets/nested/smoke.txt"
+          generic_plist="$generic_bundle/Contents/Info.plist"
+          notes_bundle="$notes_root/Nexa Notes.app"
+          notes_executable="$notes_bundle/Contents/MacOS/NexaNotes"
+          notes_manifest="$notes_bundle/Contents/Resources/app.manifest.json"
+          notes_plist="$notes_bundle/Contents/Info.plist"
+
+          assert_regular_file() {
+            test -f "$1"
+            test ! -L "$1"
+          }
+          assert_regular_executable() {
+            assert_regular_file "$1"
+            test -x "$1"
+          }
+          assert_regular_executable "$generic_executable"
+          assert_regular_file "$generic_manifest"
+          assert_regular_file "$generic_metadata"
+          assert_regular_file "$generic_asset"
+          assert_regular_file "$generic_plist"
+          assert_regular_executable "$notes_executable"
+          assert_regular_file "$notes_manifest"
+          assert_regular_file "$notes_plist"
+
+          /usr/bin/plutil -lint "$generic_plist" "$notes_plist"
+          generic_id="$(/usr/bin/plutil -extract id raw -o - "$generic_manifest")"
+          generic_version="$(/usr/bin/plutil -extract version raw -o - "$generic_manifest")"
+          metadata_id="$(/usr/bin/plutil -extract app.id raw -o - "$generic_metadata")"
+          metadata_version="$(/usr/bin/plutil -extract app.version raw -o - "$generic_metadata")"
+          metadata_platform="$(/usr/bin/plutil -extract target.platform raw -o - "$generic_metadata")"
+          metadata_arch="$(/usr/bin/plutil -extract target.arch raw -o - "$generic_metadata")"
+          plist_id="$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "$generic_plist")"
+          plist_version="$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - "$generic_plist")"
+          case "$(uname -m)" in
+            arm64) expected_arch=arm64 ;;
+            x86_64) expected_arch=x64 ;;
+            *) echo "Unsupported macOS runner architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          test "$(/usr/bin/plutil -extract schemaVersion raw -o - "$generic_manifest")" = 1
+          test "$(/usr/bin/plutil -extract schemaVersion raw -o - "$generic_metadata")" = 1
+          test "$generic_id" = dev.nexa.smoke-app
+          [[ "$generic_version" =~ $semver ]]
+          test "$metadata_id" = "$generic_id"
+          test "$metadata_version" = "$generic_version"
+          test "$metadata_platform" = darwin
+          test "$metadata_arch" = "$expected_arch"
+          test "$plist_id" = "$generic_id"
+          test "$plist_version" = "${generic_version%%[-+]*}"
+          test "$(shasum -a 256 "$generic_asset" | awk '{print $1}')" = fd273722329590ff79d8ea8edf730f80896efa749f95aa2ac8b90a8df2c5b23f
+          test "$(/usr/bin/plutil -extract id raw -o - "$notes_manifest")" = dev.nexa.notes
+          test "$(/usr/bin/plutil -extract CFBundleIdentifier raw -o - "$notes_plist")" = dev.nexa.notes
+          test "$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - "$notes_plist")" = "$(/usr/bin/plutil -extract version raw -o - "$notes_manifest")"
+          file "$generic_executable" | grep -q 'Mach-O'
+          file "$notes_executable" | grep -q 'Mach-O'
+
+          unset NEXA_APP_MANIFEST_PATH NEXA_DIALOG_TEST_FIXTURE_PATH PERRY_SKIP_CODEGEN
+          pid=""
+          cleanup() {
+            if test -n "$pid" && kill -0 "$pid" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+          launch_for_five_seconds() {
+            name="$1"
+            executable="$2"
+            log="$3"
+            "$executable" >"$log" 2>&1 &
+            pid=$!
+            sleep 5
+            if ! kill -0 "$pid" 2>/dev/null; then
+              set +e
+              wait "$pid"
+              status=$?
+              set -e
+              cat "$log"
+              echo "$name exited during the startup window with code $status" >&2
+              exit 1
+            fi
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            pid=""
+          }
+          launch_for_five_seconds "Generic package" "$generic_executable" "$RUNNER_TEMP/nexa-generic-package.log"
+          launch_for_five_seconds "Nexa Notes" "$notes_executable" "$RUNNER_TEMP/nexa-notes-package.log"
+
+      - name: Validate and launch downloaded Windows distributions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $transport = Join-Path $env:RUNNER_TEMP "nexa-transport"
+          $launchRoot = Join-Path $env:RUNNER_TEMP "nexa-launch"
+          $genericExtract = Join-Path $launchRoot "generic"
+          $notesExtract = Join-Path $launchRoot "reference-notes"
+          New-Item -ItemType Directory -Force -Path $genericExtract, $notesExtract | Out-Null
+          tar.exe --extract --gzip --file (Join-Path $transport "generic.tar.gz") --directory $genericExtract
+          if ($LASTEXITCODE -ne 0) { throw "Could not extract the generic Windows artifact" }
+          tar.exe --extract --gzip --file (Join-Path $transport "reference-notes.tar.gz") --directory $notesExtract
+          if ($LASTEXITCODE -ne 0) { throw "Could not extract the Windows Notes artifact" }
+
+          $genericEntries = @(Get-ChildItem -LiteralPath $genericExtract -Force)
+          if ($genericEntries.Count -ne 1 -or -not $genericEntries[0].PSIsContainer -or $genericEntries[0].Name -ne "nexa-generic-artifact") {
+            throw "Generic archive must contain only the nexa-generic-artifact directory"
+          }
+          if (($genericEntries[0].Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Generic artifact root must not be a reparse point"
+          }
+          $notesEntries = @(Get-ChildItem -LiteralPath $notesExtract -Force)
+          if ($notesEntries.Count -ne 1 -or -not $notesEntries[0].PSIsContainer -or $notesEntries[0].Name -notlike "reference-notes-windows-*") {
+            throw "Notes archive must contain one reference-notes-windows directory"
+          }
+          if (($notesEntries[0].Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Notes artifact root must not be a reparse point"
+          }
+
+          $genericRoot = $genericEntries[0].FullName
+          $notesRoot = $notesEntries[0].FullName
+          $genericExecutable = Join-Path $genericRoot "smoke-app.exe"
+          $genericManifestPath = Join-Path $genericRoot "app.manifest.json"
+          $genericMetadataPath = Join-Path $genericRoot "nexa-build.json"
+          $genericAssetPath = Join-Path $genericRoot "assets/nested/smoke.txt"
+          $notesExecutable = Join-Path $notesRoot "NexaNotes.exe"
+          $notesManifestPath = Join-Path $notesRoot "app.manifest.json"
+
+          function Assert-RegularFile([string] $path) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required file is missing: $path" }
+            $item = Get-Item -LiteralPath $path -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+              throw "Required file must not be a reparse point: $path"
+            }
+          }
+          Assert-RegularFile $genericExecutable
+          Assert-RegularFile $genericManifestPath
+          Assert-RegularFile $genericMetadataPath
+          Assert-RegularFile $genericAssetPath
+          Assert-RegularFile $notesExecutable
+          Assert-RegularFile $notesManifestPath
+
+          $genericManifest = Get-Content -LiteralPath $genericManifestPath -Raw | ConvertFrom-Json
+          $genericMetadata = Get-Content -LiteralPath $genericMetadataPath -Raw | ConvertFrom-Json
+          $notesManifest = Get-Content -LiteralPath $notesManifestPath -Raw | ConvertFrom-Json
+          if ($genericManifest.schemaVersion -ne 1 -or $genericMetadata.schemaVersion -ne 1) {
+            throw "Generic manifest or metadata schema version is invalid"
+          }
+          if ($genericManifest.id -ne "dev.nexa.smoke-app" -or $genericMetadata.app.id -ne $genericManifest.id) {
+            throw "Generic manifest and metadata identity do not match"
+          }
+          $semver = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if ($genericManifest.version -notmatch $semver -or $genericMetadata.app.version -ne $genericManifest.version) {
+            throw "Generic manifest and metadata app.version do not match"
+          }
+          if ($genericMetadata.target.platform -ne "win32" -or $genericMetadata.target.arch -ne "x64") {
+            throw "Generic metadata target.platform or target.arch is invalid"
+          }
+          $assetDigest = (Get-FileHash -LiteralPath $genericAssetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($assetDigest -ne "fd273722329590ff79d8ea8edf730f80896efa749f95aa2ac8b90a8df2c5b23f") {
+            throw "Generic packaged asset bytes changed during artifact transport"
+          }
+          if ($notesManifest.id -ne "dev.nexa.notes" -or $notesManifest.version -notmatch $semver) {
+            throw "Notes manifest identity or version is invalid"
+          }
+
+          foreach ($name in @("NEXA_APP_MANIFEST_PATH", "NEXA_DIALOG_TEST_FIXTURE_PATH", "PERRY_SKIP_CODEGEN")) {
+            Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+          }
+          function Invoke-StartupCheck([string] $name, [string] $executable) {
+            $logName = $name.Replace(" ", "-").ToLowerInvariant()
+            $stdout = Join-Path $env:RUNNER_TEMP "$logName.stdout.log"
+            $stderr = Join-Path $env:RUNNER_TEMP "$logName.stderr.log"
+            $process = Start-Process -FilePath $executable -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            try {
+              Start-Sleep -Seconds 5
+              $process.Refresh()
+              if ($process.HasExited) {
+                if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout }
+                if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr }
+                throw "$name exited during the startup window with code $($process.ExitCode)"
+              }
+            } finally {
+              if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+              $process.WaitForExit()
+            }
+          }
+          Invoke-StartupCheck "Generic package" $genericExecutable
+          Invoke-StartupCheck "Nexa Notes" $notesExecutable
+
+      - name: Record hosted clean-package proof on macOS
+        if: inputs.collect_mvp_proof && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          generic="$RUNNER_TEMP/nexa-transport/generic.tar.gz"
+          notes="$RUNNER_TEMP/nexa-transport/reference-notes.tar.gz"
+          runtime="$RUNNER_TEMP/nexa-native-runtime-proof/reference-notes-native-runtime-darwin-arm64.json"
+          for artifact in "$generic" "$notes"; do
+            test -f "$artifact"
+            test ! -L "$artifact"
+          done
+          test -f "$runtime"
+          test ! -L "$runtime"
+          generic_size="$(stat -f '%z' "$generic")"
+          notes_size="$(stat -f '%z' "$notes")"
+          runtime_size="$(stat -f '%z' "$runtime")"
+          generic_sha="$(shasum -a 256 "$generic" | awk '{print $1}')"
+          notes_sha="$(shasum -a 256 "$notes" | awk '{print $1}')"
+          runtime_sha="$(shasum -a 256 "$runtime" | awk '{print $1}')"
+          jq -n \
+            --arg revision "$GITHUB_SHA" \
+            --arg ref "$GITHUB_REF" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg generic_sha "$generic_sha" \
+            --arg notes_sha "$notes_sha" \
+            --arg runtime_name "$(basename "$runtime")" \
+            --arg runtime_sha "$runtime_sha" \
+            --argjson generic_size "$generic_size" \
+            --argjson notes_size "$notes_size" \
+            --argjson runtime_size "$runtime_size" \
+            --slurpfile runtime_payload "$runtime" \
+            '{schemaVersion:1,gate:"clean-package-launch",outcome:"passed",revision:$revision,ref:$ref,workflow:".github/workflows/mvp-evidence.yml",producerWorkflow:".github/workflows/reference-notes-package.yml",runId:$run_id,runUrl:$run_url,job:"launch",target:{platform:"darwin",arch:"arm64",runner:"macos-15"},artifacts:[{name:"generic.tar.gz",size:$generic_size,sha256:$generic_sha},{name:"reference-notes.tar.gz",size:$notes_size,sha256:$notes_sha}],runtimeProof:{name:$runtime_name,size:$runtime_size,sha256:$runtime_sha,payload:$runtime_payload[0]}}' \
+            > "$RUNNER_TEMP/clean-package-launch-darwin-arm64.json"
+
+      - name: Record hosted clean-package proof on Windows
+        if: inputs.collect_mvp_proof && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $generic = Get-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "nexa-transport/generic.tar.gz") -Force
+          $notes = Get-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "nexa-transport/reference-notes.tar.gz") -Force
+          $runtime = Get-Item -LiteralPath (Join-Path $env:RUNNER_TEMP "nexa-native-runtime-proof/reference-notes-native-runtime-win32-x64.json") -Force
+          foreach ($artifact in @($generic, $notes)) {
+            if (-not $artifact.PSIsContainer -and ($artifact.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) { continue }
+            throw "Hosted proof artifact must be a regular non-reparse file: $($artifact.FullName)"
+          }
+          if ($runtime.PSIsContainer -or ($runtime.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Hosted native runtime proof must be a regular non-reparse file: $($runtime.FullName)"
+          }
+          $runtimePayload = Get-Content -LiteralPath $runtime.FullName -Raw | ConvertFrom-Json
+          $record = [ordered]@{
+            schemaVersion = 1
+            gate = "clean-package-launch"
+            outcome = "passed"
+            revision = $env:GITHUB_SHA
+            ref = $env:GITHUB_REF
+            workflow = ".github/workflows/mvp-evidence.yml"
+            producerWorkflow = ".github/workflows/reference-notes-package.yml"
+            runId = $env:GITHUB_RUN_ID
+            runUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            job = "launch"
+            target = [ordered]@{ platform = "win32"; arch = "x64"; runner = "windows-2022" }
+            artifacts = @(
+              [ordered]@{ name = "generic.tar.gz"; size = $generic.Length; sha256 = (Get-FileHash -LiteralPath $generic.FullName -Algorithm SHA256).Hash.ToLowerInvariant() },
+              [ordered]@{ name = "reference-notes.tar.gz"; size = $notes.Length; sha256 = (Get-FileHash -LiteralPath $notes.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+            )
+            runtimeProof = [ordered]@{
+              name = $runtime.Name
+              size = $runtime.Length
+              sha256 = (Get-FileHash -LiteralPath $runtime.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              payload = $runtimePayload
+            }
+          }
+          $json = ($record | ConvertTo-Json -Depth 12) + "`n"
+          $output = Join-Path $env:RUNNER_TEMP "clean-package-launch-win32-x64.json"
+          [System.IO.File]::WriteAllText($output, $json, [System.Text.UTF8Encoding]::new($false))
+
+      - name: Upload hosted clean-package proof
+        if: inputs.collect_mvp_proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mvp-clean-package-launch-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/clean-package-launch-*.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

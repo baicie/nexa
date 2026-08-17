@@ -1,5 +1,3 @@
-/** System capability stubs — land after Counter vertical slice. */
+/** @nexa/system — umbrella re-exports (ADR-005). Prefer typed packages. */
 
-export function notImplemented(name: string): never {
-  throw new Error(`@nexa/system ${name} is not implemented yet`);
-}
+export { readText, writeText } from "@nexa/clipboard";

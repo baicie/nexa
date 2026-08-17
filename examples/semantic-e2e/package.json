@@ -1,0 +1,38 @@
+{
+  "name": "@nexa/example-semantic-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "G3B-05 semantic role/name accessibility fixture",
+  "type": "module",
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*",
+    "@nexa/protocol": "workspace:*",
+    "@nexa/ui": "workspace:*"
+  },
+  "scripts": {
+    "build": "perry compile main.tsx -o semantic-e2e",
+    "start": "perry compile main.tsx -o semantic-e2e && ./semantic-e2e",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/ui"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ]
+    }
+  }
+}

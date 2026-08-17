@@ -1,0 +1,27 @@
+{
+  "name": "@nexa/dialog",
+  "version": "0.1.0",
+  "description": "Typed asynchronous native file dialogs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@nexa/system-host": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/dialog",
+    "test": "node --test ../../tools/dialog-contract.test.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

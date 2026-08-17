@@ -1,0 +1,90 @@
+[
+  {
+    "label": "schema integer spellings are value-equivalent",
+    "accepted": true,
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1.0,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1e0,\"minor\":0.0},\"permissions\":[]}"
+  },
+  {
+    "label": "filesystem permissions are active canonical names",
+    "accepted": true,
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[\"system.FsRead\",\"system.FsWrite\"]}"
+  },
+  {
+    "label": "unknown top-level field",
+    "accepted": false,
+    "error": "InvalidJson",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[],\"extra\":true}"
+  },
+  {
+    "label": "wrong schema URI",
+    "accepted": false,
+    "error": "InvalidSchemaUri",
+    "json": "{\"$schema\":\"https://example.invalid/app.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "wrong schema version",
+    "accepted": false,
+    "error": "UnsupportedSchemaVersion",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":2,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "fractional schema version",
+    "accepted": false,
+    "error": "InvalidJson",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1.5,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "protocol integer overflow",
+    "accepted": false,
+    "error": "InvalidJson",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":4294967296,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "invalid app id",
+    "accepted": false,
+    "error": "InvalidAppId",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"Bad ID\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "BOM-only app name",
+    "accepted": false,
+    "error": "InvalidAppName",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"\\uFEFF\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "unpaired surrogate app name",
+    "accepted": false,
+    "error": "InvalidJson",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes \\uD800\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "invalid SemVer",
+    "accepted": false,
+    "error": "InvalidAppVersion",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"v1\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "SemVer core exceeds canonical v1 digits",
+    "accepted": false,
+    "error": "InvalidAppVersion",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"18446744073709551616.0.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "incompatible protocol major",
+    "accepted": false,
+    "error": "IncompatibleProtocol",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":2,\"minor\":0},\"permissions\":[]}"
+  },
+  {
+    "label": "unknown permission",
+    "accepted": false,
+    "error": "UnknownPermission",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[\"system.Unknown\"]}"
+  },
+  {
+    "label": "duplicate permission",
+    "accepted": false,
+    "error": "DuplicatePermission",
+    "json": "{\"$schema\":\"https://nexa-ui.dev/schema/app-manifest-v1.json\",\"schemaVersion\":1,\"id\":\"dev.nexa.notes\",\"name\":\"Notes\",\"version\":\"0.1.0\",\"requiredProtocol\":{\"major\":1,\"minor\":0},\"permissions\":[\"system.ClipboardRead\",\"system.ClipboardRead\"]}"
+  }
+]

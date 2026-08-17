@@ -5,10 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   changes:
@@ -17,43 +22,208 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       typescript: ${{ steps.filter.outputs.typescript }}
+      ffi: ${{ steps.filter.outputs.ffi }}
+      perry: ${{ steps.filter.outputs.perry }}
       docs: ${{ steps.filter.outputs.docs }}
       native: ${{ steps.filter.outputs.native }}
+      package: ${{ steps.filter.outputs.package }}
+      security: ${{ steps.filter.outputs.security }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         id: filter
         with:
           filters: |
             rust:
+              - 'protocol/**'
               - 'crates/**'
               - 'examples/rust-counter/**'
+              - 'packages/nui-host/Cargo.toml'
+              - 'packages/nui-host/Cargo.lock'
+              - 'packages/nui-host/src/**/*.rs'
+              - 'packages/system-host/Cargo.toml'
+              - 'packages/system-host/Cargo.lock'
+              - 'packages/system-host/**/*.rs'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - 'rustfmt.toml'
+              - 'scripts/**'
               - '.github/workflows/rust.yml'
               - '.github/workflows/ci.yml'
             typescript:
+              - 'protocol/**'
               - 'packages/**'
+              - 'examples/clipboard-demo/**'
               - 'examples/counter/**'
+              - 'examples/image-demo/**'
+              - 'examples/input-e2e/**'
+              - 'examples/semantic-e2e/**'
+              - 'examples/reference-notes/**'
+              - 'examples/layout-playground/**'
+              - 'examples/perry-counter/**'
+              - 'examples/react-counter/**'
+              - 'examples/solid-counter/**'
+              - 'examples/svelte-counter/**'
+              - 'examples/todo/**'
+              - 'examples/vue-counter/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'tsconfig.base.json'
+              - '.gitignore'
               - '.npmrc'
               - '.prettierrc.json'
               - '.prettierignore'
-              - '.github/workflows/typescript.yml'
+              - 'scripts/**'
+              - 'tools/**'
+              - 'release/**'
+              - '.github/workflows/*.yml'
+            ffi:
+              - 'protocol/**'
+              - 'crates/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/system-host/**'
+              - 'packages/ui/**'
+              - 'examples/counter/**'
+              - 'examples/input-e2e/**'
+              - 'examples/reference-notes/**'
+              - 'examples/semantic-e2e/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+              - 'rustfmt.toml'
+              - '.npmrc'
+              - '.cargo/**'
+              - 'scripts/**'
+              - 'tools/perry-smoke.mjs'
+              - '.github/workflows/ffi.yml'
+              - '.github/workflows/ci.yml'
+            perry:
+              - 'protocol/**'
+              - 'crates/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/system-host/**'
+              - 'packages/adapter-solid/**'
+              - 'packages/adapter-vue/**'
+              - 'packages/adapter-react/**'
+              - 'packages/compiler-svelte/**'
+              - 'examples/solid-counter/**'
+              - 'examples/vue-counter/**'
+              - 'examples/react-counter/**'
+              - 'examples/reference-notes/**'
+              - 'examples/svelte-counter/**'
+              - 'packages/cli/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.base.json'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+              - '.npmrc'
+              - '.cargo/**'
+              - 'tools/perry-frameworks.mjs'
+              - 'tools/perry-frameworks.test.mjs'
+              - 'tools/perry-compile.mjs'
+              - 'tools/stage-windows-skia.mjs'
+              - 'tools/stage-windows-skia.test.mjs'
+              - 'tools/windows-runtime.test.mjs'
+              - 'patches/perry/**'
+              - '.github/workflows/perry-frameworks.yml'
               - '.github/workflows/ci.yml'
             native:
+              - 'protocol/**'
+              - 'crates/nui-app-runtime/**'
+              - 'crates/nui-core/**'
+              - 'crates/nui-layout-taffy/**'
               - 'crates/nui-platform-winit/**'
+              - 'crates/nui-perry-bridge/**'
               - 'crates/nui-render-skia/**'
+              - 'crates/nui-system-core/**'
+              - 'crates/nui-text/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/protocol/**'
+              - 'packages/system-host/**'
+              - 'packages/ui/**'
               - 'examples/rust-counter/**'
+              - 'examples/input-e2e/**'
+              - 'examples/reference-notes/**'
+              - 'examples/semantic-e2e/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - 'scripts/**'
               - '.github/workflows/native-smoke.yml'
+              - '.github/workflows/ci.yml'
+            package:
+              - 'protocol/**'
+              - 'crates/**'
+              - 'packages/cli/**'
+              - 'packages/dialog/**'
+              - 'packages/fs/**'
+              - 'packages/nui-host/**'
+              - 'packages/protocol/**'
+              - 'packages/system-host/**'
+              - 'packages/ui/**'
+              - 'examples/reference-notes/**'
+              - 'tools/reference-notes-build.mjs'
+              - 'tools/reference-notes-build.test.mjs'
+              - 'tools/reference-notes-package.mjs'
+              - 'tools/reference-notes-package.test.mjs'
+              - 'tools/unsigned-signing-input.mjs'
+              - 'tools/unsigned-signing-input.test.mjs'
+              - 'tools/reference-notes-fs-runtime-smoke.mjs'
+              - 'tools/reference-notes-fs-runtime-smoke.test.mjs'
+              - 'tools/reference-notes-dialog-runtime-smoke.mjs'
+              - 'tools/reference-notes-dialog-runtime-smoke.test.mjs'
+              - 'tools/reference-notes-dialog-picker-smoke.mjs'
+              - 'tools/reference-notes-dialog-picker-smoke.test.mjs'
+              - 'tools/reference-notes-native-runtime-proof.mjs'
+              - 'tools/reference-notes-native-runtime-proof.test.mjs'
+              - 'tools/dialog-picker-driver-macos.applescript'
+              - 'tools/dialog-picker-driver-windows.ps1'
+              - 'tools/dialog-picker-probe-supervisor-windows.ps1'
+              - 'tools/cli-create-build-smoke.mjs'
+              - 'tools/cli-create-package-smoke.mjs'
+              - 'tools/cli-dev-build.test.mjs'
+              - 'tools/cli-package.test.mjs'
+              - 'tools/perry-compile.mjs'
+              - 'tools/stage-windows-skia.mjs'
+              - 'tools/stage-windows-skia.test.mjs'
+              - 'tools/windows-runtime.test.mjs'
+              - 'packages/cli/src/windows-static-closure/**'
+              - 'patches/perry/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.cargo/**'
+              - '.npmrc'
+              - '.github/workflows/reference-notes-package.yml'
+              - '.github/workflows/ci.yml'
             docs:
               - 'docs/**'
               - '**/*.md'
+              - 'tools/docs-contract.test.mjs'
+              - '.github/workflows/docs.yml'
               - '.github/workflows/README.md'
+            security:
+              - '**'
+              - '.*'
+              - '.github/**'
+              - '**/.*'
 
   rust:
     name: Rust
@@ -67,37 +237,124 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     uses: ./.github/workflows/typescript.yml
 
+  ffi:
+    name: FFI
+    needs: changes
+    if: needs.changes.outputs.ffi == 'true'
+    uses: ./.github/workflows/ffi.yml
+
+  perry-frameworks:
+    name: Perry frameworks
+    needs: changes
+    if: needs.changes.outputs.perry == 'true'
+    uses: ./.github/workflows/perry-frameworks.yml
+
   docs:
     name: Docs
     needs: changes
-    if: needs.changes.outputs.docs == 'true' && needs.changes.outputs.rust != 'true' && needs.changes.outputs.typescript != 'true'
+    if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/docs.yml
 
-  # Slice 0+ only: GPU/window smoke. Disabled as required until drawable window exists.
-  # Enable by setting native_smoke_enabled to true after Slice 0 lands.
+  # Native smoke is required for every matching platform/runtime change.
   native-smoke:
     name: Native smoke
     needs: changes
-    if: needs.changes.outputs.native == 'true' && vars.NATIVE_SMOKE_ENABLED == 'true'
+    if: needs.changes.outputs.native == 'true'
     uses: ./.github/workflows/native-smoke.yml
+
+  reference-notes-package:
+    name: Reference Notes package
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    uses: ./.github/workflows/reference-notes-package.yml
+
+  security:
+    name: Security
+    needs: changes
+    if: needs.changes.outputs.security == 'true'
+    uses: ./.github/workflows/security.yml
+
+  signing-preflight:
+    name: Credential-free signing preflight
+    needs: changes
+    uses: ./.github/workflows/signing.yml
+    with:
+      operation: validate
+
+  performance:
+    name: Performance budgets
+    needs: changes
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'performance-capture') ||
+      contains(github.event.pull_request.labels.*.name, 'performance-required') ||
+      contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')
+    uses: ./.github/workflows/performance.yml
+    with:
+      require_active: ${{ contains(github.event.pull_request.labels.*.name, 'performance-required') || contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required') }}
+
+  release-rehearsal:
+    name: Candidate release rehearsal
+    needs: [changes, performance]
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required')
+    uses: ./.github/workflows/release-rehearsal.yml
+    with:
+      mode: candidate
+      upstream_performance_result: ${{ needs.performance.result }}
 
   result:
     name: result
     if: always()
-    needs: [changes, rust, typescript, docs, native-smoke]
+    needs:
+      [
+        changes,
+        rust,
+        typescript,
+        ffi,
+        perry-frameworks,
+        docs,
+        native-smoke,
+        reference-notes-package,
+        security,
+        signing-preflight,
+        performance,
+        release-rehearsal,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
         env:
+          CHANGES: ${{ needs.changes.result }}
           RUST: ${{ needs.rust.result }}
           TS: ${{ needs.typescript.result }}
+          FFI: ${{ needs.ffi.result }}
+          PERRY: ${{ needs.perry-frameworks.result }}
           DOCS: ${{ needs.docs.result }}
           NATIVE: ${{ needs.native-smoke.result }}
+          PACKAGE: ${{ needs.reference-notes-package.result }}
+          SECURITY_STATUS: ${{ needs.security.result }}
+          SIGNING_PREFLIGHT: ${{ needs.signing-preflight.result }}
+          PERFORMANCE_STATUS: ${{ needs.performance.result }}
+          REHEARSAL_STATUS: ${{ needs.release-rehearsal.result }}
           RUST_NEEDED: ${{ needs.changes.outputs.rust }}
           TS_NEEDED: ${{ needs.changes.outputs.typescript }}
+          FFI_NEEDED: ${{ needs.changes.outputs.ffi }}
+          PERRY_NEEDED: ${{ needs.changes.outputs.perry }}
+          DOCS_NEEDED: ${{ needs.changes.outputs.docs }}
+          NATIVE_NEEDED: ${{ needs.changes.outputs.native }}
+          PACKAGE_NEEDED: ${{ needs.changes.outputs.package }}
+          SECURITY_NEEDED: ${{ needs.changes.outputs.security }}
+          PERFORMANCE_REQUIRED: ${{ contains(github.event.pull_request.labels.*.name, 'performance-required') }}
+          REHEARSAL_REQUIRED: ${{ contains(github.event.pull_request.labels.*.name, 'release-rehearsal-required') }}
         run: |
           set -euo pipefail
           fail=0
+          if [[ "$CHANGES" != "success" ]]; then
+            echo "Change detection failed: $CHANGES"
+            fail=1
+          fi
           if [[ "$RUST_NEEDED" == "true" && "$RUST" != "success" ]]; then
             echo "Rust gate failed: $RUST"
             fail=1
@@ -106,13 +363,40 @@ jobs:
             echo "TypeScript gate failed: $TS"
             fail=1
           fi
-          # docs / native-smoke are advisory or opt-in; do not fail the aggregator on skip
-          if [[ "$DOCS" == "failure" ]]; then
-            echo "Docs gate failed"
+          if [[ "$FFI_NEEDED" == "true" && "$FFI" != "success" ]]; then
+            echo "FFI gate failed: $FFI"
             fail=1
           fi
-          if [[ "$NATIVE" == "failure" ]]; then
-            echo "Native smoke failed"
+          if [[ "$PERRY_NEEDED" == "true" && "$PERRY" != "success" ]]; then
+            echo "Perry framework gate failed: $PERRY"
+            fail=1
+          fi
+          if [[ "$DOCS_NEEDED" == "true" && "$DOCS" != "success" ]]; then
+            echo "Docs gate failed: $DOCS"
+            fail=1
+          fi
+          if [[ "$NATIVE_NEEDED" == "true" && "$NATIVE" != "success" ]]; then
+            echo "Native smoke failed: $NATIVE"
+            fail=1
+          fi
+          if [[ "$PACKAGE_NEEDED" == "true" && "$PACKAGE" != "success" ]]; then
+            echo "Reference Notes package failed: $PACKAGE"
+            fail=1
+          fi
+          if [[ "$SECURITY_NEEDED" == "true" && "$SECURITY_STATUS" != "success" ]]; then
+            echo "Security gate failed: $SECURITY_STATUS"
+            fail=1
+          fi
+          if [[ "$SIGNING_PREFLIGHT" != "success" ]]; then
+            echo "Credential-free signing preflight failed: $SIGNING_PREFLIGHT"
+            fail=1
+          fi
+          if [[ "$PERFORMANCE_REQUIRED" == "true" && "$PERFORMANCE_STATUS" != "success" ]]; then
+            echo "Required performance gate failed: $PERFORMANCE_STATUS"
+            fail=1
+          fi
+          if [[ "$REHEARSAL_REQUIRED" == "true" && "$REHEARSAL_STATUS" != "success" ]]; then
+            echo "Required release rehearsal failed: $REHEARSAL_STATUS"
             fail=1
           fi
           if [[ "$fail" -ne 0 ]]; then

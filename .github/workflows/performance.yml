@@ -1,0 +1,386 @@
+name: Performance budgets
+
+# G6-07 is intentionally isolated from the pull-request CI fan-out. The
+# deterministic contract runs on every manual/nightly invocation; native
+# timings are collected only on the hosted desktop runners that can provide a
+# real first-present and RSS observation.
+on:
+  workflow_call:
+    inputs:
+      require_active:
+        description: "Fail when a platform still has a pending baseline"
+        required: false
+        default: false
+        type: boolean
+      artifact_suffix:
+        description: "Static suffix that keeps reports unique across nested reusable calls"
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      require_active:
+        description: "Fail when a platform still has a pending baseline"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Budget contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node --test tools/performance-budget.test.mjs tools/performance-collector.test.mjs
+      - run: node tools/performance-budget.mjs validate
+
+  candidate-producer:
+    name: Shared candidate producer (${{ matrix.platform }})
+    needs: contracts
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: win32-x64
+    runs-on: ${{ matrix.os }}
+    env:
+      PERRY_NO_CACHE: "1"
+      PERRY_NO_AUTO_OPTIMIZE: "1"
+      RUSTUP_TOOLCHAIN: "1.95.0"
+      PERRY_WORKSPACE_ROOT: ${{ github.workspace }}/.perry-source
+      PERRY_RUNTIME_DIR: ${{ github.workspace }}/.perry-source/target/release
+      PERRY_LIB_DIR: ${{ github.workspace }}/.perry-source/target/release
+      NEXA_WINDOWS_RUNTIME_ROOT: ${{ github.workspace }}/.nexa-windows-runtime
+      SKIA_WINDOWS_ARCHIVE_URL: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-pc-windows-msvc-jpegd-jpege-pdf.tar.gz
+      SKIA_WINDOWS_ARCHIVE_SHA256: 406865946e42aa7a3872f364981f031f615bf8f2e80fdccfc15f0d01bc144580
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check out pinned Perry source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: PerryTS/perry
+          ref: 06137858dc8c6f80975238377138f2f948d6ef88
+          path: .perry-source
+          persist-credentials: false
+
+      - name: Install Perry-compatible Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
+        with:
+          toolchain: 1.95.0
+
+      - name: Initialize MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Download verified Windows Skia archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "skia-bindings-windows-x64.tar.gz"
+          curl.exe --location --fail --silent --show-error --retry 3 --output $archive $env:SKIA_WINDOWS_ARCHIVE_URL
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:SKIA_WINDOWS_ARCHIVE_SHA256) {
+            throw "Skia archive checksum mismatch: expected $env:SKIA_WINDOWS_ARCHIVE_SHA256, got $actual"
+          }
+          "NEXA_WINDOWS_SKIA_ARCHIVE=$archive" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $fileUrl = "file://" + $archive.Replace('\', '/')
+          "SKIA_BINARIES_URL=$fileUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Report baseline status
+        shell: bash
+        run: |
+          node tools/performance-budget.mjs status --platform "${{ matrix.platform }}"
+          if [[ "${{ inputs.require_active || 'false' }}" == "true" ]]; then
+            node tools/performance-budget.mjs status --platform "${{ matrix.platform }}" --require-active
+          fi
+
+      - name: Materialize release package inputs
+        run: pnpm release:build
+
+      - name: Build pinned Perry full unwind runtime closure (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CARGO_PROFILE_RELEASE_PANIC: unwind
+          PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
+        run: |
+          set -euo pipefail
+          rustc --version
+          actual_revision="$(git -C "$PERRY_WORKSPACE_ROOT" rev-parse HEAD)"
+          test "$actual_revision" = "$PERRY_SOURCE_REVISION"
+          cargo build \
+            --locked \
+            --release \
+            --manifest-path "$PERRY_WORKSPACE_ROOT/Cargo.toml" \
+            --target-dir "$PERRY_WORKSPACE_ROOT/target" \
+            -p perry-runtime-static \
+            -p perry-stdlib-static
+          test -s "$PERRY_RUNTIME_DIR/libperry_runtime.a"
+          test -s "$PERRY_LIB_DIR/libperry_stdlib.a"
+
+      - name: Build patched Perry compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CARGO_PROFILE_RELEASE_PANIC: unwind
+          PERRY_SOURCE_REVISION: 06137858dc8c6f80975238377138f2f948d6ef88
+        run: |
+          rustc --version
+          $actualRevision = (git -C $env:PERRY_WORKSPACE_ROOT rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Could not resolve the Perry source revision" }
+          if ($actualRevision -ne $env:PERRY_SOURCE_REVISION) {
+            throw "Perry source revision mismatch: expected $env:PERRY_SOURCE_REVISION, got $actualRevision"
+          }
+
+          $patch = Join-Path $env:GITHUB_WORKSPACE "patches/perry/0001-windows-reject-duplicate-symbols.patch"
+          git -C $env:PERRY_WORKSPACE_ROOT apply --check $patch
+          if ($LASTEXITCODE -ne 0) { throw "The Perry duplicate-symbol patch no longer applies cleanly" }
+          git -C $env:PERRY_WORKSPACE_ROOT apply $patch
+          if ($LASTEXITCODE -ne 0) { throw "Could not apply the Perry duplicate-symbol patch" }
+          $changedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT diff --name-only)
+          if ($LASTEXITCODE -ne 0) { throw "Could not inspect the tracked Perry patch changes" }
+          $untrackedPaths = @(git -C $env:PERRY_WORKSPACE_ROOT ls-files --others)
+          if (
+            $LASTEXITCODE -ne 0 -or
+            $untrackedPaths.Count -ne 0 -or
+            $changedPaths.Count -ne 1 -or
+            $changedPaths[0] -ne "crates/perry/src/commands/compile/link/platform_cmd.rs"
+          ) {
+            throw "The Perry patch changed files outside the Windows linker command"
+          }
+          git -C $env:PERRY_WORKSPACE_ROOT apply --reverse --check $patch
+          if ($LASTEXITCODE -ne 0) { throw "The applied Perry patch does not match the reviewed patch" }
+
+          cargo build `
+            --locked `
+            --release `
+            --manifest-path (Join-Path $env:PERRY_WORKSPACE_ROOT "Cargo.toml") `
+            --target-dir (Join-Path $env:PERRY_WORKSPACE_ROOT "target") `
+            -p perry
+          if ($LASTEXITCODE -ne 0) { throw "Could not build the patched Perry compiler" }
+
+          $compiler = (Resolve-Path -LiteralPath (Join-Path $env:PERRY_WORKSPACE_ROOT "target/release/perry.exe")).Path
+          $nativeVersion = (& $compiler --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $nativeVersion -ne "perry 0.5.1220") {
+            throw "Unexpected patched Perry version: $nativeVersion"
+          }
+          $npmVersion = (& pnpm exec perry --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $npmVersion -ne "perry 0.5.1220") {
+            throw "Unexpected npm Perry version: $npmVersion"
+          }
+          Write-Host "Patched Perry: $nativeVersion; npm Perry: $npmVersion"
+          "NEXA_PERRY_BIN=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Stage verified Windows Skia for Reference Notes
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          node tools/stage-windows-skia.mjs
+          --project "examples/reference-notes"
+          --archive "$env:NEXA_WINDOWS_SKIA_ARCHIVE"
+          --sha256 "$env:SKIA_WINDOWS_ARCHIVE_SHA256"
+
+      - name: Build the hosted distribution candidate
+        run: pnpm --filter @nexa/example-reference-notes package
+
+      - name: Archive the shared performance candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.platform }}" == "win32-x64" ]]; then
+            artifact="reference-notes-windows-x64"
+          else
+            artifact="reference-notes-macos-arm64"
+          fi
+          test -d "dist/$artifact"
+          runner_temp="$RUNNER_TEMP"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          test -d "$runner_temp"
+          archive="$runner_temp/performance-candidate-${{ matrix.platform }}.tar"
+          tar -C dist -cf "$archive" "$artifact"
+          test -s "$archive"
+
+      - name: Upload shared performance candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-candidate-${{ matrix.platform }}.tar
+          if-no-files-found: error
+
+  hosted-capture:
+    name: Hosted capture (${{ matrix.platform }}, replica ${{ matrix.replica }})
+    needs: candidate-producer
+    if: ${{ always() && needs.candidate-producer.result != 'cancelled' && needs.candidate-producer.result != 'skipped' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 1
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 2
+          - os: macos-15
+            platform: darwin-arm64
+            replica: 3
+          - os: windows-2022
+            platform: win32-x64
+            replica: 1
+          - os: windows-2022
+            platform: win32-x64
+            replica: 2
+          - os: windows-2022
+            platform: win32-x64
+            replica: 3
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Download the shared performance candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-candidate-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-candidate-download
+
+      - name: Capture native performance report
+        id: capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_temp="$RUNNER_TEMP"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          test -d "$runner_temp"
+          archive="$runner_temp/performance-candidate-download/performance-candidate-${{ matrix.platform }}.tar"
+          extract="$runner_temp/performance-candidate-extract"
+          mkdir -p "$extract"
+          test -s "$archive"
+          tar -C "$extract" -xf "$archive"
+          if [[ "${{ matrix.platform }}" == "win32-x64" ]]; then
+            artifact="$extract/reference-notes-windows-x64"
+            binary="$artifact/NexaNotes.exe"
+          else
+            artifact="$extract/reference-notes-macos-arm64"
+            binary="$artifact/Nexa Notes.app/Contents/MacOS/NexaNotes"
+          fi
+          test -d "$artifact"
+          test -f "$binary"
+          report="$runner_temp/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json"
+          node tools/performance-collector.mjs \
+            --binary "$binary" \
+            --artifact "$artifact" \
+            --archive "$archive" \
+            --platform "${{ matrix.platform }}" \
+            --runner-image "${{ matrix.os }}" \
+            --replica "${{ matrix.replica }}" \
+            --commit "$GITHUB_SHA" \
+            --output "$report"
+          node tools/performance-budget.mjs validate-report --report "$report" --json
+
+      - name: Upload raw performance report
+        if: ${{ always() && steps.capture.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-${{ matrix.replica }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/nexa-performance-${{ matrix.platform }}-replica-${{ matrix.replica }}.json
+          if-no-files-found: error
+
+  platform-aggregate:
+    name: Platform report set (${{ matrix.platform }})
+    needs: hosted-capture
+    if: ${{ always() && needs.hosted-capture.result != 'cancelled' && needs.hosted-capture.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+          - platform: win32-x64
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Download replica 1 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-1${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+      - name: Download replica 2 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-2${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+      - name: Download replica 3 report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: performance-report-${{ matrix.platform }}-replica-3${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+
+      - name: Aggregate the complete platform report set
+        id: aggregate
+        shell: bash
+        run: |
+          set -euo pipefail
+          reports="$RUNNER_TEMP/performance-reports"
+          report_set="$reports/nexa-performance-${{ matrix.platform }}-report-set.json"
+          node tools/performance-budget.mjs aggregate \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-1.json" \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-2.json" \
+            --report "$reports/nexa-performance-${{ matrix.platform }}-replica-3.json" \
+            --output "$report_set" \
+            --json
+
+      - name: Check the complete platform report set
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_set="$RUNNER_TEMP/performance-reports/nexa-performance-${{ matrix.platform }}-report-set.json"
+          pending=()
+          if [[ "${{ inputs.require_active || 'false' }}" != "true" ]]; then
+            pending=(--allow-pending)
+          fi
+          node tools/performance-budget.mjs check-set \
+            --report-set "$report_set" \
+            "${pending[@]}" \
+            --json
+
+      - name: Upload complete platform report set
+        if: ${{ always() && steps.aggregate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: performance-report-set-${{ matrix.platform }}${{ inputs.artifact_suffix }}
+          path: ${{ runner.temp }}/performance-reports
+          if-no-files-found: error

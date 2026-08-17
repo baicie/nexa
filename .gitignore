@@ -30,6 +30,7 @@ dist/
 *.dll
 *.a
 *.lib
+*.o
 *.exe
 *.app/
 
@@ -45,6 +46,55 @@ npm-debug.log*
 pnpm-debug.log*
 
 # Skia / CMake caches
-skia-*/ 
+skia-*/
 out/
 cmake-build-*/
+
+# Perry build outputs
+/.perry-source/
+/.nexa-windows-runtime/
+examples/perry-counter/perry-counter
+examples/perry-counter/perry-counter.exe
+examples/counter/counter
+examples/counter/counter.exe
+examples/counter/perry-smoke
+examples/todo/todo
+examples/todo/todo.exe
+examples/solid-counter/solid-counter
+examples/solid-counter/solid-counter.exe
+examples/solid-counter/dist/
+examples/vue-counter/vue-counter
+examples/vue-counter/vue-counter.exe
+examples/react-counter/react-counter
+examples/react-counter/react-counter.exe
+examples/svelte-counter/svelte-counter
+examples/svelte-counter/svelte-counter.exe
+examples/svelte-counter/dist/
+examples/layout-playground/layout-playground
+examples/layout-playground/layout-playground.exe
+examples/image-demo/image-demo
+examples/image-demo/image-demo.exe
+examples/clipboard-demo/clipboard-demo
+examples/clipboard-demo/clipboard-demo.exe
+examples/reference-notes/reference-notes
+examples/reference-notes/reference-notes.exe
+examples/reference-notes/reference-notes-startup-smoke
+examples/reference-notes/reference-notes-startup-smoke.exe
+examples/reference-notes/reference-notes-fs-runtime-smoke
+examples/reference-notes/reference-notes-fs-runtime-smoke.exe
+examples/reference-notes/reference-notes-dialog-runtime-smoke
+examples/reference-notes/reference-notes-dialog-runtime-smoke.exe
+examples/reference-notes/reference-notes-dialog-picker-smoke
+examples/reference-notes/reference-notes-dialog-picker-smoke.exe
+examples/reference-notes/reference-notes-solid
+examples/reference-notes/reference-notes-solid.exe
+examples/reference-notes/dist-solid/
+examples/input-e2e/input-e2e
+examples/input-e2e/input-e2e.exe
+examples/semantic-e2e/semantic-e2e
+examples/semantic-e2e/semantic-e2e.exe
+**/node_modules/.cache/
+.nexa/
+packages/nui-host/target/
+packages/system-host/target/
+packages/cli/src/windows-static-closure/target/

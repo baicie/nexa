@@ -1,10 +1,16 @@
 name: Native smoke
 
 # Slice 0+: build/run drawable demo on MVP platforms only (macOS + Windows).
-# Gated by repository variable NATIVE_SMOKE_ENABLED=true from ci.yml.
+# Required by ci.yml for matching platform/runtime changes.
 
 on:
   workflow_call:
+    inputs:
+      collect_mvp_proof:
+        description: "Upload revision-bound platform proof for the parent MVP workflow"
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
   push:
     tags:
@@ -16,20 +22,58 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-15, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable 2026-08-09
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           key: native-${{ matrix.os }}
 
       - name: Build rust-counter
         run: cargo build -p rust-counter --release
 
-      # Headless CI cannot open a real window reliably.
-      # Slice 0 should add a --smoke flag that draws one frame offscreen / exits 0.
-      - name: Run scaffold / smoke
-        run: cargo run -p rust-counter --release
-        timeout-minutes: 2
+      - name: Run deterministic CJK, Emoji, and semantic accessibility scenarios
+        run: |
+          cargo test -p nui-platform-winit g3a11_
+          cargo test -p nui-perry-bridge g3a11_
+          cargo test -p nui-platform-winit g3b05_
+          cargo test -p nui-perry-bridge g3b05_
+
+      - name: Run real platform accessibility client smoke
+        run: cargo run -p semantic-accessibility-smoke --release
+        timeout-minutes: 5
+
+      - name: Record hosted accessibility proof
+        if: inputs.collect_mvp_proof
+        env:
+          PROBE_BINARY: ${{ runner.os == 'Windows' && 'target/release/semantic-accessibility-smoke.exe' || 'target/release/semantic-accessibility-smoke' }}
+          PROOF_PLATFORM: ${{ runner.os == 'Windows' && 'win32' || 'darwin' }}
+          PROOF_ARCH: ${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
+        run: >-
+          node tools/mvp-evidence.mjs collect-hosted
+          --gate native-accessibility
+          --runner "${{ matrix.os }}"
+          --artifacts "$PROBE_BINARY"
+          --output "$RUNNER_TEMP/native-accessibility-${PROOF_PLATFORM}-${PROOF_ARCH}.json"
+
+      - name: Upload hosted accessibility proof
+        if: inputs.collect_mvp_proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mvp-native-accessibility-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/native-accessibility-*.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      # Headless CI cannot open a real window reliably; --smoke paints offscreen.
+      - name: Run offscreen smoke
+        run: cargo run -p rust-counter --release -- --smoke
+        timeout-minutes: 5

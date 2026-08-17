@@ -1,6 +1,7 @@
 [package]
 name = "nui-layout-taffy"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -8,6 +9,11 @@ description = "Taffy Flexbox layout backend for Nexa UI"
 
 [dependencies]
 nui-core = { path = "../nui-core" }
+nui-text = { path = "../nui-text" }
+taffy = { version = "0.12", default-features = false, features = ["std", "taffy_tree", "flexbox"] }
+
+[dev-dependencies]
+font-test-data = "=0.6.1"
 
 [lints]
 workspace = true

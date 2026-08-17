@@ -1,0 +1,38 @@
+{
+  "name": "@nexa/example-svelte-counter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Slice 8: Svelte compiler-backend Counter → NUI Host",
+  "type": "module",
+  "dependencies": {
+    "@nexa/compiler-svelte": "workspace:*",
+    "@nexa/nui-host": "workspace:*",
+    "svelte": "^5.55.7"
+  },
+  "scripts": {
+    "compile:svelte": "node ./compile.mjs",
+    "build": "pnpm compile:svelte && node ../../tools/perry-compile.mjs --manifest app.manifest.json -- main.ts -o svelte-counter",
+    "start": "pnpm build && ./svelte-counter"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/system-host",
+        "@nexa/compiler-svelte"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ]
+    }
+  }
+}

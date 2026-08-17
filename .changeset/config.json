@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@nexa/cli",
+      "@nexa/ui",
+      "@nexa/adapter-solid",
+      "@nexa/fs",
+      "@nexa/dialog",
+      "@nexa/clipboard",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@nexa/adapter-react", "@nexa/adapter-vue", "@nexa/compiler-svelte", "@nexa/system"]
+}

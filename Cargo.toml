@@ -1,27 +1,56 @@
 [workspace]
 resolver = "2"
 members = [
+    "protocol",
     "crates/nui-core",
     "crates/nui-platform-winit",
     "crates/nui-render-skia",
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
+    "crates/nui-system-core",
+    "crates/nui-text",
+    "crates/nui-app-runtime",
     "examples/rust-counter",
+    "examples/semantic-e2e/native",
 ]
 default-members = [
+    "protocol",
     "crates/nui-core",
     "crates/nui-platform-winit",
     "crates/nui-render-skia",
     "crates/nui-layout-taffy",
     "crates/nui-perry-bridge",
+    "crates/nui-system-core",
+    "crates/nui-text",
+    "crates/nui-app-runtime",
+]
+
+# Perry nativeLibrary packages own an independent Cargo.toml (perry-ffi + staticlib).
+exclude = [
+    "packages/nui-host",
+    "packages/system-host",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/nexa-ui/nexa-ui"
-rust-version = "1.85"
+repository = "https://github.com/baicie/nexa-ui"
+rust-version = "1.88"
+
+[workspace.dependencies]
+bytemuck = "1.25"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+skia-safe = "0.99"
+softbuffer = "0.4.8"
+winit = { version = "0.30.12", default-features = false, features = [
+    "rwh_06",
+    "wayland",
+    "wayland-csd-adwaita-notitle",
+    "wayland-dlopen",
+    "x11",
+] }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

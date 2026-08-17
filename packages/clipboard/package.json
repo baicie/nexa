@@ -1,0 +1,26 @@
+{
+  "name": "@nexa/clipboard",
+  "version": "0.1.0",
+  "description": "Typed asynchronous clipboard API (ADR-014 G4-07)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@nexa/system-host": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../tools/build-release-packages.mjs --package @nexa/clipboard",
+    "test": "node --test ../../tools/clipboard-contract.test.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

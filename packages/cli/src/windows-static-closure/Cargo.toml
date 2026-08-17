@@ -1,0 +1,28 @@
+[package]
+name = "nexa-windows-static-closure"
+version = "0.1.0"
+edition = "2021"
+publish = false
+rust-version = "1.95"
+
+[lib]
+name = "nexa_windows_static_closure"
+crate-type = ["staticlib"]
+path = "src/lib.rs"
+
+[dependencies]
+# The Technical Preview closure is intentionally narrow: core + async Host
+# promises + regex protocol validation. Do not add the full crypto feature set.
+perry-stdlib = { git = "https://github.com/PerryTS/perry", rev = "06137858dc8c6f80975238377138f2f948d6ef88", version = "=0.5.1220", default-features = false, features = ["core", "async-runtime"] }
+perry-runtime = { git = "https://github.com/PerryTS/perry", rev = "06137858dc8c6f80975238377138f2f948d6ef88", version = "=0.5.1220", default-features = false, features = ["stdlib", "regex-engine"] }
+perry-ext-nui_host = { path = "../../../nui-host" }
+perry-ext-nexa_system_host = { path = "../../../system-host" }
+
+[profile.release]
+codegen-units = 16
+lto = "thin"
+panic = "unwind"
+strip = false
+
+[workspace]
+resolver = "2"

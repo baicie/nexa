@@ -2,10 +2,13 @@
   "name": "@nexa/system",
   "version": "0.1.0",
   "private": true,
-  "description": "System APIs (clipboard, dialog, filesystem) — post-MVP",
+  "description": "System API umbrella re-exports (ADR-005) — prefer @nexa/clipboard etc.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@nexa/clipboard": "workspace:*"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"

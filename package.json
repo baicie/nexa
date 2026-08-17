@@ -2,6 +2,7 @@
   "name": "nexa-ui",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
   "description": "Native UI toolkit for TypeScript/TSX via Perry AOT — no WebView, no Chromium",
   "packageManager": "pnpm@10.34.3",
   "engines": {
@@ -9,10 +10,26 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "build": "pnpm -r --if-present run build",
-    "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test",
-    "lint": "pnpm -r --if-present run lint",
+    "build": "node tools/workspace-checks.mjs build",
+    "typecheck": "node tools/workspace-checks.mjs typecheck",
+    "test": "node tools/workspace-checks.mjs test",
+    "test:contracts": "node --test tools/adapter-contracts.test.mjs",
+    "lint": "node tools/workspace-checks.mjs lint",
+    "lint:source": "node tools/lint.mjs",
+    "test:workspace": "node --test tools/workspace-checks.test.mjs tools/typescript-test-hooks.test.mjs tools/ci-path-filters.test.mjs tools/docs-contract.test.mjs tools/archive-utils.test.mjs tools/unsigned-signing-input.test.mjs tools/release-governance.test.mjs tools/release-packages.test.mjs tools/release-build.test.mjs tools/release-evidence.test.mjs tools/release-consumer.test.mjs tools/release-dependency-graph.test.mjs tools/release-rehearsal.test.mjs tools/release-readiness.test.mjs tools/release-preflight.test.mjs tools/release-readiness-bundle.test.mjs tools/registry-evidence.test.mjs tools/performance-budget.test.mjs tools/performance-collector.test.mjs tools/perry-package-config.test.mjs tools/perry-workspace.test.mjs tools/windows-runtime.test.mjs tools/stage-windows-skia.test.mjs tools/version-policy.test.mjs tools/security-policy.test.mjs tools/signing-credentials.test.mjs tools/signing-policy.test.mjs tools/signing-executor.test.mjs tools/signing-workflow.test.mjs tools/mvp-evidence.test.mjs tools/publish-release.test.mjs tools/github-release.test.mjs tools/reference-notes-native-runtime-proof.test.mjs tools/cli-new-doctor.test.mjs tools/cli-dev-build.test.mjs tools/cli-package.test.mjs tools/perry-smoke.test.mjs tools/perry-frameworks.test.mjs tools/protocol-manifest.test.mjs tools/protocol-codegen.test.mjs tools/app-manifest-contract.test.mjs tools/normalized-event-contract.test.mjs tools/host-props.test.mjs tools/ui-theme.test.mjs tools/host-semantics.test.mjs tools/listener.test.mjs tools/text-input-client.test.mjs tools/textarea-contract.test.mjs tools/input-e2e-scenario.test.mjs tools/semantic-e2e-scenario.test.mjs tools/notes-app.test.mjs tools/reference-notes-e2e.test.mjs tools/reference-notes-journey.test.mjs tools/solid-notes-e2e.test.mjs tools/reference-notes-build.test.mjs tools/reference-notes-package.test.mjs tools/reference-notes-fs-runtime-smoke.test.mjs tools/reference-notes-dialog-runtime-smoke.test.mjs tools/reference-notes-dialog-picker-smoke.test.mjs tools/reference-notes-clipboard-runtime-smoke.test.mjs tools/system-result-contract.test.mjs tools/fs-contract.test.mjs tools/dialog-contract.test.mjs tools/clipboard-contract.test.mjs tools/minimal-host-kit.test.mjs tools/adapter-contracts.test.mjs",
+    "test:release": "node --test tools/archive-utils.test.mjs tools/unsigned-signing-input.test.mjs tools/release-governance.test.mjs tools/release-packages.test.mjs tools/release-build.test.mjs tools/release-evidence.test.mjs tools/release-consumer.test.mjs tools/release-dependency-graph.test.mjs tools/release-rehearsal.test.mjs tools/release-readiness.test.mjs tools/release-preflight.test.mjs tools/release-readiness-bundle.test.mjs tools/registry-evidence.test.mjs tools/performance-budget.test.mjs tools/performance-collector.test.mjs tools/perry-package-config.test.mjs tools/perry-workspace.test.mjs tools/windows-runtime.test.mjs tools/stage-windows-skia.test.mjs tools/version-policy.test.mjs tools/security-policy.test.mjs tools/signing-credentials.test.mjs tools/signing-policy.test.mjs tools/signing-executor.test.mjs tools/signing-workflow.test.mjs tools/mvp-evidence.test.mjs tools/publish-release.test.mjs tools/github-release.test.mjs tools/reference-notes-native-runtime-proof.test.mjs",
+    "test:protocol": "node --test tools/protocol-manifest.test.mjs tools/protocol-codegen.test.mjs tools/app-manifest-contract.test.mjs tools/normalized-event-contract.test.mjs",
+    "protocol:generate": "node tools/protocol-codegen.mjs",
+    "protocol:check": "node tools/protocol-codegen.mjs --check",
+    "changeset": "changeset",
+    "version:check": "node tools/version-policy.mjs check",
+    "version:rehearse": "node tools/version-policy.mjs rehearse",
+    "release:build": "node tools/build-release-packages.mjs --all",
+    "release:plan": "node tools/release-consumer.mjs --plan",
+    "release:preflight": "node tools/release-preflight.mjs --json",
+    "performance:validate": "node tools/performance-budget.mjs validate",
+    "test:perry": "node tools/perry-frameworks.mjs",
+    "workspace:validate": "node tools/workspace-checks.mjs validate",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "rust:check": "cargo check --workspace",
@@ -21,7 +38,38 @@
     "rust:clippy": "cargo clippy --workspace --all-targets -- -D warnings"
   },
   "devDependencies": {
+    "@changesets/cli": "2.31.1",
+    "@perryts/perry": "0.5.1220",
+    "ajv": "^8.20.0",
+    "oxlint": "1.77.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "yaml": "2.9.0"
+  },
+  "perry": {
+    "compilePackages": [
+      "@nexa/ui",
+      "@nexa/fs",
+      "@nexa/dialog",
+      "@nexa/clipboard",
+      "@nexa/protocol",
+      "@nexa/nui-host",
+      "@nexa/system-host"
+    ],
+    "allow": {
+      "nativeLibrary": [
+        "@nexa/nui-host",
+        "@nexa/*"
+      ],
+      "compilePackages": [
+        "@nexa/ui",
+        "@nexa/fs",
+        "@nexa/dialog",
+        "@nexa/clipboard",
+        "@nexa/protocol",
+        "@nexa/nui-host",
+        "@nexa/system-host"
+      ]
+    }
   }
 }

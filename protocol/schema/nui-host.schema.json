@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexa-ui.dev/schema/nui-host-v1.json",
+  "title": "Nexa UI Host Protocol Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "namespace",
+    "featureNamespace",
+    "features",
+    "types",
+    "nodeTypes",
+    "properties",
+    "events",
+    "commands",
+    "ffiFunctions",
+    "errors"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "namespace": { "type": "string", "const": "ui" },
+    "featureNamespace": { "type": "string", "const": "ui" },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/feature" }
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/typeDefinition"
+      }
+    },
+    "nodeTypes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nodeType" }
+    },
+    "properties": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/property" }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/command" }
+    },
+    "ffiFunctions": {
+      "type": "array",
+      "items": {
+        "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/ffiFunction"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uiError" }
+    }
+  },
+  "$defs": {
+    "featureRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(transport|ui)\\.[a-z][a-z0-9_]*$"
+      }
+    },
+    "nodeType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "handleKind", "requiresFeatures", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/u16" },
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "handleKind": { "const": "common.Node" },
+        "requiresFeatures": { "$ref": "#/$defs/featureRefs" },
+        "lifecycle": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/lifecycle"
+        }
+      }
+    },
+    "property": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "valueType", "nullable", "clear", "requiresFeatures", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/u16" },
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "valueType": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/typeName"
+        },
+        "nullable": { "type": "boolean" },
+        "clear": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "default"],
+          "properties": {
+            "mode": { "enum": ["unset", "default"] },
+            "default": { "type": ["number", "string", "boolean", "null"] }
+          }
+        },
+        "requiresFeatures": { "$ref": "#/$defs/featureRefs" },
+        "lifecycle": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/lifecycle"
+        }
+      }
+    },
+    "eventPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "fields"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/typeField"
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "payload", "requiresFeatures", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/u16" },
+        "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "payload": { "$ref": "#/$defs/eventPayload" },
+        "requiresFeatures": { "$ref": "#/$defs/featureRefs" },
+        "lifecycle": {
+          "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/lifecycle"
+        }
+      }
+    },
+    "uiError": {
+      "allOf": [
+        { "$ref": "https://nexa-ui.dev/schema/common-v1.json#/$defs/error" },
+        {
+          "type": "object",
+          "required": ["domain"],
+          "properties": { "domain": { "const": "ui" } }
+        }
+      ]
+    }
+  }
+}

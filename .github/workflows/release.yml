@@ -1,0 +1,281 @@
+name: Technical Preview release
+
+# This is deliberately manual and protected. The default policy remains
+# disabled until hosted MVP, security, performance, and signed staging are
+# bound to the exact release tag. The one-time bootstrap publishes only a
+# revision staging tag; final channel promotion additionally requires registry
+# evidence collected from that immutable staging train.
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Validate readiness or request the protected publication job"
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - bootstrap-publication
+          - request-publication
+      evidence_run_id:
+        description: "Successful run containing release-readiness-evidence for this exact tag"
+        required: false
+        default: ""
+        type: string
+      signing_run_id:
+        description: "Successful signing.yml run containing both signed platform artifacts"
+        required: false
+        default: ""
+        type: string
+      resume_registry_train:
+        description: "Resume an inspected digest-matching partial bootstrap npm train"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: technical-preview-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PERRY_NO_CACHE: "1"
+
+jobs:
+  readiness:
+    name: Validate release readiness
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    env:
+      PUBLICATION_PHASE: ${{ inputs.operation == 'bootstrap-publication' && 'bootstrap' || 'final' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tools/release-readiness.mjs validate
+      - name: Require exact external run identities for publication
+        if: inputs.operation != 'validate'
+        env:
+          EVIDENCE_RUN_ID: ${{ inputs.evidence_run_id }}
+          SIGNING_RUN_ID: ${{ inputs.signing_run_id }}
+        run: |
+          if [[ ! "$EVIDENCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "evidence_run_id must be a positive GitHub Actions run ID" >&2
+            exit 64
+          fi
+          if [[ ! "$SIGNING_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "signing_run_id must be a positive GitHub Actions run ID" >&2
+            exit 64
+          fi
+          if [[ "$PUBLICATION_PHASE" == "final" && "${{ inputs.resume_registry_train }}" == "true" ]]; then
+            echo "resume_registry_train is bootstrap-only" >&2
+            exit 64
+          fi
+      - name: Bind external runs to this revision
+        if: inputs.operation != 'validate'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_RUN_ID: ${{ inputs.evidence_run_id }}
+          SIGNING_RUN_ID: ${{ inputs.signing_run_id }}
+        run: |
+          set -euo pipefail
+          evidence_run="$RUNNER_TEMP/evidence-run.json"
+          signing_run="$RUNNER_TEMP/signing-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EVIDENCE_RUN_ID" > "$evidence_run"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SIGNING_RUN_ID" > "$signing_run"
+          node tools/release-readiness-bundle.mjs validate-run \
+            --run "$evidence_run" \
+            --revision "$GITHUB_SHA" \
+            --workflow ".github/workflows/release-evidence.yml" \
+            --events workflow_dispatch \
+            --label "release evidence run"
+          node tools/release-readiness-bundle.mjs validate-run \
+            --run "$signing_run" \
+            --revision "$GITHUB_SHA" \
+            --workflow ".github/workflows/signing.yml" \
+            --events workflow_dispatch \
+            --label "signing run"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: inputs.operation != 'validate'
+        with:
+          name: release-readiness-evidence-${{ env.PUBLICATION_PHASE }}
+          path: ${{ runner.temp }}/nexa-readiness-evidence
+          run-id: ${{ inputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Evaluate exact tag evidence
+        if: inputs.operation != 'validate'
+        run: >-
+          node tools/release-readiness.mjs readiness
+          --policy "${{ runner.temp }}/nexa-readiness-evidence/readiness-policy.json"
+          --root "${{ runner.temp }}/nexa-readiness-evidence"
+          --revision "$GITHUB_SHA"
+          --ref "$GITHUB_REF"
+          --phase "$PUBLICATION_PHASE"
+
+  publish:
+    name: Publish approved Technical Preview
+    needs: [readiness, build-train]
+    if: inputs.operation != 'validate'
+    runs-on: ubuntu-24.04
+    environment: technical-preview-release
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+    env:
+      PUBLICATION_PHASE: ${{ inputs.operation == 'bootstrap-publication' && 'bootstrap' || 'final' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          registry-url: https://registry.npmjs.org/
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: npm-publish-train
+          path: ${{ runner.temp }}/nexa-release-artifacts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-release-artifacts
+          path: ${{ runner.temp }}/nexa-signed-artifacts
+          run-id: ${{ inputs.signing_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-readiness-evidence-${{ env.PUBLICATION_PHASE }}
+          path: ${{ runner.temp }}/nexa-readiness-evidence
+          run-id: ${{ inputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+      - name: Recheck readiness after the protected checkout
+        run: >-
+          node tools/release-readiness.mjs readiness
+          --policy "${{ runner.temp }}/nexa-readiness-evidence/readiness-policy.json"
+          --root "${{ runner.temp }}/nexa-readiness-evidence"
+          --revision "$GITHUB_SHA"
+          --ref "$GITHUB_REF"
+          --phase "$PUBLICATION_PHASE"
+      - name: Prepare exact GitHub Release asset set
+        if: env.PUBLICATION_PHASE == 'final'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release/version.json').npmTrain")"
+          node tools/github-release.mjs prepare \
+            --signed-artifacts "$RUNNER_TEMP/nexa-signed-artifacts" \
+            --output "$RUNNER_TEMP/nexa-github-release" \
+            --notes "release/notes/v${version}.md" \
+            --revision "$GITHUB_SHA" \
+            --ref "$GITHUB_REF" \
+            --signed-run-id "${{ inputs.signing_run_id }}" \
+            --repository "$GITHUB_REPOSITORY"
+      - name: Attest exact GitHub Release asset set
+        if: env.PUBLICATION_PHASE == 'final'
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: ${{ runner.temp }}/nexa-github-release/*
+      - name: Create or reconcile the draft GitHub Release
+        if: env.PUBLICATION_PHASE == 'final'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXA_GITHUB_RELEASE_AUTHORIZATION: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release/version.json').npmTrain")"
+          node tools/github-release.mjs reconcile --execute \
+            --assets "$RUNNER_TEMP/nexa-github-release" \
+            --notes "release/notes/v${version}.md" \
+            --revision "$GITHUB_SHA" \
+            --ref "$GITHUB_REF" \
+            --signed-run-id "${{ inputs.signing_run_id }}" \
+            --repository "$GITHUB_REPOSITORY"
+      - name: Publish the exact packed public train
+        env:
+          NEXA_RELEASE_AUTHORIZATION: ${{ github.sha }}
+        run: >-
+          node tools/publish-release.mjs publish --execute
+          --phase "$PUBLICATION_PHASE"
+          --revision "$GITHUB_SHA"
+          --ref "$GITHUB_REF"
+          --artifacts "${{ runner.temp }}/nexa-release-artifacts"
+          --signed-artifacts "${{ runner.temp }}/nexa-signed-artifacts"
+          --npm-run-id "$GITHUB_RUN_ID"
+          --signed-run-id "${{ inputs.signing_run_id }}"
+          --output "$RUNNER_TEMP/npm-publication.json"
+          ${{ inputs.resume_registry_train && '--resume' || '' }}
+      - name: Publish the verified GitHub Release and record the outcome
+        if: env.PUBLICATION_PHASE == 'final'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXA_GITHUB_RELEASE_AUTHORIZATION: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release/version.json').npmTrain")"
+          node tools/github-release.mjs finalize --execute \
+            --assets "$RUNNER_TEMP/nexa-github-release" \
+            --notes "release/notes/v${version}.md" \
+            --npm-publication "$RUNNER_TEMP/npm-publication.json" \
+            --output "$RUNNER_TEMP/technical-preview-publication-record.json" \
+            --revision "$GITHUB_SHA" \
+            --ref "$GITHUB_REF" \
+            --signed-run-id "${{ inputs.signing_run_id }}" \
+            --release-run-id "$GITHUB_RUN_ID" \
+            --repository "$GITHUB_REPOSITORY"
+      - name: Upload the Technical Preview publication record
+        if: env.PUBLICATION_PHASE == 'final'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: technical-preview-publication-record
+          path: ${{ runner.temp }}/technical-preview-publication-record.json
+          if-no-files-found: error
+          retention-days: 90
+
+  build-train:
+    name: Build immutable npm train
+    needs: readiness
+    if: inputs.operation != 'validate'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:build
+      - run: >-
+          node tools/publish-release.mjs build-artifacts
+          --output "$RUNNER_TEMP/nexa-release-artifacts"
+          --revision "$GITHUB_SHA"
+          --run-id "$GITHUB_RUN_ID"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: npm-publish-train
+          path: ${{ runner.temp }}/nexa-release-artifacts
+          if-no-files-found: error
+          retention-days: 7

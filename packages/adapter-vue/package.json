@@ -2,6 +2,18 @@
   "name": "@nexa/adapter-vue",
   "version": "0.1.0",
   "private": true,
-  "description": "Vue 3 → NUI Host adapter (deferred)",
-  "scripts": {}
+  "description": "Vue 3 createRenderer → NUI Host (Slice 6)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@nexa/nui-host": "workspace:*",
+    "@vue/runtime-core": "^3.5.22",
+    "@vue/reactivity": "^3.5.22",
+    "@vue/shared": "^3.5.22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
 }

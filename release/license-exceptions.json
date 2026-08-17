@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "package": "caniuse-lite",
+      "versions": ["1.0.30001806"],
+      "reportedLicense": "CC-BY-4.0",
+      "approvedLicense": "CC-BY-4.0",
+      "scope": "development-only browser compatibility data; preserve attribution",
+      "owner": "@baicie",
+      "expiration": "2027-08-09"
+    },
+    {
+      "package": "spawndamnit",
+      "versions": ["3.0.1"],
+      "reportedLicense": "Unknown",
+      "approvedLicense": "MIT",
+      "scope": "Changesets development dependency; verified bundled LICENSE text",
+      "owner": "@baicie",
+      "expiration": "2027-08-09"
+    }
+  ]
+}

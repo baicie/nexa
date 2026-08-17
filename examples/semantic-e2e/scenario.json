@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "platforms": [
+    { "id": "macos", "primaryModifier": "Meta" },
+    { "id": "windows", "primaryModifier": "Control" }
+  ],
+  "queries": [
+    {
+      "role": "TextInput",
+      "name": "Title",
+      "actions": ["Focus", "SetValue"],
+      "setValue": "Meeting notes"
+    },
+    {
+      "role": "TextInput",
+      "name": "Body",
+      "actions": ["Focus", "SetValue"],
+      "setValue": "Agenda"
+    },
+    {
+      "role": "Button",
+      "name": "Save",
+      "actions": ["Invoke"]
+    }
+  ],
+  "assertions": [
+    "all queries resolve by role and name",
+    "Focus and SetValue update the Title and Body controls",
+    "Invoke dispatches the Save action",
+    "no query uses screen coordinates"
+  ]
+}
