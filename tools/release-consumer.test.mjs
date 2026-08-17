@@ -171,6 +171,34 @@ test("native consumer requires installed Hosts and stages pinned Windows Skia in
   );
 });
 
+test("Windows native consumer moves Cargo output out of the installed package tree", () => {
+  const consumer = path.join(root, ".test-clean-consumer", "consumer");
+  const archive = path.join(root, ".test-skia.tar.gz");
+  const prepared = prepareNativeConsumerEnvironment({
+    consumerDirectory: consumer,
+    environment: {
+      cargo_target_dir: path.join(consumer, "node_modules", ".pnpm", "stale-target"),
+      NEXA_WINDOWS_SKIA_ARCHIVE: archive,
+    },
+    runtime: { platform: "win32", arch: "x64" },
+    stageSkia() {
+      return {
+        destination: path.join(consumer, "node_modules/@nexa/nui-host/native-libs"),
+        sha256: "a".repeat(64),
+      };
+    },
+  });
+
+  assert.equal(
+    prepared.environment.CARGO_TARGET_DIR,
+    path.join(path.dirname(consumer), "cargo-target"),
+  );
+  assert.deepEqual(
+    Object.keys(prepared.environment).filter((name) => name.toUpperCase() === "CARGO_TARGET_DIR"),
+    ["CARGO_TARGET_DIR"],
+  );
+});
+
 test("clean consumer uses only packed Nexa artifacts and pinned public tooling", () => {
   const tarballs = new Map(
     releaseRehearsalPlan().packages.map((name) => [

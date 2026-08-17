@@ -269,6 +269,9 @@ export function prepareNativeConsumerEnvironment({
   const consumer = path.resolve(consumerDirectory);
   const nativeEnvironment = replaceEnvironmentCaseInsensitive(environment, {
     NEXA_REQUIRE_INSTALLED_HOSTS: "1",
+    ...(runtime.platform === "win32"
+      ? { CARGO_TARGET_DIR: path.join(path.dirname(consumer), "cargo-target") }
+      : {}),
   });
   if (runtime.platform !== "win32") {
     return { environment: nativeEnvironment, windowsSkia: null };
